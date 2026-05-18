@@ -4,11 +4,13 @@
 
 ## 功能
 
-- 用户注册/登录，JWT 认证
-- 域名树管理：创建子域名、转让、删除
+- 邀请制注册：用户通过邀请码注册，邀请关系可溯源
+- 用户管理：个人信息编辑、密码修改、DDNS Token 重置
+- 密码找回：通过注册邮箱发送重置链接
+- 域名树管理：创建子域名、转让、删除，无限级细分
 - DNS 记录管理：A/AAAA/CNAME/TXT/MX，实时同步阿里云
-- DDNS Webhook 接口，兼容 ddns-go
-- 管理后台：用户管理、根域名创建、操作日志
+- DDNS 双端点：支持 ddns-go 的 Callback 和 Webhook 两种模式
+- 管理后台：用户管理（编辑/禁用/重置密码）、域名分配、操作日志
 - 响应式 Web 界面（Vue3 + Element Plus）
 
 ## 快速开始
@@ -74,32 +76,57 @@ aliyun:
 admin:
   username: admin
   password: "admin123"  # 首次启动自动创建
+
+smtp:                    # 可选，用于密码找回邮件
+  host: smtp.example.com
+  port: 587
+  username: ""
+  password: ""
+  from: noreply@example.com
+  from_name: DomainNest
 ```
 
 环境变量可覆盖配置（前缀 `DB_`、`JWT_SECRET` 等），适合 Docker 部署。
 
 ## ddns-go 对接
 
-在 ddns-go 的 Webhook 设置中配置以下三项：
+### 方式一：Callback（逐域名更新）
+
+在 ddns-go 的「回调」设置中配置：
 
 | 字段 | 值 |
 |------|-----|
-| URL | `http://your-server:8080/api/v1/ddns/update` |
+| URL | `http://your-server:8080/api/v1/ddns/callback?token=你的Token` |
 | RequestBody | `{"domain":"#{domain}","ip":"#{ip}","record_type":"#{recordType}","ttl":#{ttl}}` |
+
+### 方式二：Webhook（聚合更新）
+
+在 ddns-go 的「Webhook」设置中配置：
+
+| 字段 | 值 |
+|------|-----|
+| URL | `http://your-server:8080/api/v1/ddns/webhook` |
+| RequestBody | `{"ipv4Addr":"#{ipv4Addr}","ipv4Domains":"#{ipv4Domains}","ipv6Addr":"#{ipv6Addr}","ipv6Domains":"#{ipv6Domains}"}` |
 | Headers | `Authorization: Bearer 你的Token` |
 
-Token 在登录后 → 设置页面查看或重置。
+Token 在登录后 → 个人信息页面查看或重置。
 
 ## API 概览
 
 | 接口 | 方法 | 认证 | 说明 |
 |------|------|------|------|
-| `/api/v1/auth/register` | POST | 无 | 注册 |
+| `/api/v1/auth/register` | POST | 无 | 注册（需邀请码） |
 | `/api/v1/auth/login` | POST | 无 | 登录 |
+| `/api/v1/auth/forgot-password` | POST | 无 | 发送密码重置邮件 |
+| `/api/v1/auth/reset-password` | POST | 无 | 通过 token 重置密码 |
+| `/api/v1/auth/profile` | GET/PUT | JWT | 查看/编辑个人信息 |
 | `/api/v1/domains` | GET/POST | JWT | 域名列表/创建 |
 | `/api/v1/domains/:id/records` | GET/POST | JWT | DNS 记录列表/创建 |
-| `/api/v1/ddns/update` | POST | Token | DDNS 更新 |
-| `/api/v1/admin/*` | 各种 | JWT+Admin | 管理接口 |
+| `/api/v1/ddns/callback` | POST | Token | DDNS Callback 更新 |
+| `/api/v1/ddns/webhook` | POST | Token | DDNS Webhook 更新 |
+| `/api/v1/admin/users` | GET | JWT+Admin | 用户列表 |
+| `/api/v1/admin/users/:id` | PUT/DELETE | JWT+Admin | 编辑/禁用用户 |
+| `/api/v1/admin/users/:id/reset-password` | POST | JWT+Admin | 管理员重置密码 |
 
 ## 项目结构
 
