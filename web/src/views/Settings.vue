@@ -9,19 +9,44 @@
     <el-row :gutter="20">
       <el-col :xs="24" :lg="14">
         <el-card>
-          <template #header>DDNS Token</template>
+          <template #header>
+            <div class="card-header">
+              <span>DDNS Token</span>
+              <el-button type="warning" size="small" @click="handleResetToken">重置 Token</el-button>
+            </div>
+          </template>
           <p class="token-label">您的 DDNS Token：</p>
           <div class="token-row">
             <el-tag size="large" class="token-value">{{ token || '加载中...' }}</el-tag>
-            <el-button type="warning" size="small" @click="handleResetToken">重置 Token</el-button>
           </div>
+
           <el-divider />
-          <h4>ddns-go 配置说明</h4>
-          <p class="hint">在 ddns-go 的 Webhook 设置中填入以下配置：</p>
-          <el-input type="textarea" :rows="4" :value="ddnsConfig" readonly class="config-textarea" />
-          <el-button type="primary" size="small" @click="copyConfig" style="margin-top:12px">
-            复制配置
-          </el-button>
+          <h4>ddns-go Webhook 配置</h4>
+          <p class="hint">在 ddns-go 的 Webhook 设置中分别填入以下三项：</p>
+
+          <div class="config-section">
+            <div class="config-label">
+              <span>URL</span>
+              <el-button link type="primary" size="small" @click="copy(ddnsUrl)">复制</el-button>
+            </div>
+            <el-input :value="ddnsUrl" readonly />
+          </div>
+
+          <div class="config-section">
+            <div class="config-label">
+              <span>RequestBody</span>
+              <el-button link type="primary" size="small" @click="copy(ddnsBody)">复制</el-button>
+            </div>
+            <el-input :value="ddnsBody" readonly />
+          </div>
+
+          <div class="config-section">
+            <div class="config-label">
+              <span>Headers</span>
+              <el-button link type="primary" size="small" @click="copy(ddnsHeaders)">复制</el-button>
+            </div>
+            <el-input :value="ddnsHeaders" readonly />
+          </div>
         </el-card>
       </el-col>
 
@@ -53,10 +78,9 @@ import { ElMessage } from 'element-plus'
 const token = ref('')
 const passwordForm = ref({ old_password: '', new_password: '' })
 
-const ddnsConfig = computed(() => {
-  const baseUrl = window.location.origin
-  return `URL:\n${baseUrl}/api/v1/ddns/update?token=${token.value}\n\nRequestBody:\n{"domain":"#{domain}","ip":"#{ip}","record_type":"#{recordType}","ttl":#{ttl}}`
-})
+const ddnsUrl = computed(() => `${window.location.origin}/api/v1/ddns/update`)
+const ddnsBody = `{"domain":"#{domain}","ip":"#{ip}","record_type":"#{recordType}","ttl":#{ttl}}`
+const ddnsHeaders = computed(() => `Authorization: Bearer ${token.value}`)
 
 const loadProfile = async () => {
   const res = await getProfile()
@@ -75,8 +99,8 @@ const handleChangePassword = async () => {
   passwordForm.value = { old_password: '', new_password: '' }
 }
 
-const copyConfig = () => {
-  navigator.clipboard.writeText(ddnsConfig.value)
+const copy = (text) => {
+  navigator.clipboard.writeText(text)
   ElMessage.success('已复制到剪贴板')
 }
 
@@ -96,6 +120,11 @@ onMounted(loadProfile)
   color: #909399;
   font-size: 14px;
 }
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 .token-label {
   color: #606266;
   margin-bottom: 8px;
@@ -112,10 +141,18 @@ onMounted(loadProfile)
 .hint {
   color: #909399;
   font-size: 13px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
-.config-textarea :deep(textarea) {
-  font-family: monospace;
+.config-section {
+  margin-bottom: 14px;
+}
+.config-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
   font-size: 13px;
+  font-weight: 500;
+  color: #303133;
 }
 </style>

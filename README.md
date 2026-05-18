@@ -80,12 +80,13 @@ admin:
 
 ## ddns-go 对接
 
-在 ddns-go 的 Webhook 设置中配置：
+在 ddns-go 的 Webhook 设置中配置以下三项：
 
 | 字段 | 值 |
 |------|-----|
-| URL | `http://your-server:8080/api/v1/ddns/update?token=你的Token` |
+| URL | `http://your-server:8080/api/v1/ddns/update` |
 | RequestBody | `{"domain":"#{domain}","ip":"#{ip}","record_type":"#{recordType}","ttl":#{ttl}}` |
+| Headers | `Authorization: Bearer 你的Token` |
 
 Token 在登录后 → 设置页面查看或重置。
 
