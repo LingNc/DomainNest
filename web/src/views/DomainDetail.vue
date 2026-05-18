@@ -12,7 +12,7 @@
     </div>
 
     <el-row :gutter="20">
-      <el-col :span="17">
+      <el-col :xs="24" :lg="17">
         <el-card>
           <template #header>
             <div class="card-header">
@@ -33,9 +33,10 @@
                 <el-tag :type="statusType(row.sync_status)" size="small">{{ statusLabel(row.sync_status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" min-width="150" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="editRecord(row)">编辑</el-button>
+                <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">重试</el-button>
                 <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">删除</el-button>
               </template>
             </el-table-column>
@@ -44,7 +45,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="7">
+      <el-col :xs="24" :lg="7">
         <el-card>
           <template #header>操作</template>
           <el-button type="primary" @click="showCreateChild = true" style="width:100%;margin-bottom:12px">
@@ -155,10 +156,13 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getDomain, createDomain, transferDomain, deleteDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord } from '../api/record'
+import { retrySync } from '../api/admin'
+import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const domainId = route.params.id
 
 const domain = ref(null)
@@ -215,6 +219,12 @@ const handleDeleteRecord = async (id) => {
   await ElMessageBox.confirm('确定删除此记录？', '提示', { type: 'warning' })
   await deleteRecord(id)
   ElMessage.success('记录已删除')
+  loadData()
+}
+
+const handleRetrySync = async (id) => {
+  await retrySync(id)
+  ElMessage.success('已重新同步')
   loadData()
 }
 

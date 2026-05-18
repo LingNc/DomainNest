@@ -7,7 +7,7 @@
     </div>
 
     <el-row :gutter="20">
-      <el-col :span="14">
+      <el-col :xs="24" :lg="14">
         <el-card>
           <template #header>DDNS Token</template>
           <p class="token-label">您的 DDNS Token：</p>
@@ -25,7 +25,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="10">
+      <el-col :xs="24" :lg="10" style="margin-top:16px">
         <el-card>
           <template #header>修改密码</template>
           <el-form :model="passwordForm" @submit.prevent="handleChangePassword" label-width="80px">

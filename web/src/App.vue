@@ -85,6 +85,20 @@ body {
   background: #f0f2f5;
   color: #303133;
 }
+@media (max-width: 768px) {
+  .el-dialog {
+    --el-dialog-width: 92vw !important;
+    width: 92vw !important;
+    margin: 0 auto;
+  }
+  .el-message-box {
+    --el-messagebox-width: 90vw !important;
+    width: 90vw !important;
+  }
+  .el-table {
+    font-size: 13px;
+  }
+}
 </style>
 
 <style scoped>

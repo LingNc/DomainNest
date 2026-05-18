@@ -87,6 +87,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	admin.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.AdminRequired())
 	{
 		admin.POST("/domains", adminHandler.CreateRootDomain)
+		admin.GET("/domains", adminHandler.ListDomains)
 		admin.POST("/domains/:id/assign", adminHandler.AssignDomain)
 		admin.GET("/users", adminHandler.ListUsers)
 		admin.GET("/logs", adminHandler.ListLogs)

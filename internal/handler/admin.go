@@ -83,6 +83,15 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "domain assigned successfully"})
 }
 
+func (h *AdminHandler) ListDomains(c *gin.Context) {
+	var nodes []model.DomainNode
+	if err := h.db.Preload("Owner").Order("id ASC").Find(&nodes).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": nodes})
+}
+
 func (h *AdminHandler) ListUsers(c *gin.Context) {
 	var users []model.User
 	if err := h.db.Find(&users).Error; err != nil {
