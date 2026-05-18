@@ -1,41 +1,48 @@
+<!-- web/src/views/Settings.vue -->
 <template>
-  <el-container>
-    <el-header>
-      <div class="header-content">
-        <h2>DomainNest</h2>
-        <el-button @click="$router.push('/dashboard')">Back</el-button>
-      </div>
-    </el-header>
-    <el-main>
-      <el-card>
-        <template #header>DDNS Token</template>
-        <p>Your DDNS Token: <el-tag>{{ token }}</el-tag></p>
-        <el-button type="warning" @click="handleResetToken">Reset Token</el-button>
+  <div>
+    <div class="page-header">
+      <h2>系统设置</h2>
+      <p class="subtitle">管理您的 DDNS Token 和账号设置</p>
+    </div>
 
-        <el-divider />
+    <el-row :gutter="20">
+      <el-col :span="14">
+        <el-card>
+          <template #header>DDNS Token</template>
+          <p class="token-label">您的 DDNS Token：</p>
+          <div class="token-row">
+            <el-tag size="large" class="token-value">{{ token || '加载中...' }}</el-tag>
+            <el-button type="warning" size="small" @click="handleResetToken">重置 Token</el-button>
+          </div>
+          <el-divider />
+          <h4>ddns-go 配置说明</h4>
+          <p class="hint">在 ddns-go 的 Webhook 设置中填入以下配置：</p>
+          <el-input type="textarea" :rows="4" :value="ddnsConfig" readonly class="config-textarea" />
+          <el-button type="primary" size="small" @click="copyConfig" style="margin-top:12px">
+            复制配置
+          </el-button>
+        </el-card>
+      </el-col>
 
-        <h4>ddns-go Configuration</h4>
-        <p>Use these settings in your ddns-go Webhook configuration:</p>
-        <el-input type="textarea" :rows="3" :value="ddnsConfig" readonly />
-        <el-button type="primary" size="small" @click="copyConfig" style="margin-top:10px">Copy</el-button>
-      </el-card>
-
-      <el-card style="margin-top:20px">
-        <template #header>Change Password</template>
-        <el-form :model="passwordForm" @submit.prevent="handleChangePassword">
-          <el-form-item label="Old Password">
-            <el-input v-model="passwordForm.old_password" type="password" show-password />
-          </el-form-item>
-          <el-form-item label="New Password">
-            <el-input v-model="passwordForm.new_password" type="password" show-password />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" native-type="submit">Change Password</el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-    </el-main>
-  </el-container>
+      <el-col :span="10">
+        <el-card>
+          <template #header>修改密码</template>
+          <el-form :model="passwordForm" @submit.prevent="handleChangePassword" label-width="80px">
+            <el-form-item label="旧密码">
+              <el-input v-model="passwordForm.old_password" type="password" show-password />
+            </el-form-item>
+            <el-form-item label="新密码">
+              <el-input v-model="passwordForm.new_password" type="password" show-password />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" native-type="submit">修改密码</el-button>
+            </el-form-item>
+          </el-form>
+        </el-card>
+      </el-col>
+    </el-row>
+  </div>
 </template>
 
 <script setup>
@@ -48,7 +55,7 @@ const passwordForm = ref({ old_password: '', new_password: '' })
 
 const ddnsConfig = computed(() => {
   const baseUrl = window.location.origin
-  return `URL: ${baseUrl}/api/v1/ddns/update?token=${token.value}\nRequestBody: {"domain":"#{domain}","ip":"#{ip}","record_type":"#{recordType}","ttl":#{ttl}}`
+  return `URL:\n${baseUrl}/api/v1/ddns/update?token=${token.value}\n\nRequestBody:\n{"domain":"#{domain}","ip":"#{ip}","record_type":"#{recordType}","ttl":#{ttl}}`
 })
 
 const loadProfile = async () => {
@@ -59,32 +66,56 @@ const loadProfile = async () => {
 const handleResetToken = async () => {
   const res = await resetToken()
   token.value = res.data.token
-  ElMessage.success('Token reset successfully')
+  ElMessage.success('Token 已重置')
 }
 
 const handleChangePassword = async () => {
   await changePassword(passwordForm.value)
-  ElMessage.success('Password changed')
+  ElMessage.success('密码修改成功')
   passwordForm.value = { old_password: '', new_password: '' }
 }
 
 const copyConfig = () => {
   navigator.clipboard.writeText(ddnsConfig.value)
-  ElMessage.success('Copied to clipboard')
+  ElMessage.success('已复制到剪贴板')
 }
 
 onMounted(loadProfile)
 </script>
 
 <style scoped>
-.el-header {
-  background: #409eff;
-  color: white;
-  line-height: 60px;
+.page-header {
+  margin-bottom: 20px;
 }
-.header-content {
+.page-header h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.subtitle {
+  color: #909399;
+  font-size: 14px;
+}
+.token-label {
+  color: #606266;
+  margin-bottom: 8px;
+}
+.token-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
+}
+.token-value {
+  font-family: monospace;
+  font-size: 14px;
+}
+.hint {
+  color: #909399;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.config-textarea :deep(textarea) {
+  font-family: monospace;
+  font-size: 13px;
 }
 </style>

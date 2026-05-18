@@ -2,22 +2,25 @@
 <template>
   <div class="register-container">
     <el-card class="register-card">
-      <h2>DomainNest Register</h2>
+      <div class="register-header">
+        <h2>DomainNest</h2>
+        <p>注册新账号</p>
+      </div>
       <el-form :model="form" @submit.prevent="handleRegister">
         <el-form-item>
-          <el-input v-model="form.username" placeholder="Username" prefix-icon="User" />
+          <el-input v-model="form.username" placeholder="用户名" prefix-icon="User" size="large" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.email" placeholder="Email (optional)" prefix-icon="Message" />
+          <el-input v-model="form.email" placeholder="邮箱（选填）" prefix-icon="Message" size="large" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.password" type="password" placeholder="Password" prefix-icon="Lock" show-password />
+          <el-input v-model="form.password" type="password" placeholder="密码" prefix-icon="Lock" show-password size="large" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" native-type="submit" style="width:100%">Register</el-button>
+          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">注 册</el-button>
         </el-form-item>
         <div class="links">
-          <router-link to="/login">Back to Login</router-link>
+          <router-link to="/login">已有账号？去登录</router-link>
         </div>
       </el-form>
     </el-card>
@@ -38,7 +41,7 @@ const handleRegister = async () => {
   loading.value = true
   try {
     await register(form.value)
-    ElMessage.success('Registration successful')
+    ElMessage.success('注册成功，请登录')
     router.push('/login')
   } finally {
     loading.value = false
@@ -52,12 +55,32 @@ const handleRegister = async () => {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: #f5f7fa;
+  background: linear-gradient(135deg, #1d1e2c 0%, #2d3a4a 100%);
 }
 .register-card {
-  width: 400px;
+  width: 420px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.register-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.register-header h2 {
+  font-size: 26px;
+  color: #1d1e2c;
+  margin-bottom: 8px;
+}
+.register-header p {
+  color: #909399;
+  font-size: 14px;
 }
 .links {
   text-align: center;
+}
+.links a {
+  color: #409eff;
+  text-decoration: none;
+  font-size: 14px;
 }
 </style>

@@ -28,7 +28,7 @@ request.interceptors.response.use(
       localStorage.removeItem('token')
       window.location.href = '/login'
     }
-    ElMessage.error(error.response?.data?.message || 'Network error')
+    ElMessage.error(error.response?.data?.message || '网络错误')
     return Promise.reject(error)
   }
 )
