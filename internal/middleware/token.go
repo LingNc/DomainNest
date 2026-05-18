@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 
 	"domainnest/internal/model"
@@ -16,13 +19,17 @@ func TokenAuth(db *gorm.DB) gin.HandlerFunc {
 		// Priority: URL param > Body token > Authorization header
 		token = c.Query("token")
 
-		if token == "" {
-			var body struct {
-				Token string `json:"token"`
-			}
-			if err := c.ShouldBindJSON(&body); err == nil {
-				token = body.Token
-				c.Set("_body_token", body)
+		if token == "" && c.Request.Body != nil {
+			bodyBytes, err := io.ReadAll(c.Request.Body)
+			if err == nil && len(bodyBytes) > 0 {
+				// Restore body for downstream handlers
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+				var body map[string]interface{}
+				if json.Unmarshal(bodyBytes, &body) == nil {
+					if t, ok := body["token"].(string); ok {
+						token = t
+					}
+				}
 			}
 		}
 

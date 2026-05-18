@@ -83,7 +83,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	ddns := v1.Group("/ddns")
 	ddns.Use(middleware.TokenAuth(db))
 	{
-		ddns.POST("/update", ddnsHandler.Update)
+		ddns.POST("/callback", ddnsHandler.Callback)
+		ddns.POST("/update", ddnsHandler.Callback) // backwards compat
+		ddns.POST("/webhook", ddnsHandler.Webhook)
 	}
 
 	admin := v1.Group("/admin")
