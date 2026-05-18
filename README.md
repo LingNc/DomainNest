@@ -63,7 +63,7 @@ database:
   dbname: domainnest
 
 jwt:
-  secret: "换成随机字符串"
+  secret: "换成随机字符串"  # 用 openssl rand -hex 32 生成
   expire_hours: 24
 
 aliyun:
