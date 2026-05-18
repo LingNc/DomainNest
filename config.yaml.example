@@ -21,3 +21,11 @@ aliyun:
 admin:
   username: admin
   password: "admin123"
+
+smtp:
+  host: smtp.example.com
+  port: 587
+  username: ""
+  password: ""
+  from: noreply@example.com
+  from_name: DomainNest

@@ -10,6 +10,7 @@ type Config struct {
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Aliyun   AliyunConfig   `mapstructure:"aliyun"`
 	Admin    AdminConfig    `mapstructure:"admin"`
+	SMTP     SMTPConfig     `mapstructure:"smtp"`
 }
 
 type ServerConfig struct {
@@ -39,6 +40,15 @@ type AliyunConfig struct {
 type AdminConfig struct {
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
+}
+
+type SMTPConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+	FromName string `mapstructure:"from_name"`
 }
 
 func Load() (*Config, error) {
