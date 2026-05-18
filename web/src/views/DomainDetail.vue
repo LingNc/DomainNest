@@ -45,7 +45,7 @@
         </el-card>
       </el-col>
 
-      <el-col :xs="24" :lg="7">
+      <el-col :xs="24" :lg="7" class="right-col">
         <el-card>
           <template #header>操作</template>
           <el-button type="primary" @click="showCreateChild = true" style="width:100%;margin-bottom:12px">
@@ -266,5 +266,10 @@ onMounted(loadData)
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+@media (max-width: 1200px) {
+  .right-col {
+    margin-top: 16px;
+  }
 }
 </style>
