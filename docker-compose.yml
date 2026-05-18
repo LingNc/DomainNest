@@ -1,0 +1,36 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=domainnest
+      - DB_PASSWORD=domainpass
+      - DB_DBNAME=domainnest
+      - JWT_SECRET=change-me-in-production
+    volumes:
+      - ./config.yaml:/app/config.yaml
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: domainnest
+      MYSQL_USER: domainnest
+      MYSQL_PASSWORD: domainpass
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql_data:

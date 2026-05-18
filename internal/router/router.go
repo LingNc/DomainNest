@@ -5,6 +5,9 @@ import (
 	"domainnest/internal/handler"
 	"domainnest/internal/middleware"
 	"domainnest/internal/service"
+	"domainnest/internal/static"
+	"io/fs"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -18,6 +21,19 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	// Serve static files from embedded frontend build
+	staticFS, _ := fs.Sub(static.StaticFiles, "dist")
+	r.StaticFS("/static", http.FS(staticFS))
+
+	// SPA fallback: serve index.html for all non-API routes
+	r.NoRoute(func(c *gin.Context) {
+		if len(c.Request.URL.Path) > 4 && c.Request.URL.Path[:4] == "/api" {
+			c.JSON(404, gin.H{"code": 404, "message": "not found"})
+			return
+		}
+		c.FileFromFS("/", http.FS(staticFS))
 	})
 
 	authHandler := handler.NewAuthHandler(authService, &cfg.JWT)
