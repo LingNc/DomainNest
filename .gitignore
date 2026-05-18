@@ -1,0 +1,32 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+server
+domainnest
+
+# Test
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+web/node_modules/
+web/dist/
+
+# Config (keep template)
+# config.yaml
+
+# Build artifacts
+internal/static/dist/
