@@ -36,7 +36,7 @@ docker-compose up -d
 mysql -u root -e "CREATE DATABASE domainnest CHARACTER SET utf8mb4;"
 
 # 2. 修改配置
-cp config.yaml config.yaml.local
+cp config.yaml.example config.yaml
 # 编辑 config.yaml，填入数据库密码和阿里云 AK/SK
 
 # 3. 启动后端
@@ -115,3 +115,7 @@ internal/
   static/            前端 embed
 web/                 Vue3 前端
 ```
+
+## 许可证
+
+[MIT License](LICENSE) © 2026 LingNc
