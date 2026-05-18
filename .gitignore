@@ -25,8 +25,9 @@ Thumbs.db
 web/node_modules/
 web/dist/
 
-# Config (keep template)
-# config.yaml
+# Config (keep template, exclude user config)
+config.yaml
+!config.yaml.example
 
 # Build artifacts
 internal/static/dist/
