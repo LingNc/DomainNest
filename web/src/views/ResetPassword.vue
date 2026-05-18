@@ -1,0 +1,113 @@
+<template>
+  <div class="reset-container">
+    <el-card class="reset-card">
+      <div class="reset-header">
+        <h2>DomainNest</h2>
+        <p>重置密码</p>
+      </div>
+      <el-form v-if="!done" :model="form" @submit.prevent="handleSubmit">
+        <el-form-item>
+          <el-input v-model="form.new_password" type="password" placeholder="新密码（至少6位）" prefix-icon="Lock" show-password size="large" />
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="confirmPwd" type="password" placeholder="确认新密码" prefix-icon="Lock" show-password size="large" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">重置密码</el-button>
+        </el-form-item>
+        <div class="links">
+          <router-link to="/login">返回登录</router-link>
+        </div>
+      </el-form>
+      <div v-else class="success-msg">
+        <el-icon :size="48" color="#67c23a"><component :is="'CircleCheck'" /></el-icon>
+        <p>密码重置成功！</p>
+        <el-button type="primary" @click="$router.push('/login')" style="margin-top:16px">去登录</el-button>
+      </div>
+    </el-card>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { resetPassword } from '../api/auth'
+import { ElMessage } from 'element-plus'
+
+const route = useRoute()
+const loading = ref(false)
+const done = ref(false)
+const token = ref('')
+const confirmPwd = ref('')
+const form = ref({ token: '', new_password: '' })
+
+onMounted(() => {
+  token.value = route.query.token || ''
+  if (!token.value) {
+    ElMessage.error('缺少重置令牌')
+  }
+})
+
+const handleSubmit = async () => {
+  if (!form.value.new_password || form.value.new_password.length < 6) {
+    ElMessage.warning('密码至少6位')
+    return
+  }
+  if (form.value.new_password !== confirmPwd.value) {
+    ElMessage.warning('两次密码不一致')
+    return
+  }
+  loading.value = true
+  try {
+    await resetPassword({ token: token.value, new_password: form.value.new_password })
+    done.value = true
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
+<style scoped>
+.reset-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #1d1e2c 0%, #2d3a4a 100%);
+}
+.reset-card {
+  width: 420px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.reset-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.reset-header h2 {
+  font-size: 26px;
+  color: #1d1e2c;
+  margin-bottom: 8px;
+}
+.reset-header p {
+  color: #909399;
+  font-size: 14px;
+}
+.links {
+  text-align: center;
+}
+.links a {
+  color: #409eff;
+  text-decoration: none;
+  font-size: 14px;
+}
+.success-msg {
+  text-align: center;
+  padding: 16px 0;
+}
+.success-msg p {
+  margin-top: 12px;
+  color: #303133;
+  font-size: 14px;
+}
+</style>

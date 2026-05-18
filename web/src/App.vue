@@ -33,6 +33,10 @@
           <el-icon><component :is="'Setting'" /></el-icon>
           <span>系统设置</span>
         </el-menu-item>
+        <el-menu-item index="/profile">
+          <el-icon><component :is="'User'" /></el-icon>
+          <span>个人信息</span>
+        </el-menu-item>
         <el-menu-item v-if="auth.isAdmin" index="/admin">
           <el-icon><component :is="'UserFilled'" /></el-icon>
           <span>管理后台</span>
@@ -69,6 +73,7 @@ const sidebarOpen = ref(false)
 const activeMenu = computed(() => {
   if (route.path.startsWith('/admin')) return '/admin'
   if (route.path.startsWith('/settings')) return '/settings'
+  if (route.path.startsWith('/profile')) return '/profile'
   return '/dashboard'
 })
 

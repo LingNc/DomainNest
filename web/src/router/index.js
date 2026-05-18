@@ -4,9 +4,12 @@ import { useAuthStore } from '../stores/auth'
 const routes = [
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue') },
   { path: '/register', name: 'Register', component: () => import('../views/Register.vue') },
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('../views/ForgotPassword.vue') },
+  { path: '/reset-password', name: 'ResetPassword', component: () => import('../views/ResetPassword.vue') },
   { path: '/dashboard', name: 'Dashboard', component: () => import('../views/Dashboard.vue'), meta: { requiresAuth: true } },
   { path: '/domains/:id', name: 'DomainDetail', component: () => import('../views/DomainDetail.vue'), meta: { requiresAuth: true } },
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { requiresAuth: true } },
+  { path: '/profile', name: 'Profile', component: () => import('../views/Profile.vue'), meta: { requiresAuth: true } },
   { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/', redirect: '/dashboard' },
 ]

@@ -17,6 +17,9 @@
           <el-input v-model="form.password" type="password" placeholder="密码" prefix-icon="Lock" show-password size="large" />
         </el-form-item>
         <el-form-item>
+          <el-input v-model="form.invite_code" placeholder="邀请码" prefix-icon="Link" size="large" />
+        </el-form-item>
+        <el-form-item>
           <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">注 册</el-button>
         </el-form-item>
         <div class="links">
@@ -28,16 +31,27 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { register } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
-const form = ref({ username: '', email: '', password: '' })
+const form = ref({ username: '', email: '', password: '', invite_code: '' })
+
+onMounted(() => {
+  if (route.query.code) {
+    form.value.invite_code = route.query.code
+  }
+})
 
 const handleRegister = async () => {
+  if (!form.value.invite_code) {
+    ElMessage.warning('请输入邀请码')
+    return
+  }
   loading.value = true
   try {
     await register(form.value)

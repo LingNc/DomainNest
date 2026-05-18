@@ -18,6 +18,7 @@
         </el-form-item>
         <div class="links">
           <router-link to="/register">注册新账号</router-link>
+          <router-link to="/forgot-password">忘记密码</router-link>
         </div>
       </el-form>
     </el-card>
@@ -74,7 +75,8 @@ const handleLogin = async () => {
   font-size: 14px;
 }
 .links {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
 }
 .links a {
   color: #409eff;

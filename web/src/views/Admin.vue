@@ -21,8 +21,24 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="token" label="DDNS Token" min-width="120" show-overflow-tooltip />
+            <el-table-column label="状态" width="80">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
+                  {{ row.status === 1 ? '正常' : '禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="invite_limit" label="邀请上限" width="90" />
+            <el-table-column prop="invite_count" label="已邀请" width="80" />
             <el-table-column prop="created_at" label="注册时间" width="170" />
+            <el-table-column label="操作" width="200" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click="openEditUser(row)">编辑</el-button>
+                <el-button link type="warning" size="small" @click="openResetPwd(row)">重置密码</el-button>
+                <el-button v-if="row.status === 1" link type="danger" size="small" @click="handleDisable(row)">禁用</el-button>
+                <el-button v-else link type="success" size="small" @click="handleEnable(row)">启用</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
 
@@ -91,13 +107,60 @@
         <el-button type="primary" @click="handleAssign">确认分配</el-button>
       </template>
     </el-dialog>
+
+    <!-- 编辑用户对话框 -->
+    <el-dialog v-model="showEditUser" title="编辑用户" width="480px">
+      <el-form :model="editForm" label-width="80px">
+        <el-form-item label="用户名">
+          <el-input :model-value="editTarget?.username" disabled />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="editForm.role" style="width:100%">
+            <el-option label="普通用户" value="user" />
+            <el-option label="管理员" value="admin" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="editForm.status" style="width:100%">
+            <el-option label="正常" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="邀请上限">
+          <el-input-number v-model="editForm.invite_limit" :min="0" :max="9999" />
+        </el-form-item>
+        <el-form-item label="昵称">
+          <el-input v-model="editForm.nickname" />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="editForm.email" />
+        </el-form-item>
+        <el-form-item label="手机">
+          <el-input v-model="editForm.phone" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditUser = false">取消</el-button>
+        <el-button type="primary" @click="handleEditUser">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 重置密码对话框 -->
+    <el-dialog v-model="showResetPwd" title="重置密码" width="400px">
+      <p style="margin-bottom:12px">为 <strong>{{ resetPwdTarget?.username }}</strong> 设置新密码：</p>
+      <el-input v-model="newPassword" type="password" placeholder="新密码（至少6位）" show-password />
+      <template #footer>
+        <el-button @click="showResetPwd = false">取消</el-button>
+        <el-button type="warning" @click="handleResetPwd">确认重置</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { listUsers, listLogs, listDomains, createRootDomain, assignDomain } from '../api/admin'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'
+import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updateUser, adminResetPassword, disableUser } from '../api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const activeTab = ref('users')
 const users = ref([])
@@ -109,6 +172,14 @@ const domainForm = ref({ host: '', domain_suffix: '' })
 const showAssign = ref(false)
 const assignTarget = ref(null)
 const assignUserId = ref(null)
+
+const showEditUser = ref(false)
+const editTarget = ref(null)
+const editForm = reactive({ role: '', status: 1, invite_limit: 5, nickname: '', email: '', phone: '' })
+
+const showResetPwd = ref(false)
+const resetPwdTarget = ref(null)
+const newPassword = ref('')
 
 const loadData = async () => {
   loading.value = true
@@ -147,6 +218,53 @@ const handleAssign = async () => {
   await assignDomain(assignTarget.value.id, { user_id: assignUserId.value })
   ElMessage.success('域名分配成功')
   showAssign.value = false
+  loadData()
+}
+
+const openEditUser = (row) => {
+  editTarget.value = row
+  editForm.role = row.role
+  editForm.status = row.status
+  editForm.invite_limit = row.invite_limit || 5
+  editForm.nickname = row.nickname || ''
+  editForm.email = row.email || ''
+  editForm.phone = row.phone || ''
+  showEditUser.value = true
+}
+
+const handleEditUser = async () => {
+  await updateUser(editTarget.value.id, editForm)
+  ElMessage.success('用户信息已更新')
+  showEditUser.value = false
+  loadData()
+}
+
+const openResetPwd = (row) => {
+  resetPwdTarget.value = row
+  newPassword.value = ''
+  showResetPwd.value = true
+}
+
+const handleResetPwd = async () => {
+  if (!newPassword.value || newPassword.value.length < 6) {
+    ElMessage.warning('密码至少6位')
+    return
+  }
+  await adminResetPassword(resetPwdTarget.value.id, { new_password: newPassword.value })
+  ElMessage.success('密码已重置')
+  showResetPwd.value = false
+}
+
+const handleDisable = async (row) => {
+  await ElMessageBox.confirm(`确定要禁用用户 ${row.username} 吗？`, '确认', { type: 'warning' })
+  await disableUser(row.id)
+  ElMessage.success('用户已禁用')
+  loadData()
+}
+
+const handleEnable = async (row) => {
+  await updateUser(row.id, { status: 1 })
+  ElMessage.success('用户已启用')
   loadData()
 }
 

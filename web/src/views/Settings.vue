@@ -21,31 +21,51 @@
           </div>
 
           <el-divider />
-          <h4>ddns-go Webhook 配置</h4>
-          <p class="hint">在 ddns-go 的 Webhook 设置中分别填入以下三项：</p>
+          <h4>ddns-go Callback 配置</h4>
+          <p class="hint">在 ddns-go 的「回调」设置中分别填入以下内容：</p>
 
           <div class="config-section">
             <div class="config-label">
               <span>URL</span>
-              <el-button link type="primary" size="small" @click="copy(ddnsUrl)">复制</el-button>
+              <el-button link type="primary" size="small" @click="copy(callbackUrl)">复制</el-button>
             </div>
-            <el-input :value="ddnsUrl" readonly />
+            <el-input :value="callbackUrl" readonly />
           </div>
 
           <div class="config-section">
             <div class="config-label">
               <span>RequestBody</span>
-              <el-button link type="primary" size="small" @click="copy(ddnsBody)">复制</el-button>
+              <el-button link type="primary" size="small" @click="copy(callbackBody)">复制</el-button>
             </div>
-            <el-input :value="ddnsBody" readonly />
+            <el-input :value="callbackBody" readonly />
+          </div>
+
+          <el-divider />
+          <h4>ddns-go Webhook 配置</h4>
+          <p class="hint">在 ddns-go 的「Webhook」设置中分别填入以下三项：</p>
+
+          <div class="config-section">
+            <div class="config-label">
+              <span>URL</span>
+              <el-button link type="primary" size="small" @click="copy(webhookUrl)">复制</el-button>
+            </div>
+            <el-input :value="webhookUrl" readonly />
+          </div>
+
+          <div class="config-section">
+            <div class="config-label">
+              <span>RequestBody</span>
+              <el-button link type="primary" size="small" @click="copy(webhookBody)">复制</el-button>
+            </div>
+            <el-input :value="webhookBody" readonly />
           </div>
 
           <div class="config-section">
             <div class="config-label">
               <span>Headers</span>
-              <el-button link type="primary" size="small" @click="copy(ddnsHeaders)">复制</el-button>
+              <el-button link type="primary" size="small" @click="copy(webhookHeaders)">复制</el-button>
             </div>
-            <el-input :value="ddnsHeaders" readonly />
+            <el-input :value="webhookHeaders" readonly />
           </div>
         </el-card>
       </el-col>
@@ -78,9 +98,14 @@ import { ElMessage } from 'element-plus'
 const token = ref('')
 const passwordForm = ref({ old_password: '', new_password: '' })
 
-const ddnsUrl = computed(() => `${window.location.origin}/api/v1/ddns/update`)
-const ddnsBody = `{"domain":"#{domain}","ip":"#{ip}","record_type":"#{recordType}","ttl":#{ttl}}`
-const ddnsHeaders = computed(() => `Authorization: Bearer ${token.value}`)
+// Callback 模式（逐域名更新）
+const callbackUrl = computed(() => `${window.location.origin}/api/v1/ddns/callback?token=${token.value}`)
+const callbackBody = `{"domain":"#{domain}","ip":"#{ip}","record_type":"#{recordType}","ttl":#{ttl}}`
+
+// Webhook 模式（聚合更新）
+const webhookUrl = computed(() => `${window.location.origin}/api/v1/ddns/webhook`)
+const webhookBody = `{"ipv4Addr":"#{ipv4Addr}","ipv4Domains":"#{ipv4Domains}","ipv6Addr":"#{ipv6Addr}","ipv6Domains":"#{ipv6Domains}"}`
+const webhookHeaders = computed(() => `Authorization: Bearer ${token.value}`)
 
 const loadProfile = async () => {
   const res = await getProfile()
