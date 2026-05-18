@@ -1,7 +1,19 @@
 <!-- web/src/App.vue -->
 <template>
-  <div v-if="isAuthed" class="app-layout">
-    <aside class="sidebar">
+  <div v-if="auth.isAuthed" class="app-layout">
+    <!-- 移动端顶栏 -->
+    <div class="mobile-topbar">
+      <el-button text @click="sidebarOpen = true" class="menu-btn">
+        <el-icon size="22"><component :is="'Expand'" /></el-icon>
+      </el-button>
+      <span class="mobile-title">DomainNest</span>
+    </div>
+
+    <!-- 移动端遮罩 -->
+    <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false" />
+
+    <!-- 侧边栏 -->
+    <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-logo">
         <h1>DomainNest</h1>
       </div>
@@ -11,6 +23,7 @@
         background-color="#1d1e2c"
         text-color="#a3a6b4"
         active-text-color="#409eff"
+        @select="sidebarOpen = false"
       >
         <el-menu-item index="/dashboard">
           <el-icon><component :is="'HomeFilled'" /></el-icon>
@@ -20,7 +33,7 @@
           <el-icon><component :is="'Setting'" /></el-icon>
           <span>系统设置</span>
         </el-menu-item>
-        <el-menu-item v-if="isAdmin" index="/admin">
+        <el-menu-item v-if="auth.isAdmin" index="/admin">
           <el-icon><component :is="'UserFilled'" /></el-icon>
           <span>管理后台</span>
         </el-menu-item>
@@ -28,11 +41,12 @@
       <div class="sidebar-footer">
         <div class="user-info">
           <el-icon><component :is="'User'" /></el-icon>
-          <span>{{ username }}</span>
+          <span>{{ auth.username }}</span>
         </div>
         <el-button text size="small" @click="handleLogout" class="logout-btn">退出登录</el-button>
       </div>
     </aside>
+
     <main class="main-content">
       <router-view />
     </main>
@@ -43,23 +57,15 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from './stores/auth'
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
+const sidebarOpen = ref(false)
 
-const isAuthed = computed(() => !!localStorage.getItem('token'))
-const isAdmin = computed(() => {
-  try {
-    return JSON.parse(localStorage.getItem('user'))?.role === 'admin'
-  } catch { return false }
-})
-const username = computed(() => {
-  try {
-    return JSON.parse(localStorage.getItem('user'))?.username || ''
-  } catch { return '' }
-})
 const activeMenu = computed(() => {
   if (route.path.startsWith('/admin')) return '/admin'
   if (route.path.startsWith('/settings')) return '/settings'
@@ -67,8 +73,7 @@ const activeMenu = computed(() => {
 })
 
 const handleLogout = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
+  auth.clearAuth()
   router.push('/login')
 }
 </script>
@@ -136,5 +141,62 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+}
+
+/* 移动端顶栏 - 默认隐藏 */
+.mobile-topbar {
+  display: none;
+}
+.sidebar-overlay {
+  display: none;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: #1d1e2c;
+    z-index: 1001;
+    padding: 0 12px;
+  }
+  .mobile-title {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .menu-btn {
+    color: #fff !important;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1002;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: -220px;
+    top: 0;
+    bottom: 0;
+    z-index: 1003;
+    transition: left 0.25s ease;
+  }
+  .sidebar.open {
+    left: 0;
+  }
+
+  .main-content {
+    padding: 60px 12px 12px;
+  }
 }
 </style>

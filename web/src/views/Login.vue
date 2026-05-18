@@ -28,8 +28,10 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '../api/auth'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const auth = useAuthStore()
 const loading = ref(false)
 const form = ref({ username: '', password: '' })
 
@@ -37,8 +39,7 @@ const handleLogin = async () => {
   loading.value = true
   try {
     const res = await login(form.value)
-    localStorage.setItem('token', res.data.token)
-    localStorage.setItem('user', JSON.stringify(res.data.user))
+    auth.setAuth(res.data.token, res.data.user)
     router.push('/dashboard')
   } finally {
     loading.value = false

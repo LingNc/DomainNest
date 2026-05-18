@@ -6,7 +6,7 @@
         <h2>域名管理</h2>
         <p class="subtitle">管理您的域名节点和子域名</p>
       </div>
-      <el-button v-if="isAdmin" type="primary" @click="showCreateRoot = true">
+      <el-button v-if="auth.isAdmin" type="primary" @click="showCreateRoot = true">
         <el-icon><component :is="'Plus'" /></el-icon>
         创建根域名
       </el-button>
@@ -14,7 +14,7 @@
 
     <el-card v-if="domains.length === 0" class="empty-card">
       <el-empty description="暂无域名">
-        <el-button v-if="isAdmin" type="primary" @click="showCreateRoot = true">创建根域名</el-button>
+        <el-button v-if="auth.isAdmin" type="primary" @click="showCreateRoot = true">创建根域名</el-button>
       </el-empty>
     </el-card>
 
@@ -57,17 +57,14 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getDomains } from '../api/domain'
 import { createRootDomain } from '../api/admin'
+import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const auth = useAuthStore()
 const domains = ref([])
 const showCreateRoot = ref(false)
 const rootForm = ref({ host: '', domain_suffix: '' })
-
-const isAdmin = (() => {
-  try { return JSON.parse(localStorage.getItem('user'))?.role === 'admin' }
-  catch { return false }
-})()
 
 const loadDomains = async () => {
   const res = await getDomains()

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { useAuthStore } from '../stores/auth'
 
 const request = axios.create({
   baseURL: '/api/v1',
@@ -7,9 +8,9 @@ const request = axios.create({
 })
 
 request.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  const auth = useAuthStore()
+  if (auth.token) {
+    config.headers.Authorization = `Bearer ${auth.token}`
   }
   return config
 })
@@ -18,14 +19,15 @@ request.interceptors.response.use(
   response => {
     const { data } = response
     if (data.code !== 0) {
-      ElMessage.error(data.message || 'Request failed')
+      ElMessage.error(data.message || '请求失败')
       return Promise.reject(data)
     }
     return data
   },
   error => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
+      const auth = useAuthStore()
+      auth.clearAuth()
       window.location.href = '/login'
     }
     ElMessage.error(error.response?.data?.message || '网络错误')
