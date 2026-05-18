@@ -15,7 +15,7 @@ import (
 
 func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	domainService *service.DomainService, recordService *service.RecordService,
-	ddnsService *service.DDNSService) *gin.Engine {
+	ddnsService *service.DDNSService, emailService *service.EmailService) *gin.Engine {
 
 	r := gin.Default()
 
@@ -36,7 +36,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		c.FileFromFS("/", http.FS(staticFS))
 	})
 
-	authHandler := handler.NewAuthHandler(authService, &cfg.JWT)
+	authHandler := handler.NewAuthHandler(authService, emailService, db, &cfg.JWT)
 	domainHandler := handler.NewDomainHandler(domainService, db)
 	recordHandler := handler.NewRecordHandler(recordService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService)
@@ -48,12 +48,15 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	{
 		auth.POST("/register", authHandler.Register)
 		auth.POST("/login", authHandler.Login)
+		auth.POST("/forgot-password", authHandler.ForgotPassword)
+		auth.POST("/reset-password", authHandler.ResetPassword)
 	}
 
 	authProtected := v1.Group("/auth")
 	authProtected.Use(middleware.JWTAuth(cfg.JWT.Secret))
 	{
 		authProtected.GET("/profile", authHandler.GetProfile)
+		authProtected.PUT("/profile", authHandler.UpdateProfile)
 		authProtected.PUT("/token", authHandler.ResetToken)
 		authProtected.PUT("/password", authHandler.ChangePassword)
 	}
@@ -90,6 +93,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		admin.GET("/domains", adminHandler.ListDomains)
 		admin.POST("/domains/:id/assign", adminHandler.AssignDomain)
 		admin.GET("/users", adminHandler.ListUsers)
+		admin.PUT("/users/:id", adminHandler.UpdateUser)
+		admin.POST("/users/:id/reset-password", adminHandler.AdminResetPassword)
+		admin.DELETE("/users/:id", adminHandler.DisableUser)
 		admin.GET("/logs", adminHandler.ListLogs)
 		admin.POST("/records/:id/sync", adminHandler.RetrySync)
 	}

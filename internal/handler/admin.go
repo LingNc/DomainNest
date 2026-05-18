@@ -7,6 +7,7 @@ import (
 	"domainnest/internal/model"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -153,4 +154,103 @@ func (h *AdminHandler) RetrySync(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "sync retry queued"})
+}
+
+func (h *AdminHandler) UpdateUser(c *gin.Context) {
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		return
+	}
+
+	var req struct {
+		Role        string `json:"role"`
+		Status      *int   `json:"status"`
+		Nickname    string `json:"nickname"`
+		Email       string `json:"email"`
+		Phone       string `json:"phone"`
+		InviteLimit *int   `json:"invite_limit"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	updates := map[string]interface{}{}
+	if req.Role != "" {
+		updates["role"] = req.Role
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+	}
+	if req.Nickname != "" {
+		updates["nickname"] = req.Nickname
+	}
+	if req.Email != "" {
+		updates["email"] = req.Email
+	}
+	if req.Phone != "" {
+		updates["phone"] = req.Phone
+	}
+	if req.InviteLimit != nil {
+		updates["invite_limit"] = *req.InviteLimit
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "no fields to update"})
+		return
+	}
+
+	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user updated"})
+}
+
+func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		return
+	}
+
+	var req struct {
+		NewPassword string `json:"new_password" binding:"required,min=6"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to hash password"})
+		return
+	}
+
+	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("password", string(hashedPassword)).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "password reset successfully"})
+}
+
+func (h *AdminHandler) DisableUser(c *gin.Context) {
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		return
+	}
+
+	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("status", 0).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user disabled"})
 }

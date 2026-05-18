@@ -19,10 +19,19 @@ func NewAuthService(db *gorm.DB) *AuthService {
 	return &AuthService{db: db}
 }
 
-func (s *AuthService) Register(username, password, email string) (*model.User, error) {
+func (s *AuthService) Register(username, password, email, inviteCode string) (*model.User, error) {
 	var existing model.User
 	if err := s.db.Where("username = ?", username).First(&existing).Error; err == nil {
 		return nil, errors.New("username already exists")
+	}
+
+	// 验证邀请码
+	var inviter model.User
+	if err := s.db.Where("invite_code = ?", inviteCode).First(&inviter).Error; err != nil {
+		return nil, errors.New("invalid invite code")
+	}
+	if inviter.InviteCount >= inviter.InviteLimit {
+		return nil, errors.New("invite limit reached")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -35,15 +44,35 @@ func (s *AuthService) Register(username, password, email string) (*model.User, e
 		return nil, err
 	}
 
-	user := &model.User{
-		Username: username,
-		Password: string(hashedPassword),
-		Email:    email,
-		Role:     "user",
-		Token:    token,
+	newInviteCode, err := generateInviteCode()
+	if err != nil {
+		return nil, err
 	}
 
-	if err := s.db.Create(user).Error; err != nil {
+	invitedBy := inviter.ID
+	user := &model.User{
+		Username:    username,
+		Password:    string(hashedPassword),
+		Email:       email,
+		Role:        "user",
+		Token:       token,
+		InvitedBy:   &invitedBy,
+		InviteCode:  newInviteCode,
+		InviteLimit: 5,
+	}
+
+	tx := s.db.Begin()
+	if err := tx.Create(user).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Model(&inviter).UpdateColumn("invite_count", gorm.Expr("invite_count + 1")).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
 		return nil, err
 	}
 
@@ -54,6 +83,10 @@ func (s *AuthService) Login(username, password string) (*model.User, error) {
 	var user model.User
 	if err := s.db.Where("username = ?", username).First(&user).Error; err != nil {
 		return nil, errors.New("invalid credentials")
+	}
+
+	if user.Status == 0 {
+		return nil, errors.New("account disabled")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
@@ -69,6 +102,15 @@ func (s *AuthService) GetUserByID(id uint64) (*model.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (s *AuthService) UpdateProfile(userID uint64, nickname, phone, email string) error {
+	updates := map[string]interface{}{
+		"nickname": nickname,
+		"phone":    phone,
+		"email":    email,
+	}
+	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error
 }
 
 func (s *AuthService) ResetToken(userID uint64) (string, error) {
@@ -102,6 +144,14 @@ func (s *AuthService) ChangePassword(userID uint64, oldPassword, newPassword str
 	return s.db.Model(&user).Update("password", string(hashedPassword)).Error
 }
 
+func (s *AuthService) AdminResetPassword(userID uint64, newPassword string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.db.Model(&model.User{}).Where("id = ?", userID).Update("password", string(hashedPassword)).Error
+}
+
 func (s *AuthService) EnsureAdmin(username, password string) error {
 	var count int64
 	s.db.Model(&model.User{}).Where("role = ?", "admin").Count(&count)
@@ -124,12 +174,19 @@ func (s *AuthService) createUser(username, password, email, role string) (*model
 		return nil, err
 	}
 
+	inviteCode, err := generateInviteCode()
+	if err != nil {
+		return nil, err
+	}
+
 	user := &model.User{
-		Username: username,
-		Password: string(hashedPassword),
-		Email:    email,
-		Role:     role,
-		Token:    token,
+		Username:    username,
+		Password:    string(hashedPassword),
+		Email:       email,
+		Role:        role,
+		Token:       token,
+		InviteCode:  inviteCode,
+		InviteLimit: 100,
 	}
 
 	return user, s.db.Create(user).Error
@@ -137,6 +194,14 @@ func (s *AuthService) createUser(username, password, email, role string) (*model
 
 func generateToken() (string, error) {
 	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+func generateInviteCode() (string, error) {
+	bytes := make([]byte, 6)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}
