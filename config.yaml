@@ -1,0 +1,23 @@
+server:
+  port: 8080
+  mode: debug
+
+database:
+  host: localhost
+  port: 3306
+  user: root
+  password: ""
+  dbname: domainnest
+
+jwt:
+  secret: "change-me-to-a-random-secret"
+  expire_hours: 24
+
+aliyun:
+  access_key_id: ""
+  access_key_secret: ""
+  endpoint: alidns.aliyuncs.com
+
+admin:
+  username: admin
+  password: "admin123"
