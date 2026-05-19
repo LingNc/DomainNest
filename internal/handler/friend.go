@@ -132,6 +132,20 @@ func (h *FriendHandler) ListSentRequests(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": requests})
 }
 
+// SearchAllUsers searches all users (friends prioritized) by username or nickname.
+func (h *FriendHandler) SearchAllUsers(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	keyword := c.Query("q")
+
+	users, err := h.friendService.SearchAllUsers(userID, keyword)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": users})
+}
+
 // SearchUsers searches for users by username or nickname.
 func (h *FriendHandler) SearchUsers(c *gin.Context) {
 	userID := c.GetUint64("user_id")

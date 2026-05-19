@@ -180,8 +180,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs } from '../api/auth'
-import { searchUsers } from '../api/friend'
+import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs, searchAllUsers } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
@@ -303,7 +302,7 @@ const searchUsersRemote = async (query) => {
   if (!query) { selectableUsers.value = []; return }
   searchingUsers.value = true
   try {
-    const res = await searchUsers(query)
+    const res = await searchAllUsers(query)
     selectableUsers.value = res.data || []
   } catch { /* ignore */ }
   searchingUsers.value = false

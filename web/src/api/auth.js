@@ -15,3 +15,4 @@ export const grantInviteQuota = (data) => request.post('/auth/grant-invite', dat
 export const revokeInviteQuota = (data) => request.post('/auth/revoke-invite', data)
 export const getInviteLogs = (params) => request.get('/auth/invite-logs', { params })
 export const getPendingReturns = () => request.get('/auth/pending-returns')
+export const searchAllUsers = (q) => request.get('/auth/users/search', { params: { q } })

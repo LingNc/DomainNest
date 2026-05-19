@@ -162,6 +162,23 @@ func (s *FriendService) SearchUsers(userID uint64, keyword string) ([]model.User
 	return users, err
 }
 
+// SearchAllUsers searches all users by username or nickname, with friends sorted first.
+func (s *FriendService) SearchAllUsers(userID uint64, keyword string) ([]model.User, error) {
+	if len(keyword) < 2 {
+		return nil, errors.New("keyword too short")
+	}
+
+	var users []model.User
+	err := s.db.
+		Select("users.id, users.username, users.nickname, users.avatar").
+		Joins("LEFT JOIN friendships ON friendships.user_id = ? AND friendships.friend_id = users.id", userID).
+		Where("(users.username LIKE ? OR users.nickname LIKE ?)", "%"+keyword+"%", "%"+keyword+"%").
+		Order("CASE WHEN friendships.user_id IS NOT NULL THEN 0 ELSE 1 END, users.username").
+		Limit(20).
+		Find(&users).Error
+	return users, err
+}
+
 // AreFriends checks if two users are friends.
 func (s *FriendService) AreFriends(userID, otherID uint64) bool {
 	var count int64
