@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 
 	"domainnest/internal/model"
 
@@ -139,8 +140,62 @@ func (s *PermissionService) ValidateIPValue(userID, domainNodeID uint64, recordT
 	return fmt.Errorf("IP %s is not within allowed ranges", value)
 }
 
+// ValidateHostPrefix checks if the given host matches the required prefix restriction.
+// If prefix is empty, all hosts are allowed.
+// e.g. prefix="test-" allows "test-app", "test-web" but not "prod-app".
+func (s *PermissionService) ValidateHostPrefix(userID, domainNodeID uint64, host string) error {
+	level, _ := s.AccessLevel(userID, domainNodeID)
+	if level >= 4 { // owner or super_admin
+		return nil
+	}
+
+	var perm model.DomainPermission
+	if err := s.db.Where("user_id = ? AND domain_node_id = ?", userID, domainNodeID).First(&perm).Error; err != nil {
+		return nil
+	}
+
+	if perm.HostPrefix == "" {
+		return nil
+	}
+
+	if !strings.HasPrefix(host, perm.HostPrefix) {
+		return fmt.Errorf("host must start with '%s'", perm.HostPrefix)
+	}
+	return nil
+}
+
+// ValidateDepth checks if the subdomain depth is within the allowed limit.
+// maxDepth=nil means unlimited. Depth is measured from the domain node.
+// e.g. domain "example.com", host "a.b.c" has depth 3.
+func (s *PermissionService) ValidateDepth(userID, domainNodeID uint64, host string) error {
+	level, _ := s.AccessLevel(userID, domainNodeID)
+	if level >= 4 {
+		return nil
+	}
+
+	var perm model.DomainPermission
+	if err := s.db.Where("user_id = ? AND domain_node_id = ?", userID, domainNodeID).First(&perm).Error; err != nil {
+		return nil
+	}
+
+	if perm.MaxDepth == nil {
+		return nil
+	}
+
+	// "@" means the domain itself, depth 1
+	depth := 1
+	if host != "@" {
+		depth = len(strings.Split(host, "."))
+	}
+
+	if depth > *perm.MaxDepth {
+		return fmt.Errorf("subdomain depth %d exceeds maximum allowed %d", depth, *perm.MaxDepth)
+	}
+	return nil
+}
+
 // Grant creates or updates a permission entry.
-func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTypes, allowedIPs string, createdBy uint64) error {
+func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTypes, allowedIPs, hostPrefix string, maxDepth *int, createdBy uint64) error {
 	if PermLevelValue(level) == 0 && level != "read" {
 		return fmt.Errorf("invalid permission level: %s", level)
 	}
@@ -158,6 +213,8 @@ func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTyp
 			"permission_level": level,
 			"allowed_types":    allowedTypes,
 			"allowed_ips":      allowedIPs,
+			"host_prefix":      hostPrefix,
+			"max_depth":        maxDepth,
 		}).Error
 	}
 
@@ -167,6 +224,8 @@ func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTyp
 		PermissionLevel: level,
 		AllowedTypes:    allowedTypes,
 		AllowedIPs:      allowedIPs,
+		HostPrefix:      hostPrefix,
+		MaxDepth:        maxDepth,
 		CreatedBy:       createdBy,
 	}
 	return s.db.Create(perm).Error

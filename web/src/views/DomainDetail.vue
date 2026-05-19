@@ -147,7 +147,9 @@
               <span class="perm-user">{{ p.user?.username || 'User #' + p.user_id }}</span>
               <el-tag :type="permTagType(p.permission_level)" size="small">{{ permLabel(p.permission_level) }}</el-tag>
             </div>
-            <div class="perm-detail" v-if="p.allowed_types || p.allowed_ips">
+            <div class="perm-detail" v-if="p.allowed_types || p.allowed_ips || p.host_prefix || p.max_depth">
+              <span v-if="p.host_prefix" class="perm-restrict">前缀: {{ p.host_prefix }}</span>
+              <span v-if="p.max_depth" class="perm-restrict">深度: {{ p.max_depth }}</span>
               <span v-if="p.allowed_types" class="perm-restrict">类型: {{ p.allowed_types }}</span>
               <span v-if="p.allowed_ips" class="perm-restrict">IP: {{ p.allowed_ips }}</span>
             </div>
@@ -158,8 +160,8 @@
     </el-row>
 
     <!-- 授权对话框 -->
-    <el-dialog v-model="showGrantPerm" title="授权用户" width="480px">
-      <el-form :model="grantForm" label-width="80px">
+    <el-dialog v-model="showGrantPerm" title="授权用户" width="520px">
+      <el-form :model="grantForm" label-width="100px">
         <el-form-item label="用户">
           <el-select v-model="grantForm.target_user_id" filterable placeholder="搜索用户" style="width:100%">
             <el-option v-for="u in allUsers" :key="u.id" :label="`${u.username} (ID: ${u.id})`" :value="u.id">
@@ -177,6 +179,14 @@
             <el-option label="读写 (write)" value="write" />
             <el-option label="管理员 (admin)" value="admin" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="主机前缀">
+          <el-input v-model="grantForm.host_prefix" placeholder="例如 test-，留空=不限" />
+          <div style="color:#909399;font-size:12px;margin-top:4px">限制只能管理此前缀开头的主机记录，如 "test-" 只允许 test-*</div>
+        </el-form-item>
+        <el-form-item label="最大深度">
+          <el-input-number v-model="grantForm.max_depth" :min="1" :max="10" placeholder="不限" />
+          <div style="color:#909399;font-size:12px;margin-top:4px">限制子域名层级，如 2 表示最多 a.b.domain，留空=不限</div>
         </el-form-item>
         <el-form-item label="记录类型">
           <el-checkbox-group v-model="grantForm.allowed_types">
@@ -397,7 +407,7 @@ const csvFileList = ref([])
 
 const permissions = ref([])
 const showGrantPerm = ref(false)
-const grantForm = ref({ target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '' })
+const grantForm = ref({ target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '', host_prefix: '', max_depth: null })
 const allUsers = ref([])
 
 const filters = reactive({ host: '', record_type: '', value: '', enabled: undefined, sync_status: '' })
@@ -635,10 +645,16 @@ const handleGrantPerm = async () => {
   if (grantForm.value.allowed_ips_text.trim()) {
     data.allowed_ips = grantForm.value.allowed_ips_text.trim().split('\n').map(s => s.trim()).filter(Boolean)
   }
+  if (grantForm.value.host_prefix) {
+    data.host_prefix = grantForm.value.host_prefix
+  }
+  if (grantForm.value.max_depth != null && grantForm.value.max_depth > 0) {
+    data.max_depth = grantForm.value.max_depth
+  }
   await grantPermission(domainId, data)
   ElMessage.success('授权成功')
   showGrantPerm.value = false
-  grantForm.value = { target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '' }
+  grantForm.value = { target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '', host_prefix: '', max_depth: null }
   loadPermissions()
 }
 

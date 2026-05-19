@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -208,6 +209,16 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		updates["phone"] = req.Phone
 	}
 	if req.InviteLimit != nil {
+		// Cannot decrease below current invite_count
+		var targetUser model.User
+		if err := h.db.First(&targetUser, userID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+			return
+		}
+		if *req.InviteLimit < targetUser.InviteCount {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("invite_limit cannot be less than current invite_count (%d)", targetUser.InviteCount)})
+			return
+		}
 		updates["invite_limit"] = *req.InviteLimit
 	}
 

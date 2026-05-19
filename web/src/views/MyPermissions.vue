@@ -22,6 +22,18 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="host_prefix" label="主机前缀" min-width="120">
+          <template #default="{ row }">
+            <span v-if="row.host_prefix">{{ row.host_prefix }}</span>
+            <span v-else style="color:#909399">不限</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="max_depth" label="最大深度" width="100">
+          <template #default="{ row }">
+            <span v-if="row.max_depth">{{ row.max_depth }}</span>
+            <span v-else style="color:#909399">不限</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="allowed_types" label="记录类型限制" min-width="160">
           <template #default="{ row }">
             <span v-if="row.allowed_types">{{ row.allowed_types }}</span>

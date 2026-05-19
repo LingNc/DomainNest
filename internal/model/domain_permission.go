@@ -11,6 +11,8 @@ type DomainPermission struct {
 	PermissionLevel string    `gorm:"type:varchar(16);default:'read'" json:"permission_level"` // read/write/admin
 	AllowedTypes    string    `gorm:"type:text" json:"allowed_types,omitempty"`                // JSON: '["A","AAAA"]', empty=all
 	AllowedIPs      string    `gorm:"type:text" json:"allowed_ips,omitempty"`                  // JSON: '["192.168.1.0/24"]', empty=unlimited
+	HostPrefix      string    `gorm:"type:varchar(128)" json:"host_prefix,omitempty"`          // e.g. "test-" only allows test-*.domain
+	MaxDepth        *int      `json:"max_depth,omitempty"`                                     // max subdomain levels allowed, nil=unlimited
 	CreatedBy       uint64    `gorm:"not null" json:"created_by"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`

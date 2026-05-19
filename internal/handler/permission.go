@@ -57,6 +57,8 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		Level        string   `json:"level" binding:"required"`
 		AllowedTypes []string `json:"allowed_types"`
 		AllowedIPs   []string `json:"allowed_ips"`
+		HostPrefix   string   `json:"host_prefix"`
+		MaxDepth     *int     `json:"max_depth"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -74,7 +76,7 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		allowedIPsJSON = string(b)
 	}
 
-	if err := h.permissionService.Grant(req.TargetUserID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, userID); err != nil {
+	if err := h.permissionService.Grant(req.TargetUserID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.MaxDepth, userID); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
 		return
 	}
