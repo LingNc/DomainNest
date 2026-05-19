@@ -160,11 +160,11 @@
             <el-form-item label="端口">
               <el-input-number v-model="smtpForm.port" :min="1" :max="65535" />
             </el-form-item>
-            <el-form-item label="用户名">
-              <el-input v-model="smtpForm.username" placeholder="SMTP 登录用户名" autocomplete="off" />
+            <el-form-item label="邮箱地址">
+              <el-input v-model="smtpForm.username" placeholder="例如 yourname@qq.com" autocomplete="off" />
             </el-form-item>
-            <el-form-item label="密码">
-              <el-input v-model="smtpForm.password" type="password" show-password placeholder="SMTP 登录密码" autocomplete="new-password" />
+            <el-form-item label="授权码">
+              <el-input v-model="smtpForm.password" type="password" show-password placeholder="邮箱授权码（非登录密码）" autocomplete="new-password" />
             </el-form-item>
             <el-form-item label="发件人邮箱">
               <el-input v-model="smtpForm.from" placeholder="noreply@example.com" />
