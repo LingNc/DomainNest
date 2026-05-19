@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"domainnest/internal/aliyun"
 	"domainnest/internal/model"
@@ -89,6 +90,7 @@ func (s *DDNSService) createRecord(nodeID uint64, rootDomain, rrForAliyun, host,
 	}
 
 	s.recordService.UpdateSyncStatus(record.ID, "synced", aliyunRecordID)
+	s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
 
 	return &DDNSUpdateResult{
 		Domain:     rootDomain,
@@ -129,6 +131,7 @@ func (s *DDNSService) updateRecord(record *model.DNSRecord, rootDomain, rrForAli
 		}
 		s.recordService.UpdateSyncStatus(record.ID, "synced", aliyunRecordID)
 	}
+	s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
 
 	return &DDNSUpdateResult{
 		Domain:     rootDomain,
@@ -184,6 +187,7 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 		}
 		s.recordService.UpdateSyncStatus(record.ID, "synced", aliyunRecordID)
 	}
+	s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
 
 	return nil
 }

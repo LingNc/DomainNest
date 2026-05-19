@@ -79,6 +79,11 @@
                 <el-tag :type="statusType(row.sync_status)" size="small">{{ statusLabel(row.sync_status) }}</el-tag>
               </template>
             </el-table-column>
+            <el-table-column prop="last_resolved_at" label="最后解析" width="160" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.last_resolved_at || '—' }}
+              </template>
+            </el-table-column>
             <el-table-column label="操作" min-width="150" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="editRecord(row)">编辑</el-button>

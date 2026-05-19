@@ -188,7 +188,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP } from '../api/admin'
+import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin } from '../api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const activeTab = ref('users')
@@ -277,7 +277,18 @@ const openEditUser = (row) => {
 }
 
 const handleEditUser = async () => {
-  await updateUser(editTarget.value.id, editForm)
+  const target = editTarget.value
+  // Role changes must go through dedicated promote/demote endpoints (super_admin guarded)
+  if (editForm.role !== target.role) {
+    if (editForm.role === 'admin') {
+      await promoteToAdmin(target.id)
+    } else {
+      await demoteFromAdmin(target.id)
+    }
+  }
+  // Other fields via updateUser (excluding role)
+  const { role, ...rest } = editForm
+  await updateUser(target.id, rest)
   ElMessage.success('用户信息已更新')
   showEditUser.value = false
   loadData()
