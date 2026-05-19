@@ -86,6 +86,35 @@
             <el-table-column prop="created_at" label="时间" width="170" />
           </el-table>
         </el-tab-pane>
+
+        <!-- 系统设置 -->
+        <el-tab-pane label="系统设置" name="settings">
+          <el-form :model="smtpForm" label-width="100px" style="max-width:560px">
+            <el-divider content-position="left">SMTP 邮件配置</el-divider>
+            <el-form-item label="SMTP 主机">
+              <el-input v-model="smtpForm.host" placeholder="例如 smtp.gmail.com" />
+            </el-form-item>
+            <el-form-item label="端口">
+              <el-input-number v-model="smtpForm.port" :min="1" :max="65535" />
+            </el-form-item>
+            <el-form-item label="用户名">
+              <el-input v-model="smtpForm.username" placeholder="SMTP 登录用户名" />
+            </el-form-item>
+            <el-form-item label="密码">
+              <el-input v-model="smtpForm.password" type="password" show-password placeholder="SMTP 登录密码" />
+            </el-form-item>
+            <el-form-item label="发件人邮箱">
+              <el-input v-model="smtpForm.from" placeholder="noreply@example.com" />
+            </el-form-item>
+            <el-form-item label="发件人名称">
+              <el-input v-model="smtpForm.from_name" placeholder="DomainNest" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleSaveSMTP">保存配置</el-button>
+              <el-button @click="handleTestSMTP" :loading="testingSMTP">发送测试邮件</el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -159,7 +188,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updateUser, adminResetPassword, disableUser } from '../api/admin'
+import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP } from '../api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const activeTab = ref('users')
@@ -181,6 +210,9 @@ const showResetPwd = ref(false)
 const resetPwdTarget = ref(null)
 const newPassword = ref('')
 
+const smtpForm = reactive({ host: '', port: 465, username: '', password: '', from: '', from_name: 'DomainNest' })
+const testingSMTP = ref(false)
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -195,6 +227,17 @@ const loadData = async () => {
   } finally {
     loading.value = false
   }
+  loadSMTP()
+}
+
+const loadSMTP = async () => {
+  try {
+    const res = await getSettings('smtp')
+    if (res.data?.value) {
+      const cfg = JSON.parse(res.data.value)
+      Object.assign(smtpForm, cfg)
+    }
+  } catch { /* no settings yet */ }
 }
 
 const handleCreateRoot = async () => {
@@ -266,6 +309,23 @@ const handleEnable = async (row) => {
   await updateUser(row.id, { status: 1 })
   ElMessage.success('用户已启用')
   loadData()
+}
+
+const handleSaveSMTP = async () => {
+  await updateSettings('smtp', smtpForm)
+  ElMessage.success('SMTP 配置已保存')
+}
+
+const handleTestSMTP = async () => {
+  testingSMTP.value = true
+  try {
+    await testSMTP(smtpForm)
+    ElMessage.success('测试邮件已发送，请检查邮箱')
+  } catch (e) {
+    ElMessage.error('发送失败: ' + (e.response?.data?.message || e.message))
+  } finally {
+    testingSMTP.value = false
+  }
 }
 
 onMounted(loadData)
