@@ -292,4 +292,9 @@ const handleClaim = async (domain) => {
 .providers-page {
   max-width: 960px;
 }
+@media (max-width: 768px) {
+  .providers-page {
+    max-width: 100%;
+  }
+}
 </style>

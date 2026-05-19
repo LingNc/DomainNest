@@ -41,7 +41,7 @@
           </template>
         </el-menu-item>
         <el-menu-item index="/settings">
-          <el-icon><component :is="'Setting'" /></el-icon>
+          <el-icon><component :is="'Tools'" /></el-icon>
           <span>系统设置</span>
         </el-menu-item>
         <el-menu-item index="/providers">

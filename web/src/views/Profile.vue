@@ -4,7 +4,7 @@
       <template #header>
         <span>个人信息</span>
       </template>
-      <el-form :model="form" label-width="80px" style="max-width:480px">
+      <el-form :model="form" label-width="80px" style="max-width:100%">
         <el-form-item label="头像">
           <div class="avatar-section">
             <el-upload
@@ -19,6 +19,9 @@
             </el-upload>
             <span class="avatar-hint">点击头像上传，支持 JPG/PNG，自动裁剪为 128px</span>
           </div>
+        </el-form-item>
+        <el-form-item label="ID">
+          <el-input :model-value="profile.id" disabled />
         </el-form-item>
         <el-form-item label="用户名">
           <el-input v-model="form.username" placeholder="修改用户名" @input="onUsernameInput" />
@@ -309,7 +312,12 @@ const handleAvatarUpload = async ({ file }) => {
 
 <style scoped>
 .profile-page {
-  max-width: 640px;
+  max-width: 800px;
+}
+@media (max-width: 768px) {
+  .profile-page {
+    max-width: 100%;
+  }
 }
 .code-text {
   font-family: monospace;
