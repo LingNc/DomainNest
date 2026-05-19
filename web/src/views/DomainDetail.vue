@@ -126,8 +126,58 @@
             <el-descriptions-item label="创建时间">{{ domain.created_at }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
+
+        <el-card style="margin-top:16px">
+          <template #header>
+            <div class="card-header">
+              <span>权限管理</span>
+              <el-button size="small" type="primary" @click="showGrantPerm = true">授权</el-button>
+            </div>
+          </template>
+          <div v-if="permissions.length === 0" style="color:#909399;font-size:13px">暂无委派权限</div>
+          <div v-for="p in permissions" :key="p.id" class="perm-item">
+            <div class="perm-info">
+              <span class="perm-user">{{ p.user?.username || 'User #' + p.user_id }}</span>
+              <el-tag :type="permTagType(p.permission_level)" size="small">{{ permLabel(p.permission_level) }}</el-tag>
+            </div>
+            <div class="perm-detail" v-if="p.allowed_types || p.allowed_ips">
+              <span v-if="p.allowed_types" class="perm-restrict">类型: {{ p.allowed_types }}</span>
+              <span v-if="p.allowed_ips" class="perm-restrict">IP: {{ p.allowed_ips }}</span>
+            </div>
+            <el-button link type="danger" size="small" @click="handleRevokePerm(p.user_id)">撤销</el-button>
+          </div>
+        </el-card>
       </el-col>
     </el-row>
+
+    <!-- 授权对话框 -->
+    <el-dialog v-model="showGrantPerm" title="授权用户" width="480px">
+      <el-form :model="grantForm" label-width="80px">
+        <el-form-item label="用户 ID">
+          <el-input-number v-model="grantForm.target_user_id" :min="1" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="权限级别">
+          <el-select v-model="grantForm.level" style="width:100%">
+            <el-option label="只读 (read)" value="read" />
+            <el-option label="读写 (write)" value="write" />
+            <el-option label="管理员 (admin)" value="admin" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="记录类型">
+          <el-checkbox-group v-model="grantForm.allowed_types">
+            <el-checkbox v-for="t in recordTypes" :key="t.value" :label="t.value">{{ t.value }}</el-checkbox>
+          </el-checkbox-group>
+          <div style="color:#909399;font-size:12px;margin-top:4px">不选 = 允许所有类型</div>
+        </el-form-item>
+        <el-form-item label="IP 限制">
+          <el-input v-model="grantForm.allowed_ips_text" type="textarea" :rows="2" placeholder="每行一个 CIDR，例如 192.168.1.0/24，留空=不限" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showGrantPerm = false">取消</el-button>
+        <el-button type="primary" @click="handleGrantPerm">确认授权</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 添加记录 -->
     <el-dialog v-model="showAddRecord" title="添加 DNS 记录" width="520px">
@@ -293,6 +343,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getDomain, createDomain, transferDomain, deleteDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
 import { retrySync } from '../api/admin'
+import { getPermissions, grantPermission, revokePermission } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -328,6 +379,10 @@ const importTab = ref('json')
 const importJson = ref('')
 const csvFile = ref(null)
 const csvFileList = ref([])
+
+const permissions = ref([])
+const showGrantPerm = ref(false)
+const grantForm = ref({ target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '' })
 
 const filters = reactive({ host: '', record_type: '', value: '', enabled: undefined, sync_status: '' })
 const pagination = reactive({ page: 1, pageSize: 20 })
@@ -370,7 +425,7 @@ const loadDomain = async () => {
 }
 
 const loadData = async () => {
-  await Promise.all([loadDomain(), loadRecords()])
+  await Promise.all([loadDomain(), loadRecords(), loadPermissions()])
 }
 
 const onTypeChange = () => {
@@ -543,6 +598,41 @@ const handleDeleteDomain = async () => {
   router.push('/dashboard')
 }
 
+const loadPermissions = async () => {
+  try {
+    const res = await getPermissions(domainId)
+    permissions.value = res.data || []
+  } catch { /* no permission to view */ }
+}
+
+const permTagType = (level) => ({ read: 'info', write: 'success', admin: 'warning' }[level] || 'info')
+const permLabel = (level) => ({ read: '只读', write: '读写', admin: '管理员' }[level] || level)
+
+const handleGrantPerm = async () => {
+  const data = {
+    target_user_id: grantForm.value.target_user_id,
+    level: grantForm.value.level,
+  }
+  if (grantForm.value.allowed_types.length > 0) {
+    data.allowed_types = grantForm.value.allowed_types
+  }
+  if (grantForm.value.allowed_ips_text.trim()) {
+    data.allowed_ips = grantForm.value.allowed_ips_text.trim().split('\n').map(s => s.trim()).filter(Boolean)
+  }
+  await grantPermission(domainId, data)
+  ElMessage.success('授权成功')
+  showGrantPerm.value = false
+  grantForm.value = { target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '' }
+  loadPermissions()
+}
+
+const handleRevokePerm = async (userId) => {
+  await ElMessageBox.confirm('确定撤销该用户的权限？', '撤销权限', { type: 'warning' })
+  await revokePermission(domainId, userId)
+  ElMessage.success('权限已撤销')
+  loadPermissions()
+}
+
 onMounted(loadData)
 </script>
 
@@ -588,5 +678,38 @@ onMounted(loadData)
   .right-col {
     margin-top: 16px;
   }
+}
+.perm-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.perm-item:last-child {
+  border-bottom: none;
+}
+.perm-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.perm-user {
+  font-weight: 500;
+  font-size: 13px;
+}
+.perm-detail {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+.perm-restrict {
+  background: #f5f5f5;
+  padding: 1px 6px;
+  border-radius: 3px;
 }
 </style>

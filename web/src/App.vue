@@ -37,6 +37,10 @@
           <el-icon><component :is="'User'" /></el-icon>
           <span>个人信息</span>
         </el-menu-item>
+        <el-menu-item index="/permissions">
+          <el-icon><component :is="'Key'" /></el-icon>
+          <span>我的权限</span>
+        </el-menu-item>
         <el-menu-item v-if="auth.isAdmin" index="/admin">
           <el-icon><component :is="'UserFilled'" /></el-icon>
           <span>管理后台</span>
