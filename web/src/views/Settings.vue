@@ -7,7 +7,7 @@
     </div>
 
     <el-row :gutter="20">
-      <el-col :xs="24" :lg="14">
+      <el-col :xs="24" :lg="24">
         <el-card>
           <template #header>
             <div class="card-header">

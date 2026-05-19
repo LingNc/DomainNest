@@ -290,7 +290,7 @@ const handleClaim = async (domain) => {
 
 <style scoped>
 .providers-page {
-  max-width: 960px;
+  max-width: 100%;
 }
 @media (max-width: 768px) {
   .providers-page {

@@ -312,7 +312,7 @@ const handleAvatarUpload = async ({ file }) => {
 
 <style scoped>
 .profile-page {
-  max-width: 800px;
+  max-width: 100%;
 }
 @media (max-width: 768px) {
   .profile-page {
