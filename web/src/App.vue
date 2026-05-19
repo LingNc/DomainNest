@@ -146,7 +146,7 @@ body {
 }
 
 /* Ensure el-dialog is vertically centered on all screen sizes */
-.el-overlay {
+.el-overlay:has(.el-dialog) {
   display: flex !important;
   justify-content: center;
   align-items: center;
