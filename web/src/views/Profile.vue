@@ -95,13 +95,40 @@
 
     <el-card style="margin-top:16px">
       <template #header>
+        <span>收回邀请额度</span>
+      </template>
+      <el-form :model="revokeForm" label-width="80px" style="max-width:480px">
+        <el-form-item label="目标用户">
+          <el-select v-model="revokeForm.target_user_id" placeholder="搜索用户" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" style="width:100%">
+            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+              <div style="display:flex;align-items:center;gap:8px">
+                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ u.nickname || u.username }}</span>
+                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="数量">
+          <el-input-number v-model="revokeForm.amount" :min="1" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="danger" :loading="revoking" @click="handleRevokeInvite">收回</el-button>
+          <span style="color:#909399;font-size:12px;margin-left:12px">收回对方未使用的邀请额度</span>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card style="margin-top:16px">
+      <template #header>
         <span>邀请记录</span>
       </template>
       <el-table :data="inviteLogs" stripe v-loading="loadingInviteLogs" style="width:100%">
         <el-table-column label="类型" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.action === 'register' ? 'success' : row.action === 'grant' ? 'primary' : 'warning'" size="small">
-              {{ {register: '注册', grant: '分配', admin_grant: '管理分配'}[row.action] || row.action }}
+            <el-tag :type="row.action === 'register' ? 'success' : row.action === 'grant' ? 'primary' : row.action === 'revoke' ? 'danger' : 'warning'" size="small">
+              {{ {register: '注册', grant: '分配', admin_grant: '管理分配', revoke: '收回'}[row.action] || row.action }}
             </el-tag>
           </template>
         </el-table-column>
@@ -153,7 +180,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, getInviteLogs } from '../api/auth'
+import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs } from '../api/auth'
 import { searchUsers } from '../api/friend'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
@@ -169,6 +196,8 @@ const pwdForm = reactive({ old_password: '', new_password: '' })
 
 const grantForm = reactive({ target_user_id: null, amount: 1 })
 const granting = ref(false)
+const revokeForm = reactive({ target_user_id: null, amount: 1 })
+const revoking = ref(false)
 const selectableUsers = ref([])
 const searchingUsers = ref(false)
 const inviteLogs = ref([])
@@ -302,6 +331,26 @@ const handleGrantInvite = async () => {
     ElMessage.error(e.response?.data?.message || '分配失败')
   } finally {
     granting.value = false
+  }
+}
+
+const handleRevokeInvite = async () => {
+  if (!revokeForm.target_user_id) {
+    ElMessage.warning('请选择目标用户')
+    return
+  }
+  revoking.value = true
+  try {
+    await revokeInviteQuota(revokeForm)
+    ElMessage.success('邀请额度已收回')
+    revokeForm.target_user_id = null
+    revokeForm.amount = 1
+    await loadProfile()
+    await loadInviteLogs()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '收回失败')
+  } finally {
+    revoking.value = false
   }
 }
 
