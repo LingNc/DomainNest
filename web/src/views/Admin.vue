@@ -108,6 +108,7 @@
               <el-option label="接受回收" value="accept_return" />
               <el-option label="拒绝回收" value="reject_return" />
               <el-option label="分配邀请" value="grant_invite" />
+              <el-option label="收回邀请" value="revoke_invite" />
               <el-option label="管理员分配" value="admin_grant" />
             </el-select>
             <el-select v-model="logFilters.target_type" placeholder="目标类型" clearable size="small" style="width:120px">

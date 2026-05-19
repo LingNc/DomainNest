@@ -20,6 +20,7 @@
           <el-option label="授权" value="grant_permission" />
           <el-option label="撤销权限" value="revoke_permission" />
           <el-option label="分配邀请" value="grant_invite" />
+          <el-option label="收回邀请" value="revoke_invite" />
         </el-select>
         <el-select v-model="filters.target_type" placeholder="目标类型" clearable size="small" style="width:120px" @change="loadLogs">
           <el-option label="域名节点" value="domain_node" />
