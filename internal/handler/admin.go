@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 
 	"github.com/gin-gonic/gin"
@@ -59,6 +60,10 @@ func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
 		return
 	}
 
+	callerID := c.GetUint64("user_id")
+	middleware.LogOperation(h.db, callerID, "create_root_domain", "domain_node", &node.ID,
+		map[string]interface{}{"domain": node.FullDomain}, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": node})
 }
 
@@ -92,10 +97,21 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 		return
 	}
 
+	var node model.DomainNode
+	if err := h.db.First(&node, nodeID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "domain not found"})
+		return
+	}
+	oldOwnerID := node.OwnerID
+
 	if err := h.db.Model(&model.DomainNode{}).Where("id = ?", nodeID).Update("owner_id", req.UserID).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
+
+	callerID := c.GetUint64("user_id")
+	middleware.LogOperation(h.db, callerID, "assign_domain", "domain_node", &nodeID,
+		map[string]interface{}{"old_owner_id": oldOwnerID, "new_owner_id": req.UserID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "domain assigned successfully"})
 }
@@ -296,6 +312,9 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
+	callerID2 := c.GetUint64("user_id")
+	middleware.LogOperation(h.db, callerID2, "update_user", "user", &userID, updates, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user updated"})
 }
 
@@ -311,7 +330,8 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
 		return
 	}
-	if targetUser.IsSuperAdmin {
+	callerID := c.GetUint64("user_id")
+	if targetUser.IsSuperAdmin && callerID != targetUser.ID {
 		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "cannot reset super admin password"})
 		return
 	}
@@ -335,6 +355,8 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, callerID, "admin_reset_password", "user", &userID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "password reset successfully"})
 }
@@ -391,6 +413,10 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	}
 
 	tx.Commit()
+
+	callerID := c.GetUint64("user_id")
+	middleware.LogOperation(h.db, callerID, "disable_user", "user", &userID, nil, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user disabled"})
 }
 
@@ -424,6 +450,8 @@ func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, callerID, "promote_to_admin", "user", &targetID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user promoted to admin"})
 }
@@ -462,6 +490,8 @@ func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, callerID, "demote_from_admin", "user", &targetID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "admin demoted to user"})
 }

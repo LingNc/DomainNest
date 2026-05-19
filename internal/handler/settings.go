@@ -4,17 +4,20 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"domainnest/internal/middleware"
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type SettingsHandler struct {
 	settingsService *service.SettingsService
+	db              *gorm.DB
 }
 
-func NewSettingsHandler(settingsService *service.SettingsService) *SettingsHandler {
-	return &SettingsHandler{settingsService: settingsService}
+func NewSettingsHandler(db *gorm.DB, settingsService *service.SettingsService) *SettingsHandler {
+	return &SettingsHandler{settingsService: settingsService, db: db}
 }
 
 func (h *SettingsHandler) Get(c *gin.Context) {
@@ -58,6 +61,11 @@ func (h *SettingsHandler) Set(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint64("user_id")
+	targetID := uint64(0)
+	middleware.LogOperation(h.db, userID, "update_settings", "setting", &targetID,
+		map[string]interface{}{"category": category}, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "settings saved"})
 }
 
@@ -77,7 +85,10 @@ func (h *SettingsHandler) TestSMTP(c *gin.Context) {
 	}
 
 	emailSvc := service.NewEmailService(cfg)
-	go emailSvc.SendPasswordReset(req.To, "https://example.com/test-reset-link")
+	if err := emailSvc.SendTestEmail(req.To); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "failed to send test email: " + err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "test email sent"})
 }

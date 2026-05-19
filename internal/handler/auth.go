@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -170,17 +171,33 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	changed := map[string]interface{}{}
 	if req.Username != "" {
 		if err := h.authService.UpdateUsername(userID, req.Username); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 			return
 		}
+		changed["username"] = req.Username
 	}
 
 	if err := h.authService.UpdateProfile(userID, req.Nickname, req.Phone, req.Email, req.Avatar); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
+	if req.Nickname != "" {
+		changed["nickname"] = req.Nickname
+	}
+	if req.Phone != "" {
+		changed["phone"] = req.Phone
+	}
+	if req.Email != "" {
+		changed["email"] = req.Email
+	}
+	if req.Avatar != "" {
+		changed["avatar"] = "[updated]"
+	}
+
+	middleware.LogOperation(h.db, userID, "update_profile", "user", &userID, changed, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "profile updated"})
 }
@@ -193,6 +210,8 @@ func (h *AuthHandler) ResetToken(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to reset token"})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "reset_token", "user", &userID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
@@ -220,6 +239,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "change_password", "user", &userID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "password changed successfully"})
 }
@@ -257,7 +278,11 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	go h.emailSvc.SendPasswordReset(user.Email, code)
+	go func() {
+		if err := h.emailSvc.SendPasswordReset(user.Email, code); err != nil {
+			log.Printf("[Auth] Failed to send reset email to %s: %v", user.Email, err)
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "if the email exists, a code has been sent"})
 }
@@ -338,6 +363,8 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to save avatar"})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "upload_avatar", "user", &userID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"avatar": dataURI}})
 }
@@ -480,5 +507,8 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "delete_account", "user", &userID, nil, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "account deleted"})
 }

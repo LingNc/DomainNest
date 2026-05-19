@@ -36,12 +36,13 @@ type AdminConfig struct {
 }
 
 type SMTPConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	From     string `mapstructure:"from"`
-	FromName string `mapstructure:"from_name"`
+	Host     string `mapstructure:"host" json:"host"`
+	Port     int    `mapstructure:"port" json:"port"`
+	Username string `mapstructure:"username" json:"username"`
+	Password string `mapstructure:"password" json:"password"`
+	From     string `mapstructure:"from" json:"from"`
+	FromName string `mapstructure:"from_name" json:"from_name"`
+	TLSType  string `mapstructure:"tls_type" json:"tls_type"`
 }
 
 func Load() (*Config, error) {

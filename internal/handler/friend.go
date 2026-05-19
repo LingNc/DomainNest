@@ -56,6 +56,9 @@ func (h *FriendHandler) AcceptRequest(c *gin.Context) {
 		return
 	}
 
+	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	middleware.LogOperation(h.db, userID, "accept_friend", "friend", &friendID, nil, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "friend request accepted"})
 }
 
@@ -73,6 +76,9 @@ func (h *FriendHandler) RejectRequest(c *gin.Context) {
 		return
 	}
 
+	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	middleware.LogOperation(h.db, userID, "reject_friend", "friend", &friendID, nil, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "friend request rejected"})
 }
 
@@ -89,6 +95,8 @@ func (h *FriendHandler) RemoveFriend(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "remove_friend", "friend", &friendID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "friend removed"})
 }

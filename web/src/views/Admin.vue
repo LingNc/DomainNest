@@ -40,7 +40,7 @@
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="openEditUser(row)">编辑</el-button>
-                <el-button link type="warning" size="small" :disabled="row.is_super_admin" @click="openResetPwd(row)">重置密码</el-button>
+                <el-button link type="warning" size="small" :disabled="row.is_super_admin && row.id !== auth.user?.id" @click="openResetPwd(row)">重置密码</el-button>
                 <el-button v-if="row.status === 1" link type="danger" size="small" :disabled="row.is_super_admin" @click="handleDisable(row)">禁用</el-button>
                 <el-button v-else link type="success" size="small" @click="handleEnable(row)">启用</el-button>
               </template>
@@ -159,6 +159,13 @@
             </el-form-item>
             <el-form-item label="端口">
               <el-input-number v-model="smtpForm.port" :min="1" :max="65535" />
+            </el-form-item>
+            <el-form-item label="加密方式">
+              <el-select v-model="smtpForm.tls_type" style="width:100%" @change="onTLSTypeChange">
+                <el-option label="STARTTLS (port 587)" value="starttls" />
+                <el-option label="SSL/TLS (port 465)" value="implicit" />
+                <el-option label="无加密 (port 25)" value="none" />
+              </el-select>
             </el-form-item>
             <el-form-item label="登录邮箱">
               <el-input v-model="smtpForm.username" placeholder="例如 yourname@qq.com" autocomplete="off" />
@@ -297,7 +304,7 @@ const showResetPwd = ref(false)
 const resetPwdTarget = ref(null)
 const newPassword = ref('')
 
-const smtpForm = reactive({ host: '', port: 465, username: '', password: '', from: '', from_name: 'DomainNest' })
+const smtpForm = reactive({ host: '', port: 587, username: '', password: '', from: '', from_name: 'DomainNest', tls_type: 'starttls' })
 const testingSMTP = ref(false)
 const testEmail = ref('')
 
@@ -515,6 +522,11 @@ const handleEnable = async (row) => {
 const handleSaveSMTP = async () => {
   await updateSettings('smtp', smtpForm)
   ElMessage.success('SMTP 配置已保存')
+}
+
+const portMap = { starttls: 587, implicit: 465, none: 25 }
+const onTLSTypeChange = (val) => {
+  if (portMap[val]) smtpForm.port = portMap[val]
 }
 
 const handleTestSMTP = async () => {

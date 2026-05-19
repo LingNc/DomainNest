@@ -87,6 +87,10 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "update_provider", "dns_provider", &id,
+		map[string]interface{}{"name": req.Name, "endpoint": req.Endpoint}, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "updated"})
 }
 
