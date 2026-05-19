@@ -33,5 +33,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&DNSRecord{},
 		&OperationLog{},
 		&PasswordReset{},
+		&SystemSetting{},
 	)
 }
