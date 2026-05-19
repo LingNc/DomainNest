@@ -11,15 +11,30 @@ import (
 )
 
 type EmailService struct {
-	cfg *config.SMTPConfig
+	cfg      *config.SMTPConfig
+	settings *SettingsService
 }
 
 func NewEmailService(cfg *config.SMTPConfig) *EmailService {
 	return &EmailService{cfg: cfg}
 }
 
+func NewEmailServiceWithSettings(cfg *config.SMTPConfig, settings *SettingsService) *EmailService {
+	return &EmailService{cfg: cfg, settings: settings}
+}
+
+func (s *EmailService) getSMTPConfig() *config.SMTPConfig {
+	if s.settings != nil {
+		if cfg := s.settings.GetSMTPConfig(); cfg != nil {
+			return cfg
+		}
+	}
+	return s.cfg
+}
+
 func (s *EmailService) SendPasswordReset(to, resetLink string) {
-	if s.cfg.Host == "" || s.cfg.Username == "" {
+	cfg := s.getSMTPConfig()
+	if cfg == nil || cfg.Host == "" || cfg.Username == "" {
 		log.Printf("[Email] SMTP not configured, skip sending reset email to %s", to)
 		return
 	}
@@ -36,12 +51,12 @@ func (s *EmailService) SendPasswordReset(to, resetLink string) {
 		"MIME-Version: 1.0\r\n"+
 		"Content-Type: text/html; charset=UTF-8\r\n"+
 		"Subject: %s\r\n\r\n%s",
-		s.cfg.FromName, s.cfg.From, to, subject, body)
+		cfg.FromName, cfg.From, to, subject, body)
 
-	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
-	auth := smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, s.cfg.Host)
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	auth := smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
 
-	if err := smtp.SendMail(addr, auth, s.cfg.From, []string{to}, []byte(msg)); err != nil {
+	if err := smtp.SendMail(addr, auth, cfg.From, []string{to}, []byte(msg)); err != nil {
 		log.Printf("[Email] Failed to send reset email to %s: %v", to, err)
 	} else {
 		log.Printf("[Email] Reset email sent to %s", to)

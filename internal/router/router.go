@@ -15,7 +15,8 @@ import (
 
 func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	domainService *service.DomainService, recordService *service.RecordService,
-	ddnsService *service.DDNSService, emailService *service.EmailService) *gin.Engine {
+	ddnsService *service.DDNSService, emailService *service.EmailService,
+	settingsService *service.SettingsService) *gin.Engine {
 
 	r := gin.Default()
 
@@ -41,6 +42,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	recordHandler := handler.NewRecordHandler(recordService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService)
 	adminHandler := handler.NewAdminHandler(db)
+	settingsHandler := handler.NewSettingsHandler(settingsService)
 
 	v1 := r.Group("/api/v1")
 
@@ -100,6 +102,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		admin.DELETE("/users/:id", adminHandler.DisableUser)
 		admin.GET("/logs", adminHandler.ListLogs)
 		admin.POST("/records/:id/sync", adminHandler.RetrySync)
+		admin.GET("/settings/:category", settingsHandler.Get)
+		admin.PUT("/settings/:category", settingsHandler.Set)
+		admin.POST("/settings/smtp/test", settingsHandler.TestSMTP)
 	}
 
 	return r

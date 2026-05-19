@@ -35,13 +35,14 @@ func main() {
 	domainService := service.NewDomainService(db)
 	recordService := service.NewRecordService(db)
 	ddnsService := service.NewDDNSService(db, domainService, recordService, aliyunClient)
-	emailService := service.NewEmailService(&cfg.SMTP)
+	settingsService := service.NewSettingsService(db)
+	emailService := service.NewEmailServiceWithSettings(&cfg.SMTP, settingsService)
 
 	if err := authService.EnsureAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
 		log.Fatalf("Failed to ensure admin user: %v", err)
 	}
 
-	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService)
+	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Server starting on %s", addr)
