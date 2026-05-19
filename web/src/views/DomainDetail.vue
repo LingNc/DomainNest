@@ -17,18 +17,64 @@
           <template #header>
             <div class="card-header">
               <span>DNS 记录</span>
-              <el-button type="primary" size="small" @click="showAddRecord = true">
-                <el-icon><component :is="'Plus'" /></el-icon>
-                添加记录
-              </el-button>
+              <div class="header-actions">
+                <el-button size="small" @click="handleExport('json')">导出 JSON</el-button>
+                <el-button size="small" @click="handleExport('csv')">导出 CSV</el-button>
+                <el-button size="small" @click="showImport = true">导入</el-button>
+                <el-button type="primary" size="small" @click="openAddRecord">
+                  <el-icon><component :is="'Plus'" /></el-icon>
+                  添加记录
+                </el-button>
+              </div>
             </div>
           </template>
-          <el-table :data="records" stripe v-loading="loading">
+
+          <!-- 搜索筛选栏 -->
+          <div class="filter-bar">
+            <el-input v-model="filters.host" placeholder="主机记录" clearable size="small" style="width:140px" @clear="loadRecords" @keyup.enter="loadRecords" />
+            <el-select v-model="filters.record_type" placeholder="记录类型" clearable size="small" style="width:120px" @change="loadRecords">
+              <el-option v-for="t in recordTypes" :key="t.value" :label="t.label" :value="t.value" />
+            </el-select>
+            <el-input v-model="filters.value" placeholder="记录值" clearable size="small" style="width:160px" @clear="loadRecords" @keyup.enter="loadRecords" />
+            <el-select v-model="filters.enabled" placeholder="启用状态" clearable size="small" style="width:100px" @change="loadRecords">
+              <el-option label="启用" :value="true" />
+              <el-option label="禁用" :value="false" />
+            </el-select>
+            <el-select v-model="filters.sync_status" placeholder="同步状态" clearable size="small" style="width:110px" @change="loadRecords">
+              <el-option label="已同步" value="synced" />
+              <el-option label="等待同步" value="pending" />
+              <el-option label="同步失败" value="failed" />
+              <el-option label="已禁用" value="disabled" />
+            </el-select>
+            <el-button size="small" type="primary" @click="loadRecords">搜索</el-button>
+          </div>
+
+          <!-- 批量操作栏 -->
+          <div class="batch-bar" v-if="selectedIds.length > 0">
+            <span>已选 {{ selectedIds.length }} 项</span>
+            <el-button size="small" type="success" @click="handleBatchToggle(true)">批量启用</el-button>
+            <el-button size="small" type="warning" @click="handleBatchToggle(false)">批量禁用</el-button>
+            <el-button size="small" type="danger" @click="handleBatchDelete">批量删除</el-button>
+          </div>
+
+          <el-table :data="records" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id">
+            <el-table-column type="selection" width="40" />
             <el-table-column prop="host" label="主机记录" width="120" />
             <el-table-column prop="record_type" label="类型" width="80" />
             <el-table-column prop="value" label="记录值" show-overflow-tooltip />
-            <el-table-column prop="ttl" label="TTL" width="80" />
-            <el-table-column prop="sync_status" label="同步状态" width="100">
+            <el-table-column prop="priority" label="优先级" width="70">
+              <template #default="{ row }">{{ row.priority ?? '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="ttl" label="TTL" width="70" />
+            <el-table-column prop="line" label="线路" width="80">
+              <template #default="{ row }">{{ row.line || 'default' }}</template>
+            </el-table-column>
+            <el-table-column label="启用" width="70">
+              <template #default="{ row }">
+                <el-switch v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="sync_status" label="同步状态" width="90">
               <template #default="{ row }">
                 <el-tag :type="statusType(row.sync_status)" size="small">{{ statusLabel(row.sync_status) }}</el-tag>
               </template>
@@ -42,6 +88,19 @@
             </el-table-column>
           </el-table>
           <el-empty v-if="!loading && records.length === 0" description="暂无 DNS 记录" />
+
+          <!-- 分页 -->
+          <div class="pagination-bar" v-if="total > 0">
+            <el-pagination
+              v-model:current-page="pagination.page"
+              v-model:page-size="pagination.pageSize"
+              :total="total"
+              :page-sizes="[10, 20, 50, 100]"
+              layout="total, sizes, prev, pager, next"
+              @current-change="loadRecords"
+              @size-change="loadRecords"
+            />
+          </div>
         </el-card>
       </el-col>
 
@@ -71,25 +130,64 @@
     </el-row>
 
     <!-- 添加记录 -->
-    <el-dialog v-model="showAddRecord" title="添加 DNS 记录" width="480px">
+    <el-dialog v-model="showAddRecord" title="添加 DNS 记录" width="520px">
       <el-form :model="recordForm" label-width="80px">
         <el-form-item label="主机记录">
           <el-input v-model="recordForm.host" placeholder="@ 表示根域名" />
         </el-form-item>
         <el-form-item label="记录类型">
-          <el-select v-model="recordForm.record_type" style="width:100%">
-            <el-option label="A - IPv4 地址" value="A" />
-            <el-option label="AAAA - IPv6 地址" value="AAAA" />
-            <el-option label="CNAME - 别名" value="CNAME" />
-            <el-option label="TXT - 文本记录" value="TXT" />
-            <el-option label="MX - 邮件" value="MX" />
+          <el-select v-model="recordForm.record_type" style="width:100%" @change="onTypeChange">
+            <el-option v-for="t in recordTypes" :key="t.value" :label="t.label" :value="t.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="记录值">
-          <el-input v-model="recordForm.value" placeholder="例如 192.168.1.1" />
+        <el-form-item v-if="recordForm.record_type === 'MX'" label="优先级">
+          <el-input-number v-model="recordForm.priority" :min="0" :max="65535" />
+        </el-form-item>
+        <el-form-item v-if="recordForm.record_type === 'SRV'" label="SRV 值">
+          <div style="display:flex;gap:8px;width:100%">
+            <el-input-number v-model="srvForm.priority" :min="0" :max="65535" placeholder="优先级" style="flex:1" />
+            <el-input-number v-model="srvForm.weight" :min="0" :max="65535" placeholder="权重" style="flex:1" />
+            <el-input-number v-model="srvForm.port" :min="0" :max="65535" placeholder="端口" style="flex:1" />
+          </div>
+        </el-form-item>
+        <el-form-item v-if="recordForm.record_type === 'SRV'" label="目标地址">
+          <el-input v-model="srvForm.target" placeholder="target.example.com" />
+        </el-form-item>
+        <el-form-item v-if="recordForm.record_type === 'CAA'" label="CAA 标志">
+          <el-input-number v-model="caaForm.flag" :min="0" :max="255" />
+        </el-form-item>
+        <el-form-item v-if="recordForm.record_type === 'CAA'" label="CAA 标签">
+          <el-select v-model="caaForm.tag" style="width:100%">
+            <el-option label="issue - 授权 CA 颁发" value="issue" />
+            <el-option label="issuewild - 通配符授权" value="issuewild" />
+            <el-option label="iodef - 通知 URL" value="iodef" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="recordForm.record_type === 'CAA'" label="CAA 值">
+          <el-input v-model="caaForm.value" placeholder="例如 letsencrypt.org" />
+        </el-form-item>
+        <el-form-item v-if="!['SRV', 'CAA'].includes(recordForm.record_type)" label="记录值">
+          <el-input v-model="recordForm.value" :placeholder="valuePlaceholder" />
         </el-form-item>
         <el-form-item label="TTL">
-          <el-input-number v-model="recordForm.ttl" :min="60" :max="86400" />
+          <el-select v-model="recordForm.ttl" style="width:100%">
+            <el-option label="1 分钟 (60s)" :value="60" />
+            <el-option label="5 分钟 (300s)" :value="300" />
+            <el-option label="10 分钟 (600s)" :value="600" />
+            <el-option label="30 分钟 (1800s)" :value="1800" />
+            <el-option label="1 小时 (3600s)" :value="3600" />
+            <el-option label="12 小时 (43200s)" :value="43200" />
+            <el-option label="1 天 (86400s)" :value="86400" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="线路">
+          <el-select v-model="recordForm.line" style="width:100%">
+            <el-option label="默认" value="default" />
+            <el-option label="中国电信" value="telecom" />
+            <el-option label="中国联通" value="unicom" />
+            <el-option label="中国移动" value="mobile" />
+            <el-option label="境外" value="overseas" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -107,16 +205,54 @@
         <el-form-item label="记录类型">
           <el-input v-model="editForm.record_type" disabled />
         </el-form-item>
+        <el-form-item v-if="editForm.record_type === 'MX'" label="优先级">
+          <el-input-number v-model="editForm.priority" :min="0" :max="65535" />
+        </el-form-item>
         <el-form-item label="记录值">
           <el-input v-model="editForm.value" />
         </el-form-item>
         <el-form-item label="TTL">
-          <el-input-number v-model="editForm.ttl" :min="60" :max="86400" />
+          <el-select v-model="editForm.ttl" style="width:100%">
+            <el-option label="1 分钟 (60s)" :value="60" />
+            <el-option label="5 分钟 (300s)" :value="300" />
+            <el-option label="10 分钟 (600s)" :value="600" />
+            <el-option label="30 分钟 (1800s)" :value="1800" />
+            <el-option label="1 小时 (3600s)" :value="3600" />
+            <el-option label="12 小时 (43200s)" :value="43200" />
+            <el-option label="1 天 (86400s)" :value="86400" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showEditRecord = false">取消</el-button>
         <el-button type="primary" @click="handleUpdateRecord">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 导入记录 -->
+    <el-dialog v-model="showImport" title="导入 DNS 记录" width="480px">
+      <el-tabs v-model="importTab">
+        <el-tab-pane label="JSON 导入" name="json">
+          <el-input v-model="importJson" type="textarea" :rows="10" placeholder='[{"host":"@","record_type":"A","value":"1.2.3.4","ttl":600}]' />
+        </el-tab-pane>
+        <el-tab-pane label="CSV 导入" name="csv">
+          <el-upload
+            :auto-upload="false"
+            :limit="1"
+            accept=".csv"
+            :on-change="handleCsvFile"
+            :file-list="csvFileList"
+          >
+            <el-button size="small">选择 CSV 文件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">格式: host,record_type,value,ttl,priority,line,enabled</div>
+            </template>
+          </el-upload>
+        </el-tab-pane>
+      </el-tabs>
+      <template #footer>
+        <el-button @click="showImport = false">取消</el-button>
+        <el-button type="primary" @click="handleImport">导入</el-button>
       </template>
     </el-dialog>
 
@@ -152,10 +288,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getDomain, createDomain, transferDomain, deleteDomain } from '../api/domain'
-import { getRecords, createRecord, updateRecord, deleteRecord } from '../api/record'
+import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
 import { retrySync } from '../api/admin'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -165,67 +301,224 @@ const router = useRouter()
 const auth = useAuthStore()
 const domainId = route.params.id
 
+const recordTypes = [
+  { label: 'A - IPv4', value: 'A' },
+  { label: 'AAAA - IPv6', value: 'AAAA' },
+  { label: 'CNAME - 别名', value: 'CNAME' },
+  { label: 'ALIAS - 根域名别名', value: 'ALIAS' },
+  { label: 'MX - 邮件', value: 'MX' },
+  { label: 'TXT - 文本', value: 'TXT' },
+  { label: 'CAA - 证书授权', value: 'CAA' },
+  { label: 'NS - 域名服务器', value: 'NS' },
+  { label: 'SRV - 服务记录', value: 'SRV' },
+]
+
 const domain = ref(null)
 const records = ref([])
+const total = ref(0)
 const loading = ref(false)
+const selectedIds = ref([])
+
 const showAddRecord = ref(false)
 const showEditRecord = ref(false)
 const showCreateChild = ref(false)
 const showTransfer = ref(false)
+const showImport = ref(false)
+const importTab = ref('json')
+const importJson = ref('')
+const csvFile = ref(null)
+const csvFileList = ref([])
 
-const recordForm = ref({ host: '@', record_type: 'A', value: '', ttl: 600 })
-const editForm = ref({ id: null, host: '', record_type: '', value: '', ttl: 600 })
+const filters = reactive({ host: '', record_type: '', value: '', enabled: undefined, sync_status: '' })
+const pagination = reactive({ page: 1, pageSize: 20 })
+
+const recordForm = ref({ host: '@', record_type: 'A', value: '', ttl: 600, priority: null, line: 'default' })
+const editForm = ref({ id: null, host: '', record_type: '', value: '', ttl: 600, priority: null })
+const srvForm = ref({ priority: 0, weight: 0, port: 0, target: '' })
+const caaForm = ref({ flag: 0, tag: 'issue', value: '' })
 const childForm = ref({ host: '' })
 const transferForm = ref({ target_user_id: 1 })
 
-const statusType = (s) => s === 'synced' ? 'success' : s === 'failed' ? 'danger' : 'warning'
-const statusLabel = (s) => s === 'synced' ? '已同步' : s === 'failed' ? '同步失败' : '等待同步'
+const statusType = (s) => s === 'synced' ? 'success' : s === 'failed' ? 'danger' : s === 'disabled' ? 'info' : 'warning'
+const statusLabel = (s) => ({ synced: '已同步', failed: '同步失败', pending: '等待同步', disabled: '已禁用' }[s] || s)
 
-const loadData = async () => {
+const valuePlaceholder = computed(() => {
+  const m = { A: '例如 192.168.1.1', AAAA: '例如 2001:db8::1', CNAME: '例如 example.com', ALIAS: '例如 example.com', MX: '例如 mail.example.com', TXT: '例如 v=spf1 include:example.com ~all', NS: '例如 ns1.example.com' }
+  return m[recordForm.value.record_type] || '输入记录值'
+})
+
+const loadRecords = async () => {
   loading.value = true
   try {
-    const [domainRes, recordsRes] = await Promise.all([
-      getDomain(domainId),
-      getRecords(domainId)
-    ])
-    domain.value = domainRes.data
-    records.value = recordsRes.data
+    const params = { page: pagination.page, page_size: pagination.pageSize }
+    if (filters.host) params.host = filters.host
+    if (filters.record_type) params.record_type = filters.record_type
+    if (filters.value) params.value = filters.value
+    if (filters.enabled !== undefined && filters.enabled !== '') params.enabled = filters.enabled
+    if (filters.sync_status) params.sync_status = filters.sync_status
+    const res = await getRecords(domainId, params)
+    records.value = res.data.items
+    total.value = res.data.total
   } finally {
     loading.value = false
   }
 }
 
+const loadDomain = async () => {
+  const res = await getDomain(domainId)
+  domain.value = res.data
+}
+
+const loadData = async () => {
+  await Promise.all([loadDomain(), loadRecords()])
+}
+
+const onTypeChange = () => {
+  recordForm.value.value = ''
+  recordForm.value.priority = null
+  srvForm.value = { priority: 0, weight: 0, port: 0, target: '' }
+  caaForm.value = { flag: 0, tag: 'issue', value: '' }
+}
+
+const buildRecordValue = () => {
+  const type = recordForm.value.record_type
+  if (type === 'SRV') {
+    return `${srvForm.value.priority} ${srvForm.value.weight} ${srvForm.value.port} ${srvForm.value.target}`
+  }
+  if (type === 'CAA') {
+    return `${caaForm.value.flag} ${caaForm.value.tag} ${caaForm.value.value}`
+  }
+  return recordForm.value.value
+}
+
+const openAddRecord = () => {
+  recordForm.value = { host: '@', record_type: 'A', value: '', ttl: 600, priority: null, line: 'default' }
+  srvForm.value = { priority: 0, weight: 0, port: 0, target: '' }
+  caaForm.value = { flag: 0, tag: 'issue', value: '' }
+  showAddRecord.value = true
+}
+
 const handleAddRecord = async () => {
-  await createRecord(domainId, recordForm.value)
+  const data = {
+    host: recordForm.value.host,
+    record_type: recordForm.value.record_type,
+    value: buildRecordValue(),
+    ttl: recordForm.value.ttl,
+    line: recordForm.value.line,
+  }
+  if (recordForm.value.record_type === 'MX' && recordForm.value.priority != null) {
+    data.priority = recordForm.value.priority
+  }
+  await createRecord(domainId, data)
   ElMessage.success('记录添加成功')
   showAddRecord.value = false
-  recordForm.value = { host: '@', record_type: 'A', value: '', ttl: 600 }
-  loadData()
+  loadRecords()
 }
 
 const editRecord = (row) => {
-  editForm.value = { id: row.id, host: row.host, record_type: row.record_type, value: row.value, ttl: row.ttl }
+  editForm.value = { id: row.id, host: row.host, record_type: row.record_type, value: row.value, ttl: row.ttl, priority: row.priority }
   showEditRecord.value = true
 }
 
 const handleUpdateRecord = async () => {
-  await updateRecord(editForm.value.id, { value: editForm.value.value, ttl: editForm.value.ttl })
+  const data = { value: editForm.value.value, ttl: editForm.value.ttl }
+  if (editForm.value.record_type === 'MX' && editForm.value.priority != null) {
+    data.priority = editForm.value.priority
+  }
+  await updateRecord(editForm.value.id, data)
   ElMessage.success('记录更新成功')
   showEditRecord.value = false
-  loadData()
+  loadRecords()
+}
+
+const handleToggle = async (id, enabled) => {
+  await toggleRecord(id, { enabled })
+  ElMessage.success(enabled ? '记录已启用' : '记录已禁用')
+  loadRecords()
 }
 
 const handleDeleteRecord = async (id) => {
   await ElMessageBox.confirm('确定删除此记录？', '提示', { type: 'warning' })
   await deleteRecord(id)
   ElMessage.success('记录已删除')
-  loadData()
+  loadRecords()
+}
+
+const handleSelectionChange = (rows) => {
+  selectedIds.value = rows.map(r => r.id)
+}
+
+const handleBatchDelete = async () => {
+  await ElMessageBox.confirm(`确定删除选中的 ${selectedIds.value.length} 条记录？`, '批量删除', { type: 'warning' })
+  await batchDeleteRecords(selectedIds.value)
+  ElMessage.success('批量删除成功')
+  loadRecords()
+}
+
+const handleBatchToggle = async (enabled) => {
+  await batchToggleRecords(selectedIds.value, enabled)
+  ElMessage.success(enabled ? '批量启用成功' : '批量禁用成功')
+  loadRecords()
+}
+
+const handleExport = async (format) => {
+  const res = await exportRecords(domainId, format)
+  if (format === 'csv') {
+    const url = URL.createObjectURL(new Blob([res.data]))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'records.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  } else {
+    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'records.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+}
+
+const handleCsvFile = (file) => {
+  csvFile.value = file.raw
+}
+
+const handleImport = async () => {
+  if (importTab.value === 'json') {
+    let data
+    try {
+      data = JSON.parse(importJson.value)
+    } catch {
+      ElMessage.error('JSON 格式错误')
+      return
+    }
+    const res = await importRecords(domainId, data, 'json')
+    const r = res.data
+    ElMessage.success(`导入完成: 创建 ${r.created} 条, 跳过 ${r.skipped} 条`)
+    if (r.errors?.length) console.warn('Import errors:', r.errors)
+  } else {
+    if (!csvFile.value) {
+      ElMessage.error('请选择 CSV 文件')
+      return
+    }
+    const res = await importRecords(domainId, csvFile.value, 'csv')
+    const r = res.data
+    ElMessage.success(`导入完成: 创建 ${r.created} 条, 跳过 ${r.skipped} 条`)
+    if (r.errors?.length) console.warn('Import errors:', r.errors)
+  }
+  showImport.value = false
+  importJson.value = ''
+  csvFile.value = null
+  csvFileList.value = []
+  loadRecords()
 }
 
 const handleRetrySync = async (id) => {
   await retrySync(id)
   ElMessage.success('已重新同步')
-  loadData()
+  loadRecords()
 }
 
 const handleCreateChild = async () => {
@@ -266,6 +559,30 @@ onMounted(loadData)
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #f0f9ff;
+  border-radius: 4px;
+}
+.pagination-bar {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
 }
 @media (max-width: 1200px) {
   .right-col {

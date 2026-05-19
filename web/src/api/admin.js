@@ -9,3 +9,6 @@ export const adminResetPassword = (id, data) => request.post(`/admin/users/${id}
 export const disableUser = (id) => request.delete(`/admin/users/${id}`)
 export const listLogs = (params) => request.get('/admin/logs', { params })
 export const retrySync = (id) => request.post(`/admin/records/${id}/sync`)
+export const getSettings = (category) => request.get(`/admin/settings/${category}`)
+export const updateSettings = (category, data) => request.put(`/admin/settings/${category}`, data)
+export const testSMTP = (data) => request.post('/admin/settings/smtp/test', data)
