@@ -144,11 +144,24 @@ body {
   background: #f0f2f5;
   color: #303133;
 }
+
+/* Ensure el-dialog is vertically centered on all screen sizes */
+.el-overlay {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+}
+
 @media (max-width: 768px) {
   .el-dialog {
     --el-dialog-width: 92vw !important;
     width: 92vw !important;
-    margin: 0 auto;
+    margin: 16px auto;
+    max-height: calc(100vh - 32px);
+  }
+  .el-dialog__body {
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
   }
   .el-message-box {
     --el-messagebox-width: 90vw !important;
