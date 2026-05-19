@@ -175,7 +175,7 @@
       <el-button type="danger" size="small" style="margin-top:12px" @click="handleResetToken">重置 Token</el-button>
     </el-card>
 
-    <el-card style="margin-top:16px">
+    <el-card v-if="!auth.isSuperAdmin" style="margin-top:16px">
       <template #header>
         <span>注销账号</span>
       </template>

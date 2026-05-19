@@ -117,11 +117,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"data": gin.H{
 			"token": token,
 			"user": gin.H{
-				"id":       user.ID,
-				"username": user.Username,
-				"nickname": user.Nickname,
-				"avatar":   user.Avatar,
-				"role":     user.Role,
+				"id":             user.ID,
+				"username":       user.Username,
+				"nickname":       user.Nickname,
+				"avatar":         user.Avatar,
+				"role":           user.Role,
+				"is_super_admin": user.IsSuperAdmin,
 			},
 		},
 	})
