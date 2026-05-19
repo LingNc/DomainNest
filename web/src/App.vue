@@ -1,5 +1,6 @@
 <!-- web/src/App.vue -->
 <template>
+  <el-config-provider :locale="elLocale">
   <div v-if="auth.isAuthed" class="app-layout">
     <!-- 移动端顶栏 -->
     <div class="mobile-topbar">
@@ -75,6 +76,10 @@
           <el-icon v-else><component :is="'User'" /></el-icon>
           <span>{{ auth.nickname }}</span>
         </div>
+        <div style="padding: 8px 20px; display: flex; gap: 4px;">
+          <el-button :type="locale === 'zh-CN' ? 'primary' : 'default'" size="small" plain @click="switchLang('zh-CN')">中</el-button>
+          <el-button :type="locale === 'en-US' ? 'primary' : 'default'" size="small" plain @click="switchLang('en-US')">En</el-button>
+        </div>
         <el-button text size="small" @click="handleLogout" class="logout-btn">退出登录</el-button>
       </div>
     </aside>
@@ -86,13 +91,26 @@
   <div v-else>
     <router-view />
   </div>
+  </el-config-provider>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
+import en from 'element-plus/dist/locale/en.mjs'
 import { useAuthStore } from './stores/auth'
 import { getUnreadCount } from './api/message'
+import { setLang } from './i18n/utils'
+
+const { locale } = useI18n()
+const elLocaleMap = { 'zh-CN': zhCn, 'en-US': en }
+const elLocale = computed(() => elLocaleMap[locale.value] || zhCn)
+const switchLang = (lang) => {
+  locale.value = lang
+  setLang(lang)
+}
 
 const router = useRouter()
 const route = useRoute()
