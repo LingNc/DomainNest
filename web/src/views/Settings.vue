@@ -69,13 +69,6 @@
           </div>
         </el-card>
       </el-col>
-
-      <el-col :xs="24" :lg="10" style="margin-top:16px">
-        <el-card>
-          <template #header>DDNS 配置说明</template>
-          <p class="hint">如需修改密码或个人信息，请前往「个人信息」页面。</p>
-        </el-card>
-      </el-col>
     </el-row>
   </div>
 </template>

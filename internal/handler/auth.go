@@ -147,6 +147,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		Nickname string `json:"nickname"`
 		Phone    string `json:"phone"`
 		Email    string `json:"email"`
+		Avatar   string `json:"avatar"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -161,7 +162,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		}
 	}
 
-	if err := h.authService.UpdateProfile(userID, req.Nickname, req.Phone, req.Email); err != nil {
+	if err := h.authService.UpdateProfile(userID, req.Nickname, req.Phone, req.Email, req.Avatar); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}

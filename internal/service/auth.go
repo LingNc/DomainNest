@@ -104,11 +104,12 @@ func (s *AuthService) GetUserByID(id uint64) (*model.User, error) {
 	return &user, nil
 }
 
-func (s *AuthService) UpdateProfile(userID uint64, nickname, phone, email string) error {
+func (s *AuthService) UpdateProfile(userID uint64, nickname, phone, email, avatar string) error {
 	updates := map[string]interface{}{
 		"nickname": nickname,
 		"phone":    phone,
 		"email":    email,
+		"avatar":   avatar,
 	}
 	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error
 }

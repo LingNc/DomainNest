@@ -5,6 +5,13 @@
         <span>个人信息</span>
       </template>
       <el-form :model="form" label-width="80px" style="max-width:480px">
+        <el-form-item label="头像">
+          <div class="avatar-section">
+            <el-avatar v-if="form.avatar" :src="form.avatar" :size="64" />
+            <el-avatar v-else :size="64">{{ (form.username || '?')[0]?.toUpperCase() }}</el-avatar>
+            <el-input v-model="form.avatar" placeholder="输入头像图片 URL" style="margin-left:12px;flex:1" />
+          </div>
+        </el-form-item>
         <el-form-item label="用户名">
           <el-input v-model="form.username" placeholder="修改用户名" @input="onUsernameInput" />
           <div v-if="usernameStatus" :class="usernameStatus === 'available' ? 'username-ok' : 'username-err'">
@@ -49,13 +56,14 @@
       </template>
       <el-form :model="pwdForm" label-width="80px" style="max-width:480px">
         <el-form-item label="旧密码">
-          <el-input v-model="pwdForm.old_password" type="password" show-password autocomplete="off" />
+          <el-input v-model="pwdForm.old_password" type="password" show-password autocomplete="current-password" />
         </el-form-item>
         <el-form-item label="新密码">
-          <el-input v-model="pwdForm.new_password" type="password" show-password />
+          <el-input v-model="pwdForm.new_password" type="password" show-password autocomplete="new-password" />
         </el-form-item>
         <el-form-item>
           <el-button type="warning" :loading="changingPwd" @click="handleChangePwd">修改密码</el-button>
+          <router-link to="/forgot-password" style="margin-left:16px;font-size:13px">忘记密码？通过邮箱重置</router-link>
         </el-form-item>
       </el-form>
     </el-card>
@@ -87,7 +95,7 @@ const saving = ref(false)
 const changingPwd = ref(false)
 const usernameStatus = ref('')
 let checkTimer = null
-const form = reactive({ username: '', nickname: '', email: '', phone: '' })
+const form = reactive({ username: '', nickname: '', email: '', phone: '', avatar: '' })
 const pwdForm = reactive({ old_password: '', new_password: '' })
 
 const loadProfile = async () => {
@@ -97,6 +105,7 @@ const loadProfile = async () => {
   form.nickname = res.data.nickname || ''
   form.email = res.data.email || ''
   form.phone = res.data.phone || ''
+  form.avatar = res.data.avatar || ''
 }
 
 onMounted(loadProfile)
@@ -125,7 +134,7 @@ const handleSave = async () => {
     ElMessage.success('保存成功')
     await loadProfile()
     // Update auth store with new profile data
-    auth.setAuth(auth.token, { ...auth.user, username: form.username, nickname: form.nickname })
+    auth.setAuth(auth.token, { ...auth.user, username: form.username, nickname: form.nickname, avatar: form.avatar })
   } finally {
     saving.value = false
   }
@@ -188,5 +197,9 @@ const copyToken = () => {
   color: #f56c6c;
   font-size: 12px;
   margin-top: 4px;
+}
+.avatar-section {
+  display: flex;
+  align-items: center;
 }
 </style>
