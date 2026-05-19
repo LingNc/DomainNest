@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"domainnest/internal/model"
 
@@ -22,8 +23,10 @@ func NewAdminHandler(db *gorm.DB) *AdminHandler {
 
 func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
 	var req struct {
-		Host         string `json:"host" binding:"required"`
-		DomainSuffix string `json:"domain_suffix" binding:"required"`
+		Host         string  `json:"host"`
+		DomainSuffix string  `json:"domain_suffix"`
+		ProviderID   *uint64 `json:"provider_id"`
+		DomainName   string  `json:"domain_name"` // used with provider_id
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -31,28 +34,66 @@ func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
 		return
 	}
 
-	fullDomain := req.Host + "." + req.DomainSuffix
-
-	var existing model.DomainNode
-	if err := h.db.Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "domain already exists"})
-		return
-	}
-
 	adminID := c.GetUint64("user_id")
 
-	node := &model.DomainNode{
-		Host:       req.Host,
-		FullDomain: fullDomain,
-		OwnerID:    adminID,
-	}
+	if req.ProviderID != nil {
+		// Provider-based creation
+		if req.DomainName == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "domain_name required with provider_id"})
+			return
+		}
 
-	if err := h.db.Create(node).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
-		return
-	}
+		var existing model.DomainNode
+		if err := h.db.Where("full_domain = ?", req.DomainName).First(&existing).Error; err == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "domain already exists"})
+			return
+		}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "data": node})
+		host := extractHostFromDomain(req.DomainName)
+		node := &model.DomainNode{
+			Host:       host,
+			FullDomain: req.DomainName,
+			OwnerID:    adminID,
+			ProviderID: req.ProviderID,
+		}
+		if err := h.db.Create(node).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": node})
+	} else {
+		// Legacy creation (host + domain_suffix)
+		if req.Host == "" || req.DomainSuffix == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "host and domain_suffix required"})
+			return
+		}
+		fullDomain := req.Host + "." + req.DomainSuffix
+
+		var existing model.DomainNode
+		if err := h.db.Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "domain already exists"})
+			return
+		}
+
+		node := &model.DomainNode{
+			Host:       req.Host,
+			FullDomain: fullDomain,
+			OwnerID:    adminID,
+		}
+		if err := h.db.Create(node).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": node})
+	}
+}
+
+func extractHostFromDomain(domain string) string {
+	parts := strings.Split(domain, ".")
+	if len(parts) >= 2 {
+		return parts[len(parts)-2]
+	}
+	return domain
 }
 
 func (h *AdminHandler) AssignDomain(c *gin.Context) {
