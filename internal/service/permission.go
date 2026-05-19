@@ -188,7 +188,7 @@ func (s *PermissionService) ListPermissions(domainNodeID uint64) ([]model.Domain
 // GetUserPermissions returns all domain permissions for a user.
 func (s *PermissionService) GetUserPermissions(userID uint64) ([]model.DomainPermission, error) {
 	var perms []model.DomainPermission
-	err := s.db.Preload("DomainNode").Where("user_id = ?", userID).Find(&perms).Error
+	err := s.db.Preload("DomainNode").Preload("Creator").Where("user_id = ?", userID).Find(&perms).Error
 	return perms, err
 }
 

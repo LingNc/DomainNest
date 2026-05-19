@@ -41,6 +41,10 @@
           <el-icon><component :is="'Key'" /></el-icon>
           <span>我的权限</span>
         </el-menu-item>
+        <el-menu-item index="/my-logs">
+          <el-icon><component :is="'Document'" /></el-icon>
+          <span>操作日志</span>
+        </el-menu-item>
         <el-menu-item index="/ram-tokens">
           <el-icon><component :is="'Tickets'" /></el-icon>
           <span>API Tokens</span>
@@ -83,6 +87,8 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/admin')) return '/admin'
   if (route.path.startsWith('/settings')) return '/settings'
   if (route.path.startsWith('/profile')) return '/profile'
+  if (route.path.startsWith('/my-logs')) return '/my-logs'
+  if (route.path.startsWith('/permissions')) return '/permissions'
   return '/dashboard'
 })
 

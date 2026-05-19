@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"net/http"
+	"strconv"
 	"time"
 
 	"domainnest/internal/config"
@@ -332,4 +333,37 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"avatar": dataURI}})
+}
+
+func (h *AuthHandler) MyLogs(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	var total int64
+	h.db.Model(&model.OperationLog{}).Where("user_id = ?", userID).Count(&total)
+
+	var logs []model.OperationLog
+	h.db.Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&logs)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"items":     logs,
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
 }

@@ -12,6 +12,12 @@
         <el-tab-pane label="用户管理" name="users">
           <el-table :data="users" stripe v-loading="loading" style="width:100%">
             <el-table-column prop="id" label="ID" width="60" />
+            <el-table-column label="头像" width="60">
+              <template #default="{ row }">
+                <el-avatar v-if="row.avatar" :src="row.avatar" :size="32" />
+                <el-avatar v-else :size="32">{{ (row.username || '?')[0]?.toUpperCase() }}</el-avatar>
+              </template>
+            </el-table-column>
             <el-table-column prop="username" label="用户名" min-width="100" />
             <el-table-column prop="email" label="邮箱" min-width="140" show-overflow-tooltip />
             <el-table-column prop="role" label="角色" width="90">
@@ -79,7 +85,15 @@
         <el-tab-pane label="操作日志" name="logs">
           <el-table :data="logs" stripe v-loading="loading" style="width:100%">
             <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column prop="user_id" label="用户 ID" width="80" />
+            <el-table-column label="用户" min-width="120">
+              <template #default="{ row }">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <el-avatar v-if="row.user?.avatar" :src="row.user.avatar" :size="24" />
+                  <el-avatar v-else :size="24">{{ (row.user?.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                  <span>{{ row.user?.username || 'User #' + row.user_id }}</span>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column prop="action" label="操作" min-width="120" />
             <el-table-column prop="target_type" label="目标类型" min-width="100" />
             <el-table-column prop="ip_address" label="IP 地址" width="130" />
@@ -129,7 +143,13 @@
           :key="u.id"
           :label="`${u.username} (ID: ${u.id})`"
           :value="u.id"
-        />
+        >
+          <div style="display:flex;align-items:center;gap:8px">
+            <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+            <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+            <span>{{ u.username }}</span>
+          </div>
+        </el-option>
       </el-select>
       <template #footer>
         <el-button @click="showAssign = false">取消</el-button>

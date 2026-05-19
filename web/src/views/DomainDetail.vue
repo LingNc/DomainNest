@@ -142,6 +142,8 @@
           <div v-if="permissions.length === 0" style="color:#909399;font-size:13px">暂无委派权限</div>
           <div v-for="p in permissions" :key="p.id" class="perm-item">
             <div class="perm-info">
+              <el-avatar v-if="p.user?.avatar" :src="p.user.avatar" :size="24" />
+              <el-avatar v-else :size="24">{{ (p.user?.username || '?')[0]?.toUpperCase() }}</el-avatar>
               <span class="perm-user">{{ p.user?.username || 'User #' + p.user_id }}</span>
               <el-tag :type="permTagType(p.permission_level)" size="small">{{ permLabel(p.permission_level) }}</el-tag>
             </div>
@@ -158,8 +160,16 @@
     <!-- 授权对话框 -->
     <el-dialog v-model="showGrantPerm" title="授权用户" width="480px">
       <el-form :model="grantForm" label-width="80px">
-        <el-form-item label="用户 ID">
-          <el-input-number v-model="grantForm.target_user_id" :min="1" style="width:100%" />
+        <el-form-item label="用户">
+          <el-select v-model="grantForm.target_user_id" filterable placeholder="搜索用户" style="width:100%">
+            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.username} (ID: ${u.id})`" :value="u.id">
+              <div style="display:flex;align-items:center;gap:8px">
+                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ u.username }}</span>
+              </div>
+            </el-option>
+          </el-select>
         </el-form-item>
         <el-form-item label="权限级别">
           <el-select v-model="grantForm.level" style="width:100%">
@@ -347,7 +357,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getDomain, createDomain, transferDomain, deleteDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
-import { retrySync } from '../api/admin'
+import { retrySync, listUsers } from '../api/admin'
 import { getPermissions, grantPermission, revokePermission } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -388,6 +398,7 @@ const csvFileList = ref([])
 const permissions = ref([])
 const showGrantPerm = ref(false)
 const grantForm = ref({ target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '' })
+const allUsers = ref([])
 
 const filters = reactive({ host: '', record_type: '', value: '', enabled: undefined, sync_status: '' })
 const pagination = reactive({ page: 1, pageSize: 20 })
@@ -638,7 +649,10 @@ const handleRevokePerm = async (userId) => {
   loadPermissions()
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  listUsers().then(res => { allUsers.value = res.data || [] }).catch(() => {})
+})
 </script>
 
 <style scoped>

@@ -10,3 +10,4 @@ export const forgotPassword = (data) => request.post('/auth/forgot-password', da
 export const resetPassword = (data) => request.post('/auth/reset-password', data)
 export const checkUsername = (username) => request.get('/auth/check-username', { params: { username } })
 export const uploadAvatar = (formData) => request.post('/auth/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+export const getMyLogs = (params) => request.get('/auth/logs', { params })

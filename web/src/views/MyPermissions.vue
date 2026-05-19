@@ -34,6 +34,15 @@
             <span v-else style="color:#909399">不限</span>
           </template>
         </el-table-column>
+        <el-table-column label="授权人" min-width="120">
+          <template #default="{ row }">
+            <div style="display:flex;align-items:center;gap:6px">
+              <el-avatar v-if="row.creator?.avatar" :src="row.creator.avatar" :size="24" />
+              <el-avatar v-else :size="24">{{ (row.creator?.username || '?')[0]?.toUpperCase() }}</el-avatar>
+              <span>{{ row.creator?.username || '—' }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="授权时间" width="170" />
       </el-table>
       <el-empty v-if="!loading && permissions.length === 0" description="暂无被授予的权限" />

@@ -65,6 +65,7 @@ func (s *DomainService) GetUserNodes(userID uint64) ([]model.DomainNode, error) 
 			return db.Where("id IN ?", accessibleIDs)
 		}).
 		Preload("Records").
+		Preload("Owner").
 		Find(&nodes).Error
 
 	var roots []model.DomainNode

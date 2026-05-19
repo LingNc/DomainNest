@@ -28,7 +28,10 @@
       >
         <template #default="{ data }">
           <div class="tree-node">
-            <span class="domain-name">{{ data.full_domain }}</span>
+            <span class="domain-name">
+              <el-avatar v-if="data.owner?.avatar" :src="data.owner.avatar" :size="20" style="margin-right:4px" />
+              {{ data.full_domain }}
+            </span>
             <el-tag v-if="permMap[data.id]" :type="permTagType(permMap[data.id])" size="small" class="perm-badge">
               {{ permLabel(permMap[data.id]) }}
             </el-tag>
