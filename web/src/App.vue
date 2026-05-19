@@ -45,7 +45,7 @@
           <span>系统设置</span>
         </el-menu-item>
         <el-menu-item index="/providers">
-          <el-icon><component :is="'Cloud'" /></el-icon>
+          <el-icon><component :is="'Connection'" /></el-icon>
           <span>DNS 提供商</span>
         </el-menu-item>
         <el-menu-item index="/profile">
