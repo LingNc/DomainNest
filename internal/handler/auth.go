@@ -383,21 +383,7 @@ func (h *AuthHandler) MyLogs(c *gin.Context) {
 
 	query := h.db.Model(&model.OperationLog{}).Where("user_id = ?", userID)
 
-	// Filter by action type
-	if action := c.Query("action"); action != "" {
-		query = query.Where("action = ?", action)
-	}
-	// Filter by target type
-	if targetType := c.Query("target_type"); targetType != "" {
-		query = query.Where("target_type = ?", targetType)
-	}
-	// Filter by date range
-	if startTime := c.Query("start_time"); startTime != "" {
-		query = query.Where("created_at >= ?", startTime)
-	}
-	if endTime := c.Query("end_time"); endTime != "" {
-		query = query.Where("created_at <= ?", endTime)
-	}
+	query = applyLogFilters(query, c)
 
 	var total int64
 	query.Count(&total)

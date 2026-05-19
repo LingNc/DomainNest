@@ -311,13 +311,13 @@ func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int)
 		return errors.New("amount must be positive")
 	}
 
-	if inviterID == inviteeID {
-		return errors.New("cannot revoke quota from yourself")
-	}
-
 	var inviter model.User
 	if err := s.db.First(&inviter, inviterID).Error; err != nil {
 		return errors.New("inviter not found")
+	}
+
+	if inviterID == inviteeID && !inviter.IsSuperAdmin {
+		return errors.New("cannot revoke quota from yourself")
 	}
 
 	var invitee model.User

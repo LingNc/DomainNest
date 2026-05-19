@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"text/template"
 
 	"domainnest/internal/config"
 )
@@ -102,6 +104,37 @@ func sendMail(cfg *config.SMTPConfig, to []string, msg []byte) error {
 	}
 }
 
+var resetEmailTmpl = template.Must(template.New("reset").Parse(`<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 0;">
+  <tr><td align="center">
+    <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+      <!-- Header -->
+      <tr><td style="background:linear-gradient(135deg,#409eff,#337ecc);padding:28px 32px;border-radius:8px 8px 0 0;">
+        <span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:1px;">DomainNest</span>
+      </td></tr>
+      <!-- Body -->
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 16px;color:#303133;font-size:16px;">您好，</p>
+        <p style="margin:0 0 24px;color:#606266;font-size:14px;line-height:1.6;">您正在进行密码重置操作，验证码如下：</p>
+        <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:12px 0 24px;">
+          <span style="display:inline-block;background:#f0f7ff;border:1px solid #d9ecff;border-radius:6px;padding:14px 32px;font-size:32px;font-weight:700;color:#409eff;letter-spacing:6px;">{{.Code}}</span>
+        </td></tr></table>
+        <p style="margin:0 0 8px;color:#909399;font-size:13px;">验证码 <b>30 分钟</b>内有效，请尽快使用。</p>
+        <p style="margin:0;color:#909399;font-size:13px;">如果这不是您的操作，请忽略此邮件，您的账户不会受到影响。</p>
+      </td></tr>
+      <!-- Footer -->
+      <tr><td style="padding:20px 32px;border-top:1px solid #ebeef5;">
+        <p style="margin:0;color:#c0c4cc;font-size:12px;text-align:center;">此邮件由系统自动发送，请勿回复</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`))
+
 func (s *EmailService) SendPasswordReset(to, code string) error {
 	cfg := s.getSMTPConfig()
 	if cfg == nil || cfg.Host == "" || cfg.Username == "" {
@@ -109,18 +142,18 @@ func (s *EmailService) SendPasswordReset(to, code string) error {
 	}
 
 	subject := "DomainNest - 密码重置验证码"
-	body := fmt.Sprintf("您好，<br><br>"+
-		"您正在进行密码重置操作，验证码如下：<br><br>"+
-		"<h2 style=\"color:#409eff;letter-spacing:4px\">%s</h2><br>"+
-		"验证码 30 分钟内有效。<br><br>"+
-		"如果这不是您的操作，请忽略此邮件。", code)
+
+	var body bytes.Buffer
+	if err := resetEmailTmpl.Execute(&body, struct{ Code string }{Code: code}); err != nil {
+		return fmt.Errorf("template render failed: %w", err)
+	}
 
 	msg := fmt.Sprintf("From: %s <%s>\r\n"+
 		"To: %s\r\n"+
 		"MIME-Version: 1.0\r\n"+
 		"Content-Type: text/html; charset=UTF-8\r\n"+
 		"Subject: %s\r\n\r\n%s",
-		cfg.FromName, cfg.From, to, subject, body)
+		cfg.FromName, cfg.From, to, subject, body.String())
 
 	if err := sendMail(cfg, []string{to}, []byte(msg)); err != nil {
 		log.Printf("[Email] Failed to send reset email to %s: %v", to, err)

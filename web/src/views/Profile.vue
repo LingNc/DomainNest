@@ -84,7 +84,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="数量">
-          <el-input-number v-model="grantForm.amount" :min="1" :max="profile.invite_limit - profile.invite_count" />
+          <el-input-number v-model="grantForm.amount" :min="1" :max="auth.isSuperAdmin ? undefined : profile.invite_limit - profile.invite_count" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="granting" @click="handleGrantInvite">分配</el-button>
@@ -325,10 +325,12 @@ const handleGrantInvite = async () => {
     ElMessage.warning('请输入目标用户 ID')
     return
   }
-  const available = profile.value.invite_limit - profile.value.invite_count
-  if (grantForm.amount > available) {
-    ElMessage.warning('超出可用额度')
-    return
+  if (!auth.isSuperAdmin) {
+    const available = profile.value.invite_limit - profile.value.invite_count
+    if (grantForm.amount > available) {
+      ElMessage.warning('超出可用额度')
+      return
+    }
   }
   granting.value = true
   try {

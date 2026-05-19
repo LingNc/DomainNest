@@ -91,31 +91,14 @@
                 </div>
               </el-option>
             </el-select>
-            <el-select v-model="logFilters.action" placeholder="操作类型" clearable size="small" style="width:140px">
-              <el-option label="注册" value="register" />
-              <el-option label="登录" value="login" />
-              <el-option label="创建域名" value="create_domain" />
-              <el-option label="转让域名" value="transfer_domain" />
-              <el-option label="删除域名" value="delete_domain" />
-              <el-option label="创建记录" value="create_record" />
-              <el-option label="更新记录" value="update_record" />
-              <el-option label="删除记录" value="delete_record" />
-              <el-option label="切换记录" value="toggle_record" />
-              <el-option label="批量删除" value="batch_delete" />
-              <el-option label="授权" value="grant_permission" />
-              <el-option label="撤销权限" value="revoke_permission" />
-              <el-option label="回收请求" value="revoke_request" />
-              <el-option label="接受回收" value="accept_return" />
-              <el-option label="拒绝回收" value="reject_return" />
-              <el-option label="分配邀请" value="grant_invite" />
-              <el-option label="收回邀请" value="revoke_invite" />
-              <el-option label="管理员分配" value="admin_grant" />
+            <el-input v-model="logFilters.q" placeholder="关键词搜索" clearable size="small" style="width:160px" />
+            <el-select v-model="logFilters.action" placeholder="操作类型" clearable filterable size="small" style="width:160px">
+              <el-option-group v-for="group in actionGroups" :key="group.label" :label="group.label">
+                <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+              </el-option-group>
             </el-select>
-            <el-select v-model="logFilters.target_type" placeholder="目标类型" clearable size="small" style="width:120px">
-              <el-option label="域名节点" value="domain_node" />
-              <el-option label="DNS 记录" value="dns_record" />
-              <el-option label="用户" value="user" />
-              <el-option label="设置" value="setting" />
+            <el-select v-model="logFilters.target_type" placeholder="目标类型" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
+              <el-option v-for="item in targetTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
             <el-date-picker v-model="logFilters.dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" size="small" style="width:260px" value-format="YYYY-MM-DD" />
             <el-button size="small" type="primary" @click="loadLogs">搜索</el-button>
@@ -277,6 +260,7 @@ import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updat
 import { listProviders, listProviderDomains } from '../api/provider'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { actionGroups, targetTypeOptions } from '../constants/operationLogs'
 
 const auth = useAuthStore()
 
@@ -308,7 +292,7 @@ const smtpForm = reactive({ host: '', port: 587, username: '', password: '', fro
 const testingSMTP = ref(false)
 const testEmail = ref('')
 
-const logFilters = reactive({ user_id: '', action: '', target_type: '', dateRange: null })
+const logFilters = reactive({ user_id: '', action: '', target_type: [], q: '', dateRange: null })
 
 const keyMap = { username: '用户名', full_domain: '域名', host: '主机记录', type: '记录类型', value: '记录值', amount: '数量', enabled: '状态', ids: '记录ID', target_user_id: '目标用户', invited_by: '邀请人', provider_name: '提供商' }
 
@@ -372,7 +356,8 @@ const loadLogs = async () => {
   const params = { page: logPage.value, page_size: logPageSize.value }
   if (logFilters.user_id) params.user_id = logFilters.user_id
   if (logFilters.action) params.action = logFilters.action
-  if (logFilters.target_type) params.target_type = logFilters.target_type
+  if (logFilters.target_type.length > 0) params.target_type = logFilters.target_type.join(',')
+  if (logFilters.q) params.q = logFilters.q
   if (logFilters.dateRange && logFilters.dateRange.length === 2) {
     params.start_time = logFilters.dateRange[0]
     params.end_time = logFilters.dateRange[1]
@@ -385,7 +370,8 @@ const loadLogs = async () => {
 const resetLogFilters = () => {
   logFilters.user_id = ''
   logFilters.action = ''
-  logFilters.target_type = ''
+  logFilters.target_type = []
+  logFilters.q = ''
   logFilters.dateRange = null
   logPage.value = 1
   loadLogs()
@@ -407,7 +393,9 @@ const loadSMTP = async () => {
     const res = await getSettings('smtp')
     if (res.data) {
       Object.assign(smtpForm, res.data)
-      if (!testEmail.value && smtpForm.username) {
+      if (res.data.test_email) {
+        testEmail.value = res.data.test_email
+      } else if (!testEmail.value && smtpForm.username) {
         testEmail.value = smtpForm.username
       }
     }
@@ -520,7 +508,7 @@ const handleEnable = async (row) => {
 }
 
 const handleSaveSMTP = async () => {
-  await updateSettings('smtp', smtpForm)
+  await updateSettings('smtp', { ...smtpForm, test_email: testEmail.value })
   ElMessage.success('SMTP 配置已保存')
 }
 

@@ -6,27 +6,14 @@
     </div>
     <el-card>
       <div class="filter-bar">
-        <el-select v-model="filters.action" placeholder="操作类型" clearable size="small" style="width:140px" @change="loadLogs">
-          <el-option label="注册" value="register" />
-          <el-option label="登录" value="login" />
-          <el-option label="创建域名" value="create_domain" />
-          <el-option label="转让域名" value="transfer_domain" />
-          <el-option label="删除域名" value="delete_domain" />
-          <el-option label="创建记录" value="create_record" />
-          <el-option label="更新记录" value="update_record" />
-          <el-option label="删除记录" value="delete_record" />
-          <el-option label="切换记录" value="toggle_record" />
-          <el-option label="批量删除" value="batch_delete" />
-          <el-option label="授权" value="grant_permission" />
-          <el-option label="撤销权限" value="revoke_permission" />
-          <el-option label="分配邀请" value="grant_invite" />
-          <el-option label="收回邀请" value="revoke_invite" />
+        <el-input v-model="filters.q" placeholder="关键词搜索" clearable size="small" style="width:160px" />
+        <el-select v-model="filters.action" placeholder="操作类型" clearable filterable size="small" style="width:160px" @change="loadLogs">
+          <el-option-group v-for="group in actionGroups" :key="group.label" :label="group.label">
+            <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+          </el-option-group>
         </el-select>
-        <el-select v-model="filters.target_type" placeholder="目标类型" clearable size="small" style="width:120px" @change="loadLogs">
-          <el-option label="域名节点" value="domain_node" />
-          <el-option label="DNS 记录" value="dns_record" />
-          <el-option label="用户" value="user" />
-          <el-option label="设置" value="setting" />
+        <el-select v-model="filters.target_type" placeholder="目标类型" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px" @change="loadLogs">
+          <el-option v-for="item in targetTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
         <el-date-picker v-model="filters.dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" size="small" style="width:260px" value-format="YYYY-MM-DD" />
         <el-button size="small" type="primary" @click="loadLogs">搜索</el-button>
@@ -59,6 +46,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { getMyLogs } from '../api/auth'
+import { actionGroups, targetTypeOptions } from '../constants/operationLogs'
 
 const logs = ref([])
 const loading = ref(false)
@@ -80,14 +68,15 @@ const formatDetailValue = (val) => {
   return String(val)
 }
 
-const filters = reactive({ action: '', target_type: '', dateRange: null })
+const filters = reactive({ action: '', target_type: [], q: '', dateRange: null })
 
 const loadLogs = async () => {
   loading.value = true
   try {
     const params = { page: page.value, page_size: pageSize.value }
     if (filters.action) params.action = filters.action
-    if (filters.target_type) params.target_type = filters.target_type
+    if (filters.target_type.length > 0) params.target_type = filters.target_type.join(',')
+    if (filters.q) params.q = filters.q
     if (filters.dateRange && filters.dateRange.length === 2) {
       params.start_time = filters.dateRange[0]
       params.end_time = filters.dateRange[1]
@@ -102,7 +91,8 @@ const loadLogs = async () => {
 
 const resetFilters = () => {
   filters.action = ''
-  filters.target_type = ''
+  filters.target_type = []
+  filters.q = ''
   filters.dateRange = null
   page.value = 1
   loadLogs()

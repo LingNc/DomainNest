@@ -151,19 +151,7 @@ func (h *AdminHandler) ListLogs(c *gin.Context) {
 	if userID != "" {
 		query = query.Where("user_id = ?", userID)
 	}
-	// Enhanced filters
-	if action := c.Query("action"); action != "" {
-		query = query.Where("action = ?", action)
-	}
-	if targetType := c.Query("target_type"); targetType != "" {
-		query = query.Where("target_type = ?", targetType)
-	}
-	if startTime := c.Query("start_time"); startTime != "" {
-		query = query.Where("created_at >= ?", startTime)
-	}
-	if endTime := c.Query("end_time"); endTime != "" {
-		query = query.Where("created_at <= ?", endTime)
-	}
+	query = applyLogFilters(query, c)
 
 	var total int64
 	query.Count(&total)
