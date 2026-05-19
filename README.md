@@ -8,7 +8,8 @@
 - 用户管理：个人信息编辑、密码修改、DDNS Token 重置
 - 密码找回：通过注册邮箱发送重置链接
 - 域名树管理：创建子域名、转让、删除，无限级细分
-- DNS 记录管理：A/AAAA/CNAME/TXT/MX，实时同步阿里云
+- DNS 记录管理：A/AAAA/CNAME/TXT/MX，通过用户自定义提供商实时同步
+- DNS 提供商管理：用户添加自己的阿里云 AK/SK，验证后认领域名并管理
 - DDNS 双端点：支持 ddns-go 的 Callback 和 Webhook 两种模式
 - 管理后台：用户管理（编辑/禁用/重置密码）、域名分配、操作日志
 - 响应式 Web 界面（Vue3 + Element Plus）
@@ -39,7 +40,7 @@ mysql -u root -e "CREATE DATABASE domainnest CHARACTER SET utf8mb4;"
 
 # 2. 修改配置
 cp config.yaml.example config.yaml
-# 编辑 config.yaml，填入数据库密码和阿里云 AK/SK
+# 编辑 config.yaml，填入数据库密码
 
 # 3. 启动后端
 go run ./cmd/server/
@@ -68,10 +69,6 @@ jwt:
   secret: "换成随机字符串"  # 用 openssl rand -hex 32 生成
   expire_hours: 24
 
-aliyun:
-  access_key_id: "你的阿里云 AK"
-  access_key_secret: "你的阿里云 SK"
-  endpoint: alidns.aliyuncs.com
 
 admin:
   username: admin
@@ -124,6 +121,9 @@ Token 在登录后 → 个人信息页面查看或重置。
 | `/api/v1/domains/:id/records` | GET/POST | JWT | DNS 记录列表/创建 |
 | `/api/v1/ddns/callback` | POST | Token | DDNS Callback 更新 |
 | `/api/v1/ddns/webhook` | POST | Token | DDNS Webhook 更新 |
+| `/api/v1/providers` | GET/POST | JWT | DNS 提供商列表/添加 |
+| `/api/v1/providers/:id/domains` | GET | JWT | 提供商管理的域名列表 |
+| `/api/v1/providers/:id/claim` | POST | JWT | 认领域名 |
 | `/api/v1/admin/users` | GET | JWT+Admin | 用户列表 |
 | `/api/v1/admin/users/:id` | PUT/DELETE | JWT+Admin | 编辑/禁用用户 |
 | `/api/v1/admin/users/:id/reset-password` | POST | JWT+Admin | 管理员重置密码 |
@@ -138,7 +138,7 @@ internal/
   handler/           HTTP 处理器
   service/           业务逻辑
   middleware/         认证、日志
-  aliyun/            阿里云 DNS SDK
+  aliyun/            DNS 提供商 SDK
   router/            路由注册
   static/            前端 embed
 web/                 Vue3 前端

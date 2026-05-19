@@ -13,11 +13,6 @@ jwt:
   secret: "change-me-to-a-random-secret"
   expire_hours: 24
 
-aliyun:
-  access_key_id: ""
-  access_key_secret: ""
-  endpoint: alidns.aliyuncs.com
-
 admin:
   username: admin
   password: "admin123"
