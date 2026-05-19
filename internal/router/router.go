@@ -110,6 +110,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		admin.PUT("/users/:id", adminHandler.UpdateUser)
 		admin.POST("/users/:id/reset-password", adminHandler.AdminResetPassword)
 		admin.DELETE("/users/:id", adminHandler.DisableUser)
+		admin.POST("/users/:id/promote", adminHandler.PromoteToAdmin)
+		admin.POST("/users/:id/demote", adminHandler.DemoteFromAdmin)
 		admin.GET("/logs", adminHandler.ListLogs)
 		admin.POST("/records/:id/sync", adminHandler.RetrySync)
 		admin.GET("/settings/:category", settingsHandler.Get)

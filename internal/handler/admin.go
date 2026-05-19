@@ -254,3 +254,75 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user disabled"})
 }
+
+func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
+	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		return
+	}
+
+	// Check caller is super_admin
+	callerID := c.GetUint64("user_id")
+	var caller model.User
+	if err := h.db.First(&caller, callerID).Error; err != nil || !caller.IsSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "only super_admin can promote users"})
+		return
+	}
+
+	var target model.User
+	if err := h.db.First(&target, targetID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+		return
+	}
+
+	if target.Role == "admin" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user is already admin"})
+		return
+	}
+
+	if err := h.db.Model(&target).Update("role", "admin").Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user promoted to admin"})
+}
+
+func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
+	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		return
+	}
+
+	callerID := c.GetUint64("user_id")
+	var caller model.User
+	if err := h.db.First(&caller, callerID).Error; err != nil || !caller.IsSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "only super_admin can demote admins"})
+		return
+	}
+
+	var target model.User
+	if err := h.db.First(&target, targetID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+		return
+	}
+
+	if target.IsSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "cannot demote super_admin"})
+		return
+	}
+
+	if target.Role != "admin" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user is not admin"})
+		return
+	}
+
+	if err := h.db.Model(&target).Update("role", "user").Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "admin demoted to user"})
+}
