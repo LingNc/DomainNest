@@ -35,7 +35,16 @@
         <el-table-column prop="action" label="操作" min-width="120" />
         <el-table-column prop="target_type" label="目标类型" min-width="100" />
         <el-table-column prop="ip_address" label="IP 地址" width="130" />
-        <el-table-column prop="detail" label="详情" min-width="200" show-overflow-tooltip />
+        <el-table-column label="详情" min-width="200">
+          <template #default="{ row }">
+            <template v-if="row.detail && row.detail !== 'null'">
+              <el-tag v-for="(val, key) in parseDetail(row.detail)" :key="key" size="small" style="margin:2px" type="info">
+                {{ formatDetailKey(key) }}: {{ formatDetailValue(val) }}
+              </el-tag>
+            </template>
+            <span v-else style="color:#909399">-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="时间" width="170" />
       </el-table>
       <el-empty v-if="!loading && logs.length === 0" description="暂无操作记录" />
@@ -55,6 +64,20 @@ const loading = ref(false)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+
+const keyMap = { username: '用户名', full_domain: '域名', host: '主机记录', type: '记录类型', value: '记录值', amount: '数量', enabled: '状态', ids: '记录ID', target_user_id: '目标用户', invited_by: '邀请人', provider_name: '提供商' }
+
+const parseDetail = (json) => {
+  try { return JSON.parse(json) } catch { return {} }
+}
+
+const formatDetailKey = (key) => keyMap[key] || key
+
+const formatDetailValue = (val) => {
+  if (Array.isArray(val)) return val.join(', ')
+  if (typeof val === 'boolean') return val ? '启用' : '禁用'
+  return String(val)
+}
 
 const filters = reactive({ action: '', target_type: '', dateRange: null })
 
