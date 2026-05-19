@@ -11,6 +11,7 @@ const routes = [
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { requiresAuth: true } },
   { path: '/profile', name: 'Profile', component: () => import('../views/Profile.vue'), meta: { requiresAuth: true } },
   { path: '/permissions', name: 'MyPermissions', component: () => import('../views/MyPermissions.vue'), meta: { requiresAuth: true } },
+  { path: '/ram-tokens', name: 'RAMTokens', component: () => import('../views/RAMTokens.vue'), meta: { requiresAuth: true } },
   { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/', redirect: '/dashboard' },
 ]

@@ -41,6 +41,10 @@
           <el-icon><component :is="'Key'" /></el-icon>
           <span>我的权限</span>
         </el-menu-item>
+        <el-menu-item index="/ram-tokens">
+          <el-icon><component :is="'Tickets'" /></el-icon>
+          <span>API Tokens</span>
+        </el-menu-item>
         <el-menu-item v-if="auth.isAdmin" index="/admin">
           <el-icon><component :is="'UserFilled'" /></el-icon>
           <span>管理后台</span>
