@@ -44,6 +44,10 @@
           <el-icon><component :is="'Setting'" /></el-icon>
           <span>系统设置</span>
         </el-menu-item>
+        <el-menu-item index="/providers">
+          <el-icon><component :is="'Cloud'" /></el-icon>
+          <span>DNS 提供商</span>
+        </el-menu-item>
         <el-menu-item index="/profile">
           <el-icon><component :is="'User'" /></el-icon>
           <span>个人信息</span>
@@ -118,6 +122,7 @@ onUnmounted(() => {
 const activeMenu = computed(() => {
   if (route.path.startsWith('/admin')) return '/admin'
   if (route.path.startsWith('/settings')) return '/settings'
+  if (route.path.startsWith('/providers')) return '/providers'
   if (route.path.startsWith('/profile')) return '/profile'
   if (route.path.startsWith('/my-logs')) return '/my-logs'
   if (route.path.startsWith('/permissions')) return '/permissions'

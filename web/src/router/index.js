@@ -16,6 +16,7 @@ const routes = [
   { path: '/messages', name: 'Messages', component: () => import('../views/Messages.vue'), meta: { requiresAuth: true } },
   { path: '/messages/:id', name: 'Chat', component: () => import('../views/Chat.vue'), meta: { requiresAuth: true } },
   { path: '/my-logs', name: 'MyLogs', component: () => import('../views/MyLogs.vue'), meta: { requiresAuth: true } },
+  { path: '/providers', name: 'Providers', component: () => import('../views/Providers.vue'), meta: { requiresAuth: true } },
   { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/', redirect: '/dashboard' },
 ]
