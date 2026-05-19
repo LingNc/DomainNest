@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"domainnest/internal/model"
 
@@ -369,6 +370,101 @@ func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int)
 		InviteeID: inviteeID,
 		Action:    "revoke",
 		Amount:    amount,
+	}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+func (s *AuthService) DeleteAccount(userID uint64) error {
+	var user model.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return errors.New("user not found")
+	}
+	if user.IsSuperAdmin {
+		return errors.New("super admin cannot delete account")
+	}
+
+	tx := s.db.Begin()
+
+	// If user has an inviter, transfer dependencies
+	if user.InvitedBy != nil {
+		inviterID := *user.InvitedBy
+
+		// 1. Transfer owned domains to inviter
+		if err := tx.Model(&model.DomainNode{}).Where("owner_id = ?", userID).
+			Update("owner_id", inviterID).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 2. Delete permissions where user is grantee
+		if err := tx.Where("user_id = ?", userID).Delete(&model.DomainPermission{}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 3. Transfer permissions where user is grantor to inviter
+		if err := tx.Model(&model.DomainPermission{}).Where("created_by = ?", userID).
+			Update("created_by", inviterID).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 4. Reclaim unused invite quota to inviter
+		unusedQuota := user.InviteLimit - user.InviteCount
+		if unusedQuota > 0 {
+			if err := tx.Model(&model.User{}).Where("id = ?", inviterID).
+				UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", unusedQuota)).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+		// Also free the registration slot
+		if err := tx.Model(&model.User{}).Where("id = ?", inviterID).
+			UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 5. Create InviteLog for the reclaim
+		tx.Create(&model.InviteLog{
+			InviterID: inviterID,
+			InviteeID: userID,
+			Action:    "revoke",
+			Amount:    unusedQuota,
+		})
+	} else {
+		// No inviter — just zero out quota
+		tx.Model(&user).UpdateColumn("invite_limit", 0)
+	}
+
+	// Clean up user's RAM tokens
+	if err := tx.Where("user_id = ?", userID).Delete(&model.RAMToken{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Clean up friendships (both directions)
+	tx.Where("user_id = ? OR friend_id = ?", userID, userID).Delete(&model.Friendship{})
+
+	// Clean up friend requests
+	tx.Where("sender_id = ? OR receiver_id = ?", userID, userID).Delete(&model.FriendRequest{})
+
+	// Soft-delete: anonymize user instead of hard delete (preserve audit trail)
+	deletedName := fmt.Sprintf("deleted_%d", userID)
+	if err := tx.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"username":     deletedName,
+		"nickname":     "已注销用户",
+		"email":        "",
+		"phone":        "",
+		"avatar":       "",
+		"password":     "!",
+		"status":       0,
+		"invite_limit": 0,
+		"invite_count": 0,
 	}).Error; err != nil {
 		tx.Rollback()
 		return err

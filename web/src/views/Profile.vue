@@ -175,16 +175,28 @@
       </el-descriptions>
       <el-button type="danger" size="small" style="margin-top:12px" @click="handleResetToken">重置 Token</el-button>
     </el-card>
+
+    <el-card style="margin-top:16px">
+      <template #header>
+        <span>注销账号</span>
+      </template>
+      <p style="color:#f56c6c;font-size:13px;margin-bottom:12px">
+        注销后，您的域名和权限将转移给邀请您的人，此操作不可撤销。
+      </p>
+      <el-button type="danger" :loading="deleting" @click="handleDeleteAccount">注销账号</el-button>
+    </el-card>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs, searchAllUsers } from '../api/auth'
+import { useRouter } from 'vue-router'
+import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs, searchAllUsers, deleteAccount } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const auth = useAuthStore()
+const router = useRouter()
 const profile = ref({})
 const saving = ref(false)
 const changingPwd = ref(false)
@@ -203,6 +215,7 @@ const inviteLogs = ref([])
 const loadingInviteLogs = ref(false)
 const inviteLogPage = ref(1)
 const inviteLogTotal = ref(0)
+const deleting = ref(false)
 
 const loadProfile = async () => {
   const res = await getProfile()
@@ -376,6 +389,27 @@ const handleAvatarUpload = async ({ file }) => {
     ElMessage.success('头像上传成功')
   } catch (e) {
     ElMessage.error('上传失败: ' + (e.response?.data?.message || e.message))
+  }
+}
+
+const handleDeleteAccount = async () => {
+  try {
+    await ElMessageBox.confirm('确定要注销账号吗？您的所有域名和权限将转移给邀请您的人，此操作不可撤销。', '注销确认', {
+      confirmButtonText: '确定注销',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch { return }
+  deleting.value = true
+  try {
+    await deleteAccount()
+    ElMessage.success('账号已注销')
+    auth.clearAuth()
+    router.push('/login')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '注销失败')
+  } finally {
+    deleting.value = false
   }
 }
 </script>

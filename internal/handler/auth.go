@@ -472,3 +472,12 @@ func (h *AuthHandler) GetInviteLogs(c *gin.Context) {
 		},
 	})
 }
+
+func (h *AuthHandler) DeleteAccount(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	if err := h.authService.DeleteAccount(userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "account deleted"})
+}
