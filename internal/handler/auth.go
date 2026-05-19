@@ -353,12 +353,29 @@ func (h *AuthHandler) MyLogs(c *gin.Context) {
 		pageSize = 20
 	}
 
+	query := h.db.Model(&model.OperationLog{}).Where("user_id = ?", userID)
+
+	// Filter by action type
+	if action := c.Query("action"); action != "" {
+		query = query.Where("action = ?", action)
+	}
+	// Filter by target type
+	if targetType := c.Query("target_type"); targetType != "" {
+		query = query.Where("target_type = ?", targetType)
+	}
+	// Filter by date range
+	if startTime := c.Query("start_time"); startTime != "" {
+		query = query.Where("created_at >= ?", startTime)
+	}
+	if endTime := c.Query("end_time"); endTime != "" {
+		query = query.Where("created_at <= ?", endTime)
+	}
+
 	var total int64
-	h.db.Model(&model.OperationLog{}).Where("user_id = ?", userID).Count(&total)
+	query.Count(&total)
 
 	var logs []model.OperationLog
-	h.db.Where("user_id = ?", userID).
-		Order("created_at DESC").
+	query.Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&logs)

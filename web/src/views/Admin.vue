@@ -83,6 +83,39 @@
 
         <!-- 操作日志 -->
         <el-tab-pane label="操作日志" name="logs">
+          <div class="filter-bar">
+            <el-select v-model="logFilters.user_id" placeholder="用户" clearable filterable size="small" style="width:160px">
+              <el-option v-for="u in users" :key="u.id" :label="u.username" :value="u.id" />
+            </el-select>
+            <el-select v-model="logFilters.action" placeholder="操作类型" clearable size="small" style="width:140px">
+              <el-option label="注册" value="register" />
+              <el-option label="登录" value="login" />
+              <el-option label="创建域名" value="create_domain" />
+              <el-option label="转让域名" value="transfer_domain" />
+              <el-option label="删除域名" value="delete_domain" />
+              <el-option label="创建记录" value="create_record" />
+              <el-option label="更新记录" value="update_record" />
+              <el-option label="删除记录" value="delete_record" />
+              <el-option label="切换记录" value="toggle_record" />
+              <el-option label="批量删除" value="batch_delete" />
+              <el-option label="授权" value="grant_permission" />
+              <el-option label="撤销权限" value="revoke_permission" />
+              <el-option label="回收请求" value="revoke_request" />
+              <el-option label="接受回收" value="accept_return" />
+              <el-option label="拒绝回收" value="reject_return" />
+              <el-option label="分配邀请" value="grant_invite" />
+              <el-option label="管理员分配" value="admin_grant" />
+            </el-select>
+            <el-select v-model="logFilters.target_type" placeholder="目标类型" clearable size="small" style="width:120px">
+              <el-option label="域名节点" value="domain_node" />
+              <el-option label="DNS 记录" value="dns_record" />
+              <el-option label="用户" value="user" />
+              <el-option label="设置" value="setting" />
+            </el-select>
+            <el-date-picker v-model="logFilters.dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" size="small" style="width:260px" value-format="YYYY-MM-DD" />
+            <el-button size="small" type="primary" @click="loadLogs">搜索</el-button>
+            <el-button size="small" @click="resetLogFilters">重置</el-button>
+          </div>
           <el-table :data="logs" stripe v-loading="loading" style="width:100%">
             <el-table-column prop="id" label="ID" width="60" />
             <el-table-column label="用户" min-width="120">
@@ -99,9 +132,10 @@
             <el-table-column prop="ip_address" label="IP 地址" width="130" />
             <el-table-column prop="created_at" label="时间" width="170" />
           </el-table>
+          <el-pagination v-if="logTotal > 0" :current-page="logPage" :page-size="logPageSize" :total="logTotal"
+            layout="total, sizes, prev, pager, next" :page-sizes="[20, 50, 100]"
+            @current-change="handleLogPageChange" @size-change="handleLogSizeChange" style="margin-top:16px" />
         </el-tab-pane>
-
-        <!-- 系统设置 -->
         <el-tab-pane label="系统设置" name="settings">
           <el-form :model="smtpForm" label-width="100px" style="max-width:560px">
             <el-divider content-position="left">SMTP 邮件配置</el-divider>
@@ -239,23 +273,61 @@ const newPassword = ref('')
 const smtpForm = reactive({ host: '', port: 465, username: '', password: '', from: '', from_name: 'DomainNest' })
 const testingSMTP = ref(false)
 
+const logFilters = reactive({ user_id: '', action: '', target_type: '', dateRange: null })
+const logPage = ref(1)
+const logPageSize = ref(20)
+const logTotal = ref(0)
+
 const editInviteWarning = ref('')
 
 const loadData = async () => {
   loading.value = true
   try {
-    const [usersRes, logsRes, domainsRes] = await Promise.all([
+    const [usersRes, domainsRes] = await Promise.all([
       listUsers(),
-      listLogs({ page: 1, page_size: 50 }),
       listDomains()
     ])
     users.value = usersRes.data
-    logs.value = logsRes.data.items
     allDomains.value = domainsRes.data
+    await loadLogs()
   } finally {
     loading.value = false
   }
   loadSMTP()
+}
+
+const loadLogs = async () => {
+  const params = { page: logPage.value, page_size: logPageSize.value }
+  if (logFilters.user_id) params.user_id = logFilters.user_id
+  if (logFilters.action) params.action = logFilters.action
+  if (logFilters.target_type) params.target_type = logFilters.target_type
+  if (logFilters.dateRange && logFilters.dateRange.length === 2) {
+    params.start_time = logFilters.dateRange[0]
+    params.end_time = logFilters.dateRange[1]
+  }
+  const logsRes = await listLogs(params)
+  logs.value = logsRes.data.items
+  logTotal.value = logsRes.data.total
+}
+
+const resetLogFilters = () => {
+  logFilters.user_id = ''
+  logFilters.action = ''
+  logFilters.target_type = ''
+  logFilters.dateRange = null
+  logPage.value = 1
+  loadLogs()
+}
+
+const handleLogPageChange = (p) => {
+  logPage.value = p
+  loadLogs()
+}
+
+const handleLogSizeChange = (s) => {
+  logPageSize.value = s
+  logPage.value = 1
+  loadLogs()
 }
 
 const loadSMTP = async () => {
@@ -411,6 +483,13 @@ onMounted(loadData)
   margin-bottom: 16px;
   color: #303133;
   font-size: 14px;
+}
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 @media (max-width: 768px) {
