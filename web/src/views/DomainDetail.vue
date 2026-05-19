@@ -195,11 +195,12 @@
       <el-form :model="grantForm" label-width="100px">
         <el-form-item label="用户">
           <el-select v-model="grantForm.target_user_id" filterable placeholder="搜索用户" style="width:100%">
-            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.username} (ID: ${u.id})`" :value="u.id">
+            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
                 <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
-                <span>{{ u.username }}</span>
+                <span>{{ u.nickname || u.username }}</span>
+                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
               </div>
             </el-option>
           </el-select>
@@ -382,7 +383,16 @@
       </el-alert>
       <el-form :model="transferForm" label-width="80px">
         <el-form-item label="目标用户">
-          <el-input-number v-model="transferForm.target_user_id" :min="1" />
+          <el-select v-model="transferForm.target_user_id" filterable placeholder="搜索用户" style="width:100%">
+            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+              <div style="display:flex;align-items:center;gap:8px">
+                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ u.nickname || u.username }}</span>
+                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
+              </div>
+            </el-option>
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -405,8 +415,15 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item v-if="returnForm.action === 'transfer'" label="目标用户">
-          <el-select v-model="returnForm.target_user_id" filterable placeholder="选择用户" style="width:100%">
-            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.username} (ID: ${u.id})`" :value="u.id" />
+          <el-select v-model="returnForm.target_user_id" filterable placeholder="搜索用户" style="width:100%">
+            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+              <div style="display:flex;align-items:center;gap:8px">
+                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ u.nickname || u.username }}</span>
+                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
+              </div>
+            </el-option>
           </el-select>
         </el-form-item>
       </el-form>
@@ -474,7 +491,7 @@ const editForm = ref({ id: null, host: '', record_type: '', value: '', ttl: 600,
 const srvForm = ref({ priority: 0, weight: 0, port: 0, target: '' })
 const caaForm = ref({ flag: 0, tag: 'issue', value: '' })
 const childForm = ref({ host: '' })
-const transferForm = ref({ target_user_id: 1 })
+const transferForm = ref({ target_user_id: null })
 
 const pendingRecords = ref([])
 const selectedPendingIds = ref([])

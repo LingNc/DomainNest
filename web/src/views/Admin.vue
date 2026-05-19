@@ -83,7 +83,13 @@
         <el-tab-pane label="操作日志" name="logs">
           <div class="filter-bar">
             <el-select v-model="logFilters.user_id" placeholder="用户" clearable filterable size="small" style="width:160px">
-              <el-option v-for="u in users" :key="u.id" :label="u.username" :value="u.id" />
+              <el-option v-for="u in users" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <el-avatar v-if="u.avatar" :src="u.avatar" :size="20" />
+                  <el-avatar v-else :size="20">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                  <span>{{ u.nickname || u.username }}</span>
+                </div>
+              </el-option>
             </el-select>
             <el-select v-model="logFilters.action" placeholder="操作类型" clearable size="small" style="width:140px">
               <el-option label="注册" value="register" />
@@ -183,13 +189,14 @@
         <el-option
           v-for="u in users"
           :key="u.id"
-          :label="`${u.username} (ID: ${u.id})`"
+          :label="`${u.nickname || u.username} (@${u.username})`"
           :value="u.id"
         >
           <div style="display:flex;align-items:center;gap:8px">
             <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
             <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
-            <span>{{ u.username }}</span>
+            <span>{{ u.nickname || u.username }}</span>
+            <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
           </div>
         </el-option>
       </el-select>

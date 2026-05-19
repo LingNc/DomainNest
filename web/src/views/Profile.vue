@@ -72,7 +72,16 @@
       </template>
       <el-form :model="grantForm" label-width="80px" style="max-width:480px">
         <el-form-item label="目标用户">
-          <el-input-number v-model="grantForm.target_user_id" :min="1" placeholder="用户 ID" />
+          <el-select v-model="grantForm.target_user_id" placeholder="搜索用户" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" style="width:100%">
+            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+              <div style="display:flex;align-items:center;gap:8px">
+                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ u.nickname || u.username }}</span>
+                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
+              </div>
+            </el-option>
+          </el-select>
         </el-form-item>
         <el-form-item label="数量">
           <el-input-number v-model="grantForm.amount" :min="1" :max="profile.invite_limit - profile.invite_count" />
@@ -145,6 +154,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, getInviteLogs } from '../api/auth'
+import { searchUsers } from '../api/friend'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
@@ -159,6 +169,8 @@ const pwdForm = reactive({ old_password: '', new_password: '' })
 
 const grantForm = reactive({ target_user_id: null, amount: 1 })
 const granting = ref(false)
+const selectableUsers = ref([])
+const searchingUsers = ref(false)
 const inviteLogs = ref([])
 const loadingInviteLogs = ref(false)
 const inviteLogPage = ref(1)
@@ -256,6 +268,16 @@ const copyCode = () => {
 const copyToken = () => {
   navigator.clipboard.writeText(profile.value.ddns_token)
   ElMessage.success('已复制')
+}
+
+const searchUsersRemote = async (query) => {
+  if (!query) { selectableUsers.value = []; return }
+  searchingUsers.value = true
+  try {
+    const res = await searchUsers(query)
+    selectableUsers.value = res.data || []
+  } catch { /* ignore */ }
+  searchingUsers.value = false
 }
 
 const handleGrantInvite = async () => {
