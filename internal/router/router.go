@@ -18,7 +18,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	ddnsService *service.DDNSService, emailService *service.EmailService,
 	settingsService *service.SettingsService, permissionService *service.PermissionService,
 	ramTokenService *service.RAMTokenService, friendService *service.FriendService,
-	messageService *service.MessageService) *gin.Engine {
+	messageService *service.MessageService, providerService *service.ProviderService) *gin.Engine {
 
 	r := gin.Default()
 
@@ -49,6 +49,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	ramTokenHandler := handler.NewRAMTokenHandler(ramTokenService, db)
 	friendHandler := handler.NewFriendHandler(friendService, db)
 	messageHandler := handler.NewMessageHandler(messageService, friendService, db)
+	providerHandler := handler.NewProviderHandler(providerService, db)
 
 	v1 := r.Group("/api/v1")
 
@@ -168,6 +169,18 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		messages.GET("/unread-count", messageHandler.UnreadCount)
 		messages.GET("/:id", messageHandler.GetMessages)
 		messages.POST("/:id/read", messageHandler.MarkAsRead)
+	}
+
+	providers := v1.Group("/providers")
+	providers.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
+	{
+		providers.GET("", providerHandler.List)
+		providers.POST("", providerHandler.Create)
+		providers.GET("/:id", providerHandler.Get)
+		providers.PUT("/:id", providerHandler.Update)
+		providers.DELETE("/:id", providerHandler.Delete)
+		providers.GET("/:id/domains", providerHandler.ListDomains)
+		providers.POST("/:id/claim", providerHandler.ClaimDomain)
 	}
 
 	return r
