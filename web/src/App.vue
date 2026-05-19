@@ -29,6 +29,17 @@
           <el-icon><component :is="'HomeFilled'" /></el-icon>
           <span>域名管理</span>
         </el-menu-item>
+        <el-menu-item index="/friends">
+          <el-icon><component :is="'Avatar'" /></el-icon>
+          <span>好友</span>
+        </el-menu-item>
+        <el-menu-item index="/messages">
+          <el-icon><component :is="'ChatDotRound'" /></el-icon>
+          <template #title>
+            <span>消息</span>
+            <el-badge v-if="unreadCount > 0" :value="unreadCount" :max="99" :offset="[10, 0]" />
+          </template>
+        </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><component :is="'Setting'" /></el-icon>
           <span>系统设置</span>
@@ -74,14 +85,35 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+import { getUnreadCount } from './api/message'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const sidebarOpen = ref(false)
+const unreadCount = ref(0)
+
+let unreadTimer = null
+
+const loadUnread = async () => {
+  if (!auth.isAuthed) return
+  try {
+    const res = await getUnreadCount()
+    unreadCount.value = res.data?.count || 0
+  } catch { /* ignore */ }
+}
+
+onMounted(() => {
+  loadUnread()
+  unreadTimer = setInterval(loadUnread, 15000)
+})
+
+onUnmounted(() => {
+  if (unreadTimer) clearInterval(unreadTimer)
+})
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/admin')) return '/admin'
@@ -89,6 +121,8 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/profile')) return '/profile'
   if (route.path.startsWith('/my-logs')) return '/my-logs'
   if (route.path.startsWith('/permissions')) return '/permissions'
+  if (route.path.startsWith('/messages')) return '/messages'
+  if (route.path.startsWith('/friends')) return '/friends'
   return '/dashboard'
 })
 

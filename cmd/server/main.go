@@ -39,12 +39,14 @@ func main() {
 	settingsService := service.NewSettingsService(db)
 	emailService := service.NewEmailServiceWithSettings(&cfg.SMTP, settingsService)
 	ramTokenService := service.NewRAMTokenService(db)
+	friendService := service.NewFriendService(db)
+	messageService := service.NewMessageService(db)
 
 	if err := authService.EnsureAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
 		log.Fatalf("Failed to ensure admin user: %v", err)
 	}
 
-	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService)
+	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Server starting on %s", addr)

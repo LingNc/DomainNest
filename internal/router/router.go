@@ -17,7 +17,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	domainService *service.DomainService, recordService *service.RecordService,
 	ddnsService *service.DDNSService, emailService *service.EmailService,
 	settingsService *service.SettingsService, permissionService *service.PermissionService,
-	ramTokenService *service.RAMTokenService) *gin.Engine {
+	ramTokenService *service.RAMTokenService, friendService *service.FriendService,
+	messageService *service.MessageService) *gin.Engine {
 
 	r := gin.Default()
 
@@ -46,6 +47,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	settingsHandler := handler.NewSettingsHandler(settingsService)
 	permissionHandler := handler.NewPermissionHandler(permissionService, db)
 	ramTokenHandler := handler.NewRAMTokenHandler(ramTokenService, db)
+	friendHandler := handler.NewFriendHandler(friendService, db)
+	messageHandler := handler.NewMessageHandler(messageService, friendService, db)
 
 	v1 := r.Group("/api/v1")
 
@@ -59,7 +62,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	}
 
 	authProtected := v1.Group("/auth")
-	authProtected.Use(middleware.JWTAuth(cfg.JWT.Secret))
+	authProtected.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
 	{
 		authProtected.GET("/profile", authHandler.GetProfile)
 		authProtected.PUT("/profile", authHandler.UpdateProfile)
@@ -68,10 +71,13 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		authProtected.POST("/avatar", authHandler.UploadAvatar)
 		authProtected.GET("/logs", authHandler.MyLogs)
 		authProtected.GET("/permissions", permissionHandler.MyPermissions)
+		authProtected.POST("/grant-invite", authHandler.GrantInviteQuota)
+		authProtected.GET("/invite-logs", authHandler.GetInviteLogs)
+		authProtected.GET("/pending-returns", permissionHandler.GetPendingReturns)
 	}
 
 	domains := v1.Group("/domains")
-	domains.Use(middleware.JWTAuth(cfg.JWT.Secret))
+	domains.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
 	{
 		domains.GET("", domainHandler.List)
 		domains.POST("", domainHandler.Create)
@@ -85,10 +91,16 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.GET("/:id/permissions", permissionHandler.List)
 		domains.POST("/:id/permissions", permissionHandler.Grant)
 		domains.DELETE("/:id/permissions/:userId", permissionHandler.Revoke)
+		domains.POST("/:id/permissions/:userId/revoke-request", permissionHandler.RevokeRequest)
+		domains.POST("/:id/permissions/:userId/accept-return", permissionHandler.AcceptReturn)
+		domains.POST("/:id/permissions/:userId/reject-return", permissionHandler.RejectReturn)
+		domains.GET("/:id/pending-records", permissionHandler.GetPendingRecords)
+		domains.POST("/:id/pending-records/assign", permissionHandler.AssignPendingRecords)
+		domains.POST("/:id/pending-records/delete", permissionHandler.DeletePendingRecords)
 	}
 
 	records := v1.Group("/records")
-	records.Use(middleware.JWTAuth(cfg.JWT.Secret))
+	records.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
 	{
 		records.PUT("/:id", recordHandler.Update)
 		records.DELETE("/:id", recordHandler.Delete)
@@ -106,7 +118,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	}
 
 	ramTokens := v1.Group("/ram-tokens")
-	ramTokens.Use(middleware.JWTAuth(cfg.JWT.Secret))
+	ramTokens.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
 	{
 		ramTokens.GET("", ramTokenHandler.List)
 		ramTokens.POST("", ramTokenHandler.Create)
@@ -117,7 +129,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	}
 
 	admin := v1.Group("/admin")
-	admin.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.AdminRequired())
+	admin.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.AdminRequired(), middleware.OnlineTracker(db))
 	{
 		admin.POST("/domains", adminHandler.CreateRootDomain)
 		admin.GET("/domains", adminHandler.ListDomains)
@@ -133,6 +145,29 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		admin.GET("/settings/:category", settingsHandler.Get)
 		admin.PUT("/settings/:category", settingsHandler.Set)
 		admin.POST("/settings/smtp/test", settingsHandler.TestSMTP)
+	}
+
+	friends := v1.Group("/friends")
+	friends.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
+	{
+		friends.GET("", friendHandler.ListFriends)
+		friends.POST("", friendHandler.SendRequest)
+		friends.DELETE("/:id", friendHandler.RemoveFriend)
+		friends.GET("/requests/pending", friendHandler.ListPendingRequests)
+		friends.GET("/requests/sent", friendHandler.ListSentRequests)
+		friends.POST("/requests/:id/accept", friendHandler.AcceptRequest)
+		friends.POST("/requests/:id/reject", friendHandler.RejectRequest)
+		friends.GET("/search", friendHandler.SearchUsers)
+	}
+
+	messages := v1.Group("/messages")
+	messages.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
+	{
+		messages.POST("", messageHandler.SendMessage)
+		messages.GET("/conversations", messageHandler.GetConversations)
+		messages.GET("/unread-count", messageHandler.UnreadCount)
+		messages.GET("/:id", messageHandler.GetMessages)
+		messages.POST("/:id/read", messageHandler.MarkAsRead)
 	}
 
 	return r

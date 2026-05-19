@@ -36,5 +36,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&SystemSetting{},
 		&DomainPermission{},
 		&RAMToken{},
+		&FriendRequest{},
+		&Friendship{},
+		&Message{},
+		&InviteLog{},
 	)
 }
