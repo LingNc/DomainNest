@@ -22,8 +22,8 @@
             <el-table-column prop="email" label="邮箱" min-width="140" show-overflow-tooltip />
             <el-table-column prop="role" label="角色" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.role === 'admin' ? 'danger' : 'info'" size="small">
-                  {{ row.role === 'admin' ? '管理员' : '普通用户' }}
+                <el-tag :type="row.is_super_admin ? 'warning' : row.role === 'admin' ? 'danger' : 'info'" size="small">
+                  {{ row.is_super_admin ? '超级管理员' : row.role === 'admin' ? '管理员' : '普通用户' }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -40,8 +40,8 @@
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="openEditUser(row)">编辑</el-button>
-                <el-button link type="warning" size="small" @click="openResetPwd(row)">重置密码</el-button>
-                <el-button v-if="row.status === 1" link type="danger" size="small" @click="handleDisable(row)">禁用</el-button>
+                <el-button link type="warning" size="small" :disabled="row.is_super_admin" @click="openResetPwd(row)">重置密码</el-button>
+                <el-button v-if="row.status === 1" link type="danger" size="small" :disabled="row.is_super_admin" @click="handleDisable(row)">禁用</el-button>
                 <el-button v-else link type="success" size="small" @click="handleEnable(row)">启用</el-button>
               </template>
             </el-table-column>
@@ -219,7 +219,7 @@
           <el-input v-model="editForm.username" />
         </el-form-item>
         <el-form-item label="角色">
-          <el-select v-model="editForm.role" style="width:100%">
+          <el-select v-model="editForm.role" style="width:100%" :disabled="editTarget?.is_super_admin">
             <el-option label="普通用户" value="user" />
             <el-option label="管理员" value="admin" />
           </el-select>

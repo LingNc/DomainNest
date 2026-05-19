@@ -386,6 +386,10 @@ func (s *AuthService) DeleteAccount(userID uint64) error {
 		return errors.New("user not found")
 	}
 
+	if user.IsSuperAdmin {
+		return errors.New("super admin account cannot be deleted")
+	}
+
 	tx := s.db.Begin()
 
 	// Determine transfer target for domains/permissions

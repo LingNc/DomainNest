@@ -30,7 +30,7 @@
           </div>
         </el-form-item>
         <el-form-item label="角色">
-          <el-tag :type="profile.role === 'admin' ? 'danger' : 'info'">{{ profile.role === 'admin' ? '管理员' : '普通用户' }}</el-tag>
+          <el-tag :type="profile.is_super_admin ? 'warning' : profile.role === 'admin' ? 'danger' : 'info'">{{ profile.is_super_admin ? '超级管理员' : profile.role === 'admin' ? '管理员' : '普通用户' }}</el-tag>
         </el-form-item>
         <el-form-item label="昵称">
           <el-input v-model="form.nickname" placeholder="设置昵称" />

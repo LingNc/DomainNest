@@ -220,8 +220,16 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		}
 	}
 
+	callerID := c.GetUint64("user_id")
+	var caller model.User
+	h.db.First(&caller, callerID)
+
 	updates := map[string]interface{}{}
 	if req.Role != "" {
+		if !caller.IsSuperAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "only super_admin can change user roles"})
+			return
+		}
 		updates["role"] = req.Role
 	}
 	if req.Status != nil {
@@ -247,9 +255,6 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
 			return
 		}
-		callerID := c.GetUint64("user_id")
-		var caller model.User
-		h.db.First(&caller, callerID)
 		if !caller.IsSuperAdmin && *req.InviteLimit < targetUser.InviteCount {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("invite_limit cannot be less than current invite_count (%d)", targetUser.InviteCount)})
 			return
@@ -301,6 +306,16 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 		return
 	}
 
+	var targetUser model.User
+	if err := h.db.First(&targetUser, userID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+		return
+	}
+	if targetUser.IsSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "cannot reset super admin password"})
+		return
+	}
+
 	var req struct {
 		NewPassword string `json:"new_password" binding:"required,min=6"`
 	}
@@ -338,6 +353,11 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	var user model.User
 	if err := tx.First(&user, userID).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+		return
+	}
+
+	if user.IsSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "cannot disable super admin account"})
 		return
 	}
 

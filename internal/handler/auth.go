@@ -145,6 +145,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 			"phone":        user.Phone,
 			"avatar":       user.Avatar,
 			"role":         user.Role,
+			"is_super_admin": user.IsSuperAdmin,
 			"ddns_token":   user.Token,
 			"invite_code":  user.InviteCode,
 			"invite_limit": user.InviteLimit,
