@@ -7,9 +7,17 @@
       <el-form :model="form" label-width="80px" style="max-width:480px">
         <el-form-item label="头像">
           <div class="avatar-section">
-            <el-avatar v-if="form.avatar" :src="form.avatar" :size="64" />
-            <el-avatar v-else :size="64">{{ (form.username || '?')[0]?.toUpperCase() }}</el-avatar>
-            <el-input v-model="form.avatar" placeholder="输入头像图片 URL" style="margin-left:12px;flex:1" />
+            <el-upload
+              class="avatar-uploader"
+              :show-file-list="false"
+              :before-upload="beforeAvatarUpload"
+              :http-request="handleAvatarUpload"
+              accept="image/jpeg,image/png"
+            >
+              <el-avatar v-if="form.avatar" :src="form.avatar" :size="64" />
+              <el-avatar v-else :size="64" style="cursor:pointer">{{ (form.username || '?')[0]?.toUpperCase() }}</el-avatar>
+            </el-upload>
+            <span class="avatar-hint">点击头像上传，支持 JPG/PNG，自动裁剪为 128px</span>
           </div>
         </el-form-item>
         <el-form-item label="用户名">
@@ -85,7 +93,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getProfile, updateProfile, changePassword, resetToken, checkUsername } from '../api/auth'
+import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
@@ -177,6 +185,27 @@ const copyToken = () => {
   navigator.clipboard.writeText(profile.value.ddns_token)
   ElMessage.success('已复制')
 }
+
+const beforeAvatarUpload = (file) => {
+  const isImage = ['image/jpeg', 'image/png'].includes(file.type)
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isImage) ElMessage.error('头像只能是 JPG 或 PNG 格式')
+  if (!isLt2M) ElMessage.error('头像大小不能超过 2MB')
+  return isImage && isLt2M
+}
+
+const handleAvatarUpload = async ({ file }) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  try {
+    const res = await uploadAvatar(fd)
+    form.avatar = res.data.avatar
+    auth.setAuth(auth.token, { ...auth.user, avatar: res.data.avatar })
+    ElMessage.success('头像上传成功')
+  } catch (e) {
+    ElMessage.error('上传失败: ' + (e.response?.data?.message || e.message))
+  }
+}
 </script>
 
 <style scoped>
@@ -201,5 +230,13 @@ const copyToken = () => {
 .avatar-section {
   display: flex;
   align-items: center;
+  gap: 12px;
+}
+.avatar-uploader :deep(.el-upload) {
+  cursor: pointer;
+}
+.avatar-hint {
+  color: #909399;
+  font-size: 12px;
 }
 </style>

@@ -13,7 +13,7 @@ type User struct {
 	Email        string         `gorm:"type:varchar(128)" json:"email"`
 	Nickname     string         `gorm:"type:varchar(64)" json:"nickname"`
 	Phone        string         `gorm:"type:varchar(20)" json:"phone"`
-	Avatar       string         `gorm:"type:varchar(512)" json:"avatar"`
+	Avatar       string         `gorm:"type:text" json:"avatar"`
 	Role         string         `gorm:"type:enum('admin','user');default:'user'" json:"role"`
 	IsSuperAdmin bool           `gorm:"default:false" json:"is_super_admin"`
 	Status       int            `gorm:"default:1" json:"status"` // 1=正常 0=禁用

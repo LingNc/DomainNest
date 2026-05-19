@@ -1,6 +1,12 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"net/http"
 	"time"
 
@@ -10,6 +16,7 @@ import (
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nfnt/resize"
 	"gorm.io/gorm"
 )
 
@@ -272,4 +279,57 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	h.db.Model(&reset).Update("used", true)
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "password reset successfully"})
+}
+
+func (h *AuthHandler) UploadAvatar(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	file, _, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "missing file"})
+		return
+	}
+	defer file.Close()
+
+	// Detect format and decode
+	var img image.Image
+	header := make([]byte, 512)
+	n, _ := file.Read(header)
+	file.Seek(0, 0)
+	contentType := http.DetectContentType(header[:n])
+
+	switch contentType {
+	case "image/jpeg":
+		img, err = jpeg.Decode(file)
+	case "image/png":
+		img, err = png.Decode(file)
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "only JPEG and PNG are supported"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "failed to decode image: " + err.Error()})
+		return
+	}
+
+	// Resize to 128x128
+	resized := resize.Resize(128, 128, img, resize.Lanczos3)
+
+	// Encode to JPEG
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, resized, &jpeg.Options{Quality: 85}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to encode image"})
+		return
+	}
+
+	// Convert to base64 data URI
+	b64 := base64.StdEncoding.EncodeToString(buf.Bytes())
+	dataURI := fmt.Sprintf("data:image/jpeg;base64,%s", b64)
+
+	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("avatar", dataURI).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to save avatar"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"avatar": dataURI}})
 }

@@ -65,6 +65,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		authProtected.PUT("/profile", authHandler.UpdateProfile)
 		authProtected.PUT("/token", authHandler.ResetToken)
 		authProtected.PUT("/password", authHandler.ChangePassword)
+		authProtected.POST("/avatar", authHandler.UploadAvatar)
 		authProtected.GET("/permissions", permissionHandler.MyPermissions)
 	}
 
