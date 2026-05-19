@@ -130,6 +130,7 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		Line:       line,
 		Enabled:    true,
 		SyncStatus: "pending",
+		CreatedBy:  userID,
 	}
 
 	if err := s.db.Create(record).Error; err != nil {
@@ -356,6 +357,7 @@ func (s *RecordService) ImportRecords(nodeID, userID uint64, records []ExportRec
 			Line:       line,
 			Enabled:    r.Enabled,
 			SyncStatus: "pending",
+			CreatedBy:  userID,
 		}
 		if !r.Enabled {
 			record.Enabled = false

@@ -146,6 +146,8 @@
               <el-avatar v-else :size="24">{{ (p.user?.username || '?')[0]?.toUpperCase() }}</el-avatar>
               <span class="perm-user">{{ p.user?.username || 'User #' + p.user_id }}</span>
               <el-tag :type="permTagType(p.permission_level)" size="small">{{ permLabel(p.permission_level) }}</el-tag>
+              <el-tag v-if="p.status === 'pending_return'" type="warning" size="small" style="margin-left:4px">待回收</el-tag>
+              <el-tag v-if="p.status === 'returned'" type="info" size="small" style="margin-left:4px">已归还</el-tag>
             </div>
             <div class="perm-detail" v-if="p.allowed_types || p.allowed_ips || p.host_prefix || p.max_depth">
               <span v-if="p.host_prefix" class="perm-restrict">前缀: {{ p.host_prefix }}</span>
@@ -153,8 +155,37 @@
               <span v-if="p.allowed_types" class="perm-restrict">类型: {{ p.allowed_types }}</span>
               <span v-if="p.allowed_ips" class="perm-restrict">IP: {{ p.allowed_ips }}</span>
             </div>
-            <el-button link type="danger" size="small" @click="handleRevokePerm(p.user_id)">撤销</el-button>
+            <div class="perm-actions">
+              <el-button v-if="p.status === 'active'" link type="danger" size="small" @click="handleRevokePerm(p.user_id)">撤销</el-button>
+              <el-button v-if="p.status === 'active' && p.permission_level !== 'read'" link type="warning" size="small" @click="handleRevokeRequest(p.user_id)">回收请求</el-button>
+            </div>
           </div>
+        </el-card>
+
+        <!-- 待分配记录 -->
+        <el-card style="margin-top:16px" v-if="pendingRecords.length > 0">
+          <template #header>
+            <div class="card-header">
+              <span>待分配记录</span>
+              <div>
+                <el-button size="small" type="primary" @click="handleAssignSelected">分配选中</el-button>
+                <el-button size="small" type="danger" @click="handleDeleteSelectedPending">删除选中</el-button>
+              </div>
+            </div>
+          </template>
+          <el-table :data="pendingRecords" stripe @selection-change="handlePendingSelectionChange" row-key="id">
+            <el-table-column type="selection" width="40" />
+            <el-table-column prop="host" label="主机记录" width="120" />
+            <el-table-column prop="record_type" label="类型" width="80" />
+            <el-table-column prop="value" label="记录值" show-overflow-tooltip />
+            <el-table-column prop="pending_group" label="分组" width="160" show-overflow-tooltip />
+            <el-table-column label="操作" width="120">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click="handleAssignSingle(row.id)">分配给自己</el-button>
+                <el-button link type="danger" size="small" @click="handleDeleteSinglePending(row.id)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </el-card>
       </el-col>
     </el-row>
@@ -359,6 +390,31 @@
         <el-button type="warning" @click="handleTransfer">确认转让</el-button>
       </template>
     </el-dialog>
+
+    <!-- 回收权限 - 处理记录 -->
+    <el-dialog v-model="showReturnDialog" title="回收权限 - 记录处理" width="480px">
+      <el-alert type="warning" :closable="false" style="margin-bottom:16px">
+        回收该用户的权限后，需要决定如何处理其创建的 DNS 记录。
+      </el-alert>
+      <el-form :model="returnForm" label-width="80px">
+        <el-form-item label="处理方式">
+          <el-radio-group v-model="returnForm.action">
+            <el-radio value="keep">保留（设为待分配）</el-radio>
+            <el-radio value="delete">删除记录</el-radio>
+            <el-radio value="transfer">转移给其他用户</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="returnForm.action === 'transfer'" label="目标用户">
+          <el-select v-model="returnForm.target_user_id" filterable placeholder="选择用户" style="width:100%">
+            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.username} (ID: ${u.id})`" :value="u.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showReturnDialog = false">取消</el-button>
+        <el-button type="warning" @click="handleAcceptReturn">确认处理</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -368,7 +424,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getDomain, createDomain, transferDomain, deleteDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
 import { retrySync, listUsers } from '../api/admin'
-import { getPermissions, grantPermission, revokePermission } from '../api/permission'
+import { getPermissions, grantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -420,6 +476,12 @@ const caaForm = ref({ flag: 0, tag: 'issue', value: '' })
 const childForm = ref({ host: '' })
 const transferForm = ref({ target_user_id: 1 })
 
+const pendingRecords = ref([])
+const selectedPendingIds = ref([])
+const showReturnDialog = ref(false)
+const returnForm = ref({ action: 'keep', target_user_id: null })
+const returnTargetUserId = ref(null)
+
 const statusType = (s) => s === 'synced' ? 'success' : s === 'failed' ? 'danger' : s === 'disabled' ? 'info' : 'warning'
 const statusLabel = (s) => ({ synced: '已同步', failed: '同步失败', pending: '等待同步', disabled: '已禁用' }[s] || s)
 
@@ -451,7 +513,7 @@ const loadDomain = async () => {
 }
 
 const loadData = async () => {
-  await Promise.all([loadDomain(), loadRecords(), loadPermissions()])
+  await Promise.all([loadDomain(), loadRecords(), loadPermissions(), loadPendingRecords()])
 }
 
 const onTypeChange = () => {
@@ -663,6 +725,81 @@ const handleRevokePerm = async (userId) => {
   await revokePermission(domainId, userId)
   ElMessage.success('权限已撤销')
   loadPermissions()
+}
+
+const handleRevokeRequest = async (userId) => {
+  await ElMessageBox.confirm('确定发起回收请求？对方需要确认后权限才会被回收。', '回收请求', { type: 'warning' })
+  try {
+    await revokeRequest(domainId, userId)
+    ElMessage.success('回收请求已发送')
+    loadPermissions()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '请求失败')
+  }
+}
+
+const loadPendingRecords = async () => {
+  try {
+    const res = await getPendingRecords(domainId)
+    pendingRecords.value = res.data || []
+  } catch { /* no permission to view */ }
+}
+
+const handlePendingSelectionChange = (rows) => {
+  selectedPendingIds.value = rows.map(r => r.id)
+}
+
+const handleAssignSingle = async (id) => {
+  await assignPendingRecords(domainId, { record_ids: [id] })
+  ElMessage.success('记录已分配')
+  loadPendingRecords()
+  loadRecords()
+}
+
+const handleDeleteSinglePending = async (id) => {
+  await ElMessageBox.confirm('确定删除此待分配记录？', '提示', { type: 'warning' })
+  await deletePendingRecords(domainId, { record_ids: [id] })
+  ElMessage.success('记录已删除')
+  loadPendingRecords()
+}
+
+const handleAssignSelected = async () => {
+  if (selectedPendingIds.value.length === 0) {
+    ElMessage.warning('请先选择记录')
+    return
+  }
+  await assignPendingRecords(domainId, { record_ids: selectedPendingIds.value })
+  ElMessage.success('记录已分配')
+  loadPendingRecords()
+  loadRecords()
+}
+
+const handleDeleteSelectedPending = async () => {
+  if (selectedPendingIds.value.length === 0) {
+    ElMessage.warning('请先选择记录')
+    return
+  }
+  await ElMessageBox.confirm(`确定删除选中的 ${selectedPendingIds.value.length} 条记录？`, '批量删除', { type: 'warning' })
+  await deletePendingRecords(domainId, { record_ids: selectedPendingIds.value })
+  ElMessage.success('记录已删除')
+  loadPendingRecords()
+}
+
+const handleAcceptReturn = async () => {
+  const data = { action: returnForm.value.action }
+  if (returnForm.value.action === 'transfer' && returnForm.value.target_user_id) {
+    data.target_user_id = returnForm.value.target_user_id
+  }
+  try {
+    await acceptReturn(domainId, returnTargetUserId.value, data)
+    ElMessage.success('权限回收处理完成')
+    showReturnDialog.value = false
+    loadPermissions()
+    loadPendingRecords()
+    loadRecords()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '处理失败')
+  }
 }
 
 onMounted(() => {

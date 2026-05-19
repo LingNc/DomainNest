@@ -18,6 +18,8 @@ type DNSRecord struct {
 	Enabled        bool           `gorm:"default:true" json:"enabled"`
 	AliyunRecordID string         `gorm:"type:varchar(64)" json:"aliyun_record_id,omitempty"`
 	SyncStatus     string         `gorm:"type:varchar(16);default:'pending'" json:"sync_status"`
+	PendingGroup   string         `gorm:"type:varchar(64);index" json:"pending_group,omitempty"`
+	CreatedBy      uint64         `gorm:"index" json:"created_by,omitempty"`
 	LastResolvedAt *time.Time     `json:"last_resolved_at,omitempty"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`

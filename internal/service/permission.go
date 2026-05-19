@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strings"
+	"time"
 
 	"domainnest/internal/model"
 
@@ -235,6 +236,104 @@ func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTyp
 func (s *PermissionService) Revoke(userID, domainNodeID uint64) error {
 	return s.db.Where("user_id = ? AND domain_node_id = ?", userID, domainNodeID).
 		Delete(&model.DomainPermission{}).Error
+}
+
+// RevokeRequest creates a pending return request for admin-level permission.
+// Returns error if target is owner or permission not found.
+func (s *PermissionService) RevokeRequest(targetUserID, domainNodeID, requestedBy uint64) error {
+	var perm model.DomainPermission
+	if err := s.db.Where("user_id = ? AND domain_node_id = ?", targetUserID, domainNodeID).First(&perm).Error; err != nil {
+		return errors.New("permission not found")
+	}
+
+	// Cannot revoke owner
+	var node model.DomainNode
+	if err := s.db.First(&node, domainNodeID).Error; err == nil && node.OwnerID == targetUserID {
+		return errors.New("cannot revoke owner's permission")
+	}
+
+	if perm.PermissionLevel != "admin" && perm.PermissionLevel != "write" {
+		// For read-level, just revoke directly
+		return s.Revoke(targetUserID, domainNodeID)
+	}
+
+	return s.db.Model(&perm).Update("status", "pending_return").Error
+}
+
+// AcceptReturn handles the acceptance of a permission return request.
+// action: "keep" (mark records as pending), "delete" (remove records), "transfer" (move records to targetUser)
+func (s *PermissionService) AcceptReturn(targetUserID, domainNodeID uint64, action string, transferUserID *uint64) error {
+	var perm model.DomainPermission
+	if err := s.db.Where("user_id = ? AND domain_node_id = ?", targetUserID, domainNodeID).First(&perm).Error; err != nil {
+		return errors.New("permission not found")
+	}
+
+	tx := s.db.Begin()
+
+	switch action {
+	case "delete":
+		// Delete all records created by the returned user on this domain
+		if err := tx.Where("node_id = ? AND created_by = ?", domainNodeID, targetUserID).Delete(&model.DNSRecord{}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	case "transfer":
+		if transferUserID == nil {
+			tx.Rollback()
+			return errors.New("target_user_id required for transfer")
+		}
+		// Records stay but ownership concept changes - just mark them
+		if err := tx.Model(&model.DNSRecord{}).Where("node_id = ? AND created_by = ?", domainNodeID, targetUserID).
+			Update("pending_group", "").Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	case "keep":
+		// Mark records with a pending group ID so upper-level manager can reassign
+		pendingGroup := fmt.Sprintf("pg_%d_%d_%d", domainNodeID, targetUserID, time.Now().UnixMilli())
+		if err := tx.Model(&model.DNSRecord{}).Where("node_id = ? AND created_by = ?", domainNodeID, targetUserID).
+			Update("pending_group", pendingGroup).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	default:
+		tx.Rollback()
+		return errors.New("invalid action: must be keep, delete, or transfer")
+	}
+
+	// Remove the permission
+	if err := tx.Where("user_id = ? AND domain_node_id = ?", targetUserID, domainNodeID).
+		Delete(&model.DomainPermission{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// RejectReturn rejects a pending return request, restoring active status.
+func (s *PermissionService) RejectReturn(targetUserID, domainNodeID uint64) error {
+	return s.db.Model(&model.DomainPermission{}).
+		Where("user_id = ? AND domain_node_id = ? AND status = ?", targetUserID, domainNodeID, "pending_return").
+		Update("status", "active").Error
+}
+
+// GetPendingRecords returns all records with a non-empty pending_group for a domain.
+func (s *PermissionService) GetPendingRecords(domainNodeID uint64) ([]model.DNSRecord, error) {
+	var records []model.DNSRecord
+	err := s.db.Where("node_id = ? AND pending_group != '' AND pending_group IS NOT NULL", domainNodeID).Find(&records).Error
+	return records, err
+}
+
+// AssignPendingRecords reassigns pending records to a new owner (clear pending_group).
+func (s *PermissionService) AssignPendingRecords(recordIDs []uint64) error {
+	return s.db.Model(&model.DNSRecord{}).Where("id IN ?", recordIDs).
+		Update("pending_group", "").Error
+}
+
+// DeletePendingRecords deletes records by their IDs.
+func (s *PermissionService) DeletePendingRecords(recordIDs []uint64) error {
+	return s.db.Where("id IN ?", recordIDs).Delete(&model.DNSRecord{}).Error
 }
 
 // ListPermissions returns all permissions for a domain node.

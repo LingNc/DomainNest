@@ -13,3 +13,4 @@ export const uploadAvatar = (formData) => request.post('/auth/avatar', formData,
 export const getMyLogs = (params) => request.get('/auth/logs', { params })
 export const grantInviteQuota = (data) => request.post('/auth/grant-invite', data)
 export const getInviteLogs = (params) => request.get('/auth/invite-logs', { params })
+export const getPendingReturns = () => request.get('/auth/pending-returns')
