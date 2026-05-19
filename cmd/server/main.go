@@ -32,12 +32,12 @@ func main() {
 	}
 
 	authService := service.NewAuthService(db)
-	domainService := service.NewDomainService(db)
-	recordService := service.NewRecordService(db)
+	permissionService := service.NewPermissionService(db)
+	domainService := service.NewDomainService(db, permissionService)
+	recordService := service.NewRecordService(db, permissionService)
 	ddnsService := service.NewDDNSService(db, domainService, recordService, aliyunClient)
 	settingsService := service.NewSettingsService(db)
 	emailService := service.NewEmailServiceWithSettings(&cfg.SMTP, settingsService)
-	permissionService := service.NewPermissionService(db)
 
 	if err := authService.EnsureAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
 		log.Fatalf("Failed to ensure admin user: %v", err)

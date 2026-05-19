@@ -21,11 +21,12 @@ func IsValidRecordType(t string) bool {
 }
 
 type RecordService struct {
-	db *gorm.DB
+	db  *gorm.DB
+	perm *PermissionService
 }
 
-func NewRecordService(db *gorm.DB) *RecordService {
-	return &RecordService{db: db}
+func NewRecordService(db *gorm.DB, perm *PermissionService) *RecordService {
+	return &RecordService{db: db, perm: perm}
 }
 
 type RecordQuery struct {
@@ -46,9 +47,8 @@ type RecordListResult struct {
 }
 
 func (s *RecordService) ListRecords(nodeID, userID uint64, q RecordQuery) (*RecordListResult, error) {
-	var node model.DomainNode
-	if err := s.db.Where("id = ? AND owner_id = ?", nodeID, userID).First(&node).Error; err != nil {
-		return nil, errors.New("domain node not found or access denied")
+	if err := s.perm.RequireLevel(userID, nodeID, 1); err != nil {
+		return nil, err
 	}
 
 	query := s.db.Model(&model.DNSRecord{}).Where("node_id = ?", nodeID)
@@ -89,9 +89,16 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		return nil, fmt.Errorf("unsupported record type: %s", recordType)
 	}
 
-	var node model.DomainNode
-	if err := s.db.Where("id = ? AND owner_id = ?", nodeID, userID).First(&node).Error; err != nil {
-		return nil, errors.New("domain node not found or access denied")
+	if err := s.perm.RequireLevel(userID, nodeID, 2); err != nil {
+		return nil, err
+	}
+
+	if !s.perm.CanUseRecordType(userID, nodeID, recordType) {
+		return nil, fmt.Errorf("you are not allowed to create %s records on this domain", recordType)
+	}
+
+	if err := s.perm.ValidateIPValue(userID, nodeID, recordType, value); err != nil {
+		return nil, err
 	}
 
 	if err := validateRecordValue(recordType, value, priority); err != nil {
@@ -130,9 +137,8 @@ func (s *RecordService) UpdateRecord(recordID, userID uint64, value string, ttl 
 		return nil, errors.New("record not found")
 	}
 
-	var node model.DomainNode
-	if err := s.db.Where("id = ? AND owner_id = ?", record.NodeID, userID).First(&node).Error; err != nil {
-		return nil, errors.New("access denied")
+	if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
+		return nil, err
 	}
 
 	if value != "" {
@@ -168,9 +174,8 @@ func (s *RecordService) DeleteRecord(recordID, userID uint64) error {
 		return errors.New("record not found")
 	}
 
-	var node model.DomainNode
-	if err := s.db.Where("id = ? AND owner_id = ?", record.NodeID, userID).First(&node).Error; err != nil {
-		return errors.New("access denied")
+	if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
+		return err
 	}
 
 	return s.db.Delete(&record).Error
@@ -182,9 +187,8 @@ func (s *RecordService) ToggleRecord(recordID, userID uint64, enabled bool) (*mo
 		return nil, errors.New("record not found")
 	}
 
-	var node model.DomainNode
-	if err := s.db.Where("id = ? AND owner_id = ?", record.NodeID, userID).First(&node).Error; err != nil {
-		return nil, errors.New("access denied")
+	if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
+		return nil, err
 	}
 
 	syncStatus := "pending"
@@ -210,8 +214,7 @@ func (s *RecordService) BatchDelete(recordIDs []uint64, userID uint64) error {
 		if err := s.db.First(&record, id).Error; err != nil {
 			return fmt.Errorf("record %d not found", id)
 		}
-		var node model.DomainNode
-		if err := s.db.Where("id = ? AND owner_id = ?", record.NodeID, userID).First(&node).Error; err != nil {
+		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
 			return fmt.Errorf("access denied for record %d", id)
 		}
 	}
@@ -225,8 +228,7 @@ func (s *RecordService) BatchToggle(recordIDs []uint64, userID uint64, enabled b
 		if err := s.db.First(&record, id).Error; err != nil {
 			return fmt.Errorf("record %d not found", id)
 		}
-		var node model.DomainNode
-		if err := s.db.Where("id = ? AND owner_id = ?", record.NodeID, userID).First(&node).Error; err != nil {
+		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
 			return fmt.Errorf("access denied for record %d", id)
 		}
 	}
@@ -279,9 +281,8 @@ type ExportRecord struct {
 }
 
 func (s *RecordService) ExportRecords(nodeID, userID uint64) ([]ExportRecord, error) {
-	var node model.DomainNode
-	if err := s.db.Where("id = ? AND owner_id = ?", nodeID, userID).First(&node).Error; err != nil {
-		return nil, errors.New("domain node not found or access denied")
+	if err := s.perm.RequireLevel(userID, nodeID, 1); err != nil {
+		return nil, err
 	}
 
 	var records []model.DNSRecord
@@ -311,9 +312,8 @@ type ImportResult struct {
 }
 
 func (s *RecordService) ImportRecords(nodeID, userID uint64, records []ExportRecord) (*ImportResult, error) {
-	var node model.DomainNode
-	if err := s.db.Where("id = ? AND owner_id = ?", nodeID, userID).First(&node).Error; err != nil {
-		return nil, errors.New("domain node not found or access denied")
+	if err := s.perm.RequireLevel(userID, nodeID, 2); err != nil {
+		return nil, err
 	}
 
 	result := &ImportResult{}

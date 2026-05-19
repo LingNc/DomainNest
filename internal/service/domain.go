@@ -10,11 +10,12 @@ import (
 )
 
 type DomainService struct {
-	db *gorm.DB
+	db   *gorm.DB
+	perm *PermissionService
 }
 
-func NewDomainService(db *gorm.DB) *DomainService {
-	return &DomainService{db: db}
+func NewDomainService(db *gorm.DB, perm *PermissionService) *DomainService {
+	return &DomainService{db: db, perm: perm}
 }
 
 func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64) (*model.DomainNode, error) {
@@ -23,8 +24,8 @@ func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64)
 		return nil, errors.New("parent node not found")
 	}
 
-	if parent.OwnerID != ownerID {
-		return nil, errors.New("you do not own the parent domain")
+	if err := s.perm.RequireLevel(ownerID, parentID, 2); err != nil {
+		return nil, err
 	}
 
 	fullDomain := host + "." + parent.FullDomain
@@ -49,10 +50,19 @@ func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64)
 }
 
 func (s *DomainService) GetUserNodes(userID uint64) ([]model.DomainNode, error) {
+	// Get all accessible domain IDs (owned + delegated)
+	accessibleIDs, err := s.perm.AccessibleDomainIDs(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(accessibleIDs) == 0 {
+		return nil, nil
+	}
+
 	var nodes []model.DomainNode
-	err := s.db.Where("owner_id = ?", userID).
+	err = s.db.Where("id IN ?", accessibleIDs).
 		Preload("Children", func(db *gorm.DB) *gorm.DB {
-			return db.Where("owner_id = ?", userID)
+			return db.Where("id IN ?", accessibleIDs)
 		}).
 		Preload("Records").
 		Find(&nodes).Error
@@ -79,21 +89,29 @@ func (s *DomainService) GetUserNodes(userID uint64) ([]model.DomainNode, error) 
 }
 
 func (s *DomainService) GetNode(nodeID, userID uint64) (*model.DomainNode, error) {
+	if err := s.perm.RequireLevel(userID, nodeID, 1); err != nil {
+		return nil, err
+	}
+
 	var node model.DomainNode
-	err := s.db.Where("id = ? AND owner_id = ?", nodeID, userID).
-		Preload("Children").
-		Preload("Records").
-		First(&node).Error
-	if err != nil {
-		return nil, errors.New("domain node not found or access denied")
+	if err := s.db.Preload("Children").Preload("Records").First(&node, nodeID).Error; err != nil {
+		return nil, errors.New("domain node not found")
 	}
 	return &node, nil
 }
 
 func (s *DomainService) FindNodeByDomain(domain string, userID uint64) (*model.DomainNode, string, error) {
+	accessibleIDs, err := s.perm.AccessibleDomainIDs(userID)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(accessibleIDs) == 0 {
+		return nil, "", errors.New("domain not found or access denied")
+	}
+
 	var node model.DomainNode
-	err := s.db.Where("owner_id = ? AND (full_domain = ? OR ? LIKE CONCAT('%.', full_domain))",
-		userID, domain, domain).
+	err = s.db.Where("id IN ? AND (full_domain = ? OR ? LIKE CONCAT('%.', full_domain))",
+		accessibleIDs, domain, domain).
 		Order("LENGTH(full_domain) DESC").
 		First(&node).Error
 
@@ -117,8 +135,9 @@ func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) error
 	if err := s.db.First(&node, nodeID).Error; err != nil {
 		return errors.New("node not found")
 	}
-	if node.OwnerID != ownerID {
-		return errors.New("you do not own this domain")
+
+	if err := s.perm.RequireLevel(ownerID, nodeID, 4); err != nil {
+		return err
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
@@ -148,8 +167,9 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	if err := s.db.First(&node, nodeID).Error; err != nil {
 		return errors.New("node not found")
 	}
-	if node.OwnerID != userID {
-		return errors.New("you do not own this domain")
+
+	if err := s.perm.RequireLevel(userID, nodeID, 4); err != nil {
+		return err
 	}
 
 	var childCount int64
