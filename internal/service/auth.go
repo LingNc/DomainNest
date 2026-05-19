@@ -221,7 +221,7 @@ func (s *AuthService) createUser(username, password, email, role string) (*model
 		Role:        role,
 		Token:       token,
 		InviteCode:  inviteCode,
-		InviteLimit: 100,
+		InviteLimit: 0,
 	}
 
 	return user, s.db.Create(user).Error

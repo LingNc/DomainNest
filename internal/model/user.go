@@ -20,7 +20,7 @@ type User struct {
 	Token        string         `gorm:"type:varchar(64);uniqueIndex;not null" json:"token,omitempty"`
 	InvitedBy    *uint64        `gorm:"index" json:"invited_by"`
 	InviteCode   string         `gorm:"type:varchar(32);uniqueIndex" json:"invite_code"`
-	InviteLimit  int            `gorm:"default:5" json:"invite_limit"`
+	InviteLimit  int            `gorm:"default:0" json:"invite_limit"`
 	InviteCount  int            `gorm:"default:0" json:"invite_count"`
 	LastActiveAt *time.Time     `json:"last_active_at,omitempty"`
 	CreatedAt    time.Time      `json:"created_at"`
