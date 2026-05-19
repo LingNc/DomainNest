@@ -16,7 +16,7 @@ import (
 func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	domainService *service.DomainService, recordService *service.RecordService,
 	ddnsService *service.DDNSService, emailService *service.EmailService,
-	settingsService *service.SettingsService) *gin.Engine {
+	settingsService *service.SettingsService, permissionService *service.PermissionService) *gin.Engine {
 
 	r := gin.Default()
 
@@ -43,6 +43,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	ddnsHandler := handler.NewDDNSHandler(ddnsService)
 	adminHandler := handler.NewAdminHandler(db)
 	settingsHandler := handler.NewSettingsHandler(settingsService)
+	permissionHandler := handler.NewPermissionHandler(permissionService, db)
 
 	v1 := r.Group("/api/v1")
 
@@ -61,6 +62,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		authProtected.PUT("/profile", authHandler.UpdateProfile)
 		authProtected.PUT("/token", authHandler.ResetToken)
 		authProtected.PUT("/password", authHandler.ChangePassword)
+		authProtected.GET("/permissions", permissionHandler.MyPermissions)
 	}
 
 	domains := v1.Group("/domains")
@@ -75,6 +77,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.POST("/:id/records", recordHandler.Create)
 		domains.GET("/:id/records/export", recordHandler.Export)
 		domains.POST("/:id/records/import", recordHandler.Import)
+		domains.GET("/:id/permissions", permissionHandler.List)
+		domains.POST("/:id/permissions", permissionHandler.Grant)
+		domains.DELETE("/:id/permissions/:userId", permissionHandler.Revoke)
 	}
 
 	records := v1.Group("/records")
