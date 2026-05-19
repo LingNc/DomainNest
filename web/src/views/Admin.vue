@@ -51,7 +51,22 @@
         <!-- 域名管理 -->
         <el-tab-pane label="域名管理" name="domains">
           <div class="domain-actions">
-            <el-form :model="domainForm" @submit.prevent="handleCreateRoot" inline>
+            <el-radio-group v-model="createMode" size="small" style="margin-bottom:12px">
+              <el-radio-button value="provider">提供商模式</el-radio-button>
+              <el-radio-button value="legacy">手动模式</el-radio-button>
+            </el-radio-group>
+
+            <div v-if="createMode === 'provider'" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+              <el-select v-model="selectedProviderId" placeholder="选择提供商" style="width:200px" size="default">
+                <el-option v-for="p in adminProviders" :key="p.id" :label="p.name" :value="p.id" />
+              </el-select>
+              <el-select v-model="selectedDomain" placeholder="选择域名" style="width:240px" size="default" :loading="loadingAdminDomains" :disabled="!selectedProviderId">
+                <el-option v-for="d in adminDomains" :key="d.domain_name" :label="d.domain_name + (d.record_count != null ? ` (${d.record_count} 条记录)` : '')" :value="d.domain_name" />
+              </el-select>
+              <el-button type="primary" @click="handleCreateRoot">创建根域名</el-button>
+            </div>
+
+            <el-form v-else :model="domainForm" @submit.prevent="handleCreateRoot" inline>
               <el-form-item label="主机名">
                 <el-input v-model="domainForm.host" placeholder="例如 example" />
               </el-form-item>
@@ -246,6 +261,7 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
 import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin } from '../api/admin'
+import { listProviders, listProviderDomains } from '../api/provider'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -257,6 +273,13 @@ const logs = ref([])
 const allDomains = ref([])
 const loading = ref(false)
 const domainForm = ref({ host: '', domain_suffix: '' })
+
+const createMode = ref('provider')
+const adminProviders = ref([])
+const adminDomains = ref([])
+const selectedProviderId = ref(null)
+const selectedDomain = ref('')
+const loadingAdminDomains = ref(false)
 
 const showAssign = ref(false)
 const assignTarget = ref(null)
@@ -294,7 +317,30 @@ const loadData = async () => {
     loading.value = false
   }
   loadSMTP()
+  loadAdminProviders()
 }
+
+const loadAdminProviders = async () => {
+  try {
+    const res = await listProviders()
+    adminProviders.value = res.data || []
+  } catch { /* ignore */ }
+}
+
+watch(selectedProviderId, async (id) => {
+  adminDomains.value = []
+  selectedDomain.value = ''
+  if (!id) return
+  loadingAdminDomains.value = true
+  try {
+    const res = await listProviderDomains(id)
+    adminDomains.value = res.data || []
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '获取域名列表失败')
+  } finally {
+    loadingAdminDomains.value = false
+  }
+})
 
 const loadLogs = async () => {
   const params = { page: logPage.value, page_size: logPageSize.value }
@@ -341,9 +387,22 @@ const loadSMTP = async () => {
 }
 
 const handleCreateRoot = async () => {
-  await createRootDomain(domainForm.value)
+  if (createMode.value === 'provider') {
+    if (!selectedProviderId.value || !selectedDomain.value) {
+      ElMessage.warning('请选择提供商和域名')
+      return
+    }
+    await createRootDomain({ provider_id: selectedProviderId.value, domain_name: selectedDomain.value })
+  } else {
+    if (!domainForm.value.host || !domainForm.value.domain_suffix) {
+      ElMessage.warning('请填写主机名和后缀')
+      return
+    }
+    await createRootDomain(domainForm.value)
+  }
   ElMessage.success('根域名创建成功')
   domainForm.value = { host: '', domain_suffix: '' }
+  selectedDomain.value = ''
   loadData()
 }
 
