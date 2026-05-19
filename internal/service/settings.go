@@ -24,7 +24,7 @@ func (s *SettingsService) Get(category string) (string, error) {
 		return cached.(string), nil
 	}
 	var setting model.SystemSetting
-	if err := s.db.Where("key = ?", category).First(&setting).Error; err != nil {
+	if err := s.db.Where("`key` = ?", category).First(&setting).Error; err != nil {
 		return "", nil
 	}
 	s.cache.Store(category, setting.Value)
@@ -33,7 +33,7 @@ func (s *SettingsService) Get(category string) (string, error) {
 
 func (s *SettingsService) Set(category, value string) error {
 	setting := model.SystemSetting{Key: category, Value: value}
-	err := s.db.Where("key = ?", category).Assign(model.SystemSetting{Value: value}).FirstOrCreate(&setting).Error
+	err := s.db.Where("`key` = ?", category).Assign(model.SystemSetting{Value: value}).FirstOrCreate(&setting).Error
 	if err == nil {
 		s.cache.Store(category, value)
 	}

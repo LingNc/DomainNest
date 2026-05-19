@@ -160,21 +160,26 @@
             <el-form-item label="端口">
               <el-input-number v-model="smtpForm.port" :min="1" :max="65535" />
             </el-form-item>
-            <el-form-item label="邮箱地址">
+            <el-form-item label="登录邮箱">
               <el-input v-model="smtpForm.username" placeholder="例如 yourname@qq.com" autocomplete="off" />
+              <div class="el-form-item__tip" style="color:#909399;font-size:12px;margin-top:4px">用于登录 SMTP 服务器</div>
             </el-form-item>
             <el-form-item label="授权码">
               <el-input v-model="smtpForm.password" type="password" show-password placeholder="邮箱授权码（非登录密码）" autocomplete="new-password" />
             </el-form-item>
-            <el-form-item label="发件人邮箱">
+            <el-form-item label="发件人地址">
               <el-input v-model="smtpForm.from" placeholder="noreply@example.com" />
+              <div class="el-form-item__tip" style="color:#909399;font-size:12px;margin-top:4px">邮件中显示的发件人，可与登录邮箱相同</div>
             </el-form-item>
             <el-form-item label="发件人名称">
               <el-input v-model="smtpForm.from_name" placeholder="DomainNest" />
             </el-form-item>
+            <el-form-item label="测试收件人">
+              <el-input v-model="testEmail" placeholder="接收测试邮件的邮箱地址" />
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleSaveSMTP">保存配置</el-button>
-              <el-button @click="handleTestSMTP" :loading="testingSMTP">发送测试邮件</el-button>
+              <el-button @click="handleTestSMTP" :loading="testingSMTP" :disabled="!testEmail">发送测试邮件</el-button>
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -294,6 +299,7 @@ const newPassword = ref('')
 
 const smtpForm = reactive({ host: '', port: 465, username: '', password: '', from: '', from_name: 'DomainNest' })
 const testingSMTP = ref(false)
+const testEmail = ref('')
 
 const logFilters = reactive({ user_id: '', action: '', target_type: '', dateRange: null })
 
@@ -394,6 +400,9 @@ const loadSMTP = async () => {
     const res = await getSettings('smtp')
     if (res.data) {
       Object.assign(smtpForm, res.data)
+      if (!testEmail.value && smtpForm.username) {
+        testEmail.value = smtpForm.username
+      }
     }
   } catch { /* no settings yet */ }
 }
@@ -511,7 +520,7 @@ const handleSaveSMTP = async () => {
 const handleTestSMTP = async () => {
   testingSMTP.value = true
   try {
-    await testSMTP(smtpForm)
+    await testSMTP({ to: testEmail.value })
     ElMessage.success('测试邮件已发送，请检查邮箱')
   } catch (e) {
     ElMessage.error('发送失败: ' + (e.response?.data?.message || e.message))
