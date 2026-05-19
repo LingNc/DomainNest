@@ -73,6 +73,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.DELETE("/:id", domainHandler.Delete)
 		domains.GET("/:id/records", recordHandler.List)
 		domains.POST("/:id/records", recordHandler.Create)
+		domains.GET("/:id/records/export", recordHandler.Export)
+		domains.POST("/:id/records/import", recordHandler.Import)
 	}
 
 	records := v1.Group("/records")

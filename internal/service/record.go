@@ -268,6 +268,102 @@ func (s *RecordService) FindRecordByNodeAndHost(nodeID uint64, host, recordType 
 	return &record, nil
 }
 
+type ExportRecord struct {
+	Host       string `json:"host" csv:"host"`
+	RecordType string `json:"record_type" csv:"record_type"`
+	Value      string `json:"value" csv:"value"`
+	TTL        int    `json:"ttl" csv:"ttl"`
+	Priority   *int   `json:"priority,omitempty" csv:"priority"`
+	Line       string `json:"line" csv:"line"`
+	Enabled    bool   `json:"enabled" csv:"enabled"`
+}
+
+func (s *RecordService) ExportRecords(nodeID, userID uint64) ([]ExportRecord, error) {
+	var node model.DomainNode
+	if err := s.db.Where("id = ? AND owner_id = ?", nodeID, userID).First(&node).Error; err != nil {
+		return nil, errors.New("domain node not found or access denied")
+	}
+
+	var records []model.DNSRecord
+	if err := s.db.Where("node_id = ?", nodeID).Order("id ASC").Find(&records).Error; err != nil {
+		return nil, err
+	}
+
+	exports := make([]ExportRecord, len(records))
+	for i, r := range records {
+		exports[i] = ExportRecord{
+			Host:       r.Host,
+			RecordType: r.RecordType,
+			Value:      r.Value,
+			TTL:        r.TTL,
+			Priority:   r.Priority,
+			Line:       r.Line,
+			Enabled:    r.Enabled,
+		}
+	}
+	return exports, nil
+}
+
+type ImportResult struct {
+	Created int      `json:"created"`
+	Skipped int      `json:"skipped"`
+	Errors  []string `json:"errors,omitempty"`
+}
+
+func (s *RecordService) ImportRecords(nodeID, userID uint64, records []ExportRecord) (*ImportResult, error) {
+	var node model.DomainNode
+	if err := s.db.Where("id = ? AND owner_id = ?", nodeID, userID).First(&node).Error; err != nil {
+		return nil, errors.New("domain node not found or access denied")
+	}
+
+	result := &ImportResult{}
+	for i, r := range records {
+		if !IsValidRecordType(r.RecordType) {
+			result.Errors = append(result.Errors, fmt.Sprintf("row %d: unsupported record type %s", i+1, r.RecordType))
+			result.Skipped++
+			continue
+		}
+		if err := validateRecordValue(r.RecordType, r.Value, r.Priority); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("row %d: %v", i+1, err))
+			result.Skipped++
+			continue
+		}
+
+		ttl := r.TTL
+		if ttl == 0 {
+			ttl = 600
+		}
+		line := r.Line
+		if line == "" {
+			line = "default"
+		}
+
+		record := &model.DNSRecord{
+			NodeID:     nodeID,
+			Host:       r.Host,
+			RecordType: r.RecordType,
+			Value:      r.Value,
+			TTL:        ttl,
+			Priority:   r.Priority,
+			Line:       line,
+			Enabled:    r.Enabled,
+			SyncStatus: "pending",
+		}
+		if !r.Enabled {
+			record.Enabled = false
+			record.SyncStatus = "disabled"
+		}
+
+		if err := s.db.Create(record).Error; err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("row %d: %v", i+1, err))
+			result.Skipped++
+		} else {
+			result.Created++
+		}
+	}
+	return result, nil
+}
+
 func validateRecordValue(recordType, value string, priority *int) error {
 	switch recordType {
 	case "MX":

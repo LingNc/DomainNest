@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -219,4 +221,130 @@ func (h *RecordHandler) BatchToggle(c *gin.Context) {
 		map[string]interface{}{"ids": req.IDs, "enabled": req.Enabled}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "updated successfully"})
+}
+
+func (h *RecordHandler) Export(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		return
+	}
+
+	format := c.DefaultQuery("format", "json")
+
+	records, err := h.recordService.ExportRecords(nodeID, userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	switch format {
+	case "csv":
+		c.Header("Content-Type", "text/csv")
+		c.Header("Content-Disposition", "attachment; filename=records.csv")
+		w := csv.NewWriter(c.Writer)
+		w.Write([]string{"host", "record_type", "value", "ttl", "priority", "line", "enabled"})
+		for _, r := range records {
+			priority := ""
+			if r.Priority != nil {
+				priority = strconv.Itoa(*r.Priority)
+			}
+			w.Write([]string{r.Host, r.RecordType, r.Value, strconv.Itoa(r.TTL), priority, r.Line, strconv.FormatBool(r.Enabled)})
+		}
+		w.Flush()
+	default:
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": records})
+	}
+}
+
+func (h *RecordHandler) Import(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		return
+	}
+
+	format := c.DefaultQuery("format", "json")
+
+	var records []service.ExportRecord
+
+	switch format {
+	case "csv":
+		file, _, err := c.Request.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "csv file required"})
+			return
+		}
+		defer file.Close()
+
+		reader := csv.NewReader(file)
+		rows, err := reader.ReadAll()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "failed to read csv: " + err.Error()})
+			return
+		}
+		if len(rows) < 2 {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "csv must have header row and at least one data row"})
+			return
+		}
+
+		for _, row := range rows[1:] {
+			if len(row) < 4 {
+				continue
+			}
+			ttl, _ := strconv.Atoi(row[3])
+			var priority *int
+			if len(row) > 4 && row[4] != "" {
+				p, err := strconv.Atoi(row[4])
+				if err == nil {
+					priority = &p
+				}
+			}
+			line := ""
+			if len(row) > 5 {
+				line = row[5]
+			}
+			enabled := true
+			if len(row) > 6 && (row[6] == "false" || row[6] == "0") {
+				enabled = false
+			}
+			records = append(records, service.ExportRecord{
+				Host:       row[0],
+				RecordType: row[1],
+				Value:      row[2],
+				TTL:        ttl,
+				Priority:   priority,
+				Line:       line,
+				Enabled:    enabled,
+			})
+		}
+	default:
+		body, err := c.GetRawData()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "failed to read body"})
+			return
+		}
+		if err := json.Unmarshal(body, &records); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid json: " + err.Error()})
+			return
+		}
+	}
+
+	if len(records) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "no records to import"})
+		return
+	}
+
+	result, err := h.recordService.ImportRecords(nodeID, userID, records)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "import_records", "dns_record", nil,
+		map[string]interface{}{"created": result.Created, "skipped": result.Skipped}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": result})
 }
