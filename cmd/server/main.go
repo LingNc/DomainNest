@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"domainnest/internal/aliyun"
 	"domainnest/internal/config"
 	"domainnest/internal/model"
 	"domainnest/internal/router"
@@ -26,17 +25,12 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	aliyunClient, err := aliyun.NewClient(&cfg.Aliyun)
-	if err != nil {
-		log.Printf("Warning: Failed to initialize Aliyun client: %v", err)
-	}
-
 	authService := service.NewAuthService(db)
 	permissionService := service.NewPermissionService(db)
 	domainService := service.NewDomainService(db, permissionService)
 	recordService := service.NewRecordService(db, permissionService)
 	providerService := service.NewProviderService(db)
-	ddnsService := service.NewDDNSService(db, domainService, recordService, aliyunClient, providerService)
+	ddnsService := service.NewDDNSService(db, domainService, recordService, providerService)
 	settingsService := service.NewSettingsService(db)
 	emailService := service.NewEmailServiceWithSettings(&cfg.SMTP, settingsService)
 	ramTokenService := service.NewRAMTokenService(db)

@@ -15,16 +15,14 @@ type DDNSService struct {
 	db              *gorm.DB
 	domainService   *DomainService
 	recordService   *RecordService
-	aliyunClient    *aliyun.Client
 	providerService *ProviderService
 }
 
-func NewDDNSService(db *gorm.DB, domainService *DomainService, recordService *RecordService, aliyunClient *aliyun.Client, providerService *ProviderService) *DDNSService {
+func NewDDNSService(db *gorm.DB, domainService *DomainService, recordService *RecordService, providerService *ProviderService) *DDNSService {
 	return &DDNSService{
 		db:              db,
 		domainService:   domainService,
 		recordService:   recordService,
-		aliyunClient:    aliyunClient,
 		providerService: providerService,
 	}
 }
@@ -34,16 +32,12 @@ func (s *DDNSService) getClientForNode(nodeID uint64) (*aliyun.Client, error) {
 	if err := s.db.First(&node, nodeID).Error; err != nil {
 		return nil, err
 	}
-	// Try provider-based client first
+	// Try provider-based client
 	if node.ProviderID != nil && s.providerService != nil {
 		client, err := s.providerService.GetClientByProviderID(*node.ProviderID)
 		if err == nil {
 			return client, nil
 		}
-	}
-	// Fallback to global config client
-	if s.aliyunClient != nil {
-		return s.aliyunClient, nil
 	}
 	return nil, errors.New("no DNS provider available for this domain")
 }

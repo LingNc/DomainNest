@@ -8,7 +8,6 @@ type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
-	Aliyun   AliyunConfig   `mapstructure:"aliyun"`
 	Admin    AdminConfig    `mapstructure:"admin"`
 	SMTP     SMTPConfig     `mapstructure:"smtp"`
 }
@@ -29,12 +28,6 @@ type DatabaseConfig struct {
 type JWTConfig struct {
 	Secret      string `mapstructure:"secret"`
 	ExpireHours int    `mapstructure:"expire_hours"`
-}
-
-type AliyunConfig struct {
-	AccessKeyID     string `mapstructure:"access_key_id"`
-	AccessKeySecret string `mapstructure:"access_key_secret"`
-	Endpoint        string `mapstructure:"endpoint"`
 }
 
 type AdminConfig struct {

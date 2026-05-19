@@ -51,12 +51,7 @@
         <!-- 域名管理 -->
         <el-tab-pane label="域名管理" name="domains">
           <div class="domain-actions">
-            <el-radio-group v-model="createMode" size="small" style="margin-bottom:12px">
-              <el-radio-button value="provider">提供商模式</el-radio-button>
-              <el-radio-button value="legacy">手动模式</el-radio-button>
-            </el-radio-group>
-
-            <div v-if="createMode === 'provider'" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
               <el-select v-model="selectedProviderId" placeholder="选择提供商" style="width:200px" size="default">
                 <el-option v-for="p in adminProviders" :key="p.id" :label="p.name" :value="p.id" />
               </el-select>
@@ -65,18 +60,6 @@
               </el-select>
               <el-button type="primary" @click="handleCreateRoot">创建根域名</el-button>
             </div>
-
-            <el-form v-else :model="domainForm" @submit.prevent="handleCreateRoot" inline>
-              <el-form-item label="主机名">
-                <el-input v-model="domainForm.host" placeholder="例如 example" />
-              </el-form-item>
-              <el-form-item label="后缀">
-                <el-input v-model="domainForm.domain_suffix" placeholder="例如 com" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" native-type="submit">创建根域名</el-button>
-              </el-form-item>
-            </el-form>
           </div>
 
           <el-table :data="allDomains" stripe v-loading="loading" style="width:100%">
@@ -272,9 +255,7 @@ const users = ref([])
 const logs = ref([])
 const allDomains = ref([])
 const loading = ref(false)
-const domainForm = ref({ host: '', domain_suffix: '' })
 
-const createMode = ref('provider')
 const adminProviders = ref([])
 const adminDomains = ref([])
 const selectedProviderId = ref(null)
@@ -387,21 +368,12 @@ const loadSMTP = async () => {
 }
 
 const handleCreateRoot = async () => {
-  if (createMode.value === 'provider') {
-    if (!selectedProviderId.value || !selectedDomain.value) {
-      ElMessage.warning('请选择提供商和域名')
-      return
-    }
-    await createRootDomain({ provider_id: selectedProviderId.value, domain_name: selectedDomain.value })
-  } else {
-    if (!domainForm.value.host || !domainForm.value.domain_suffix) {
-      ElMessage.warning('请填写主机名和后缀')
-      return
-    }
-    await createRootDomain(domainForm.value)
+  if (!selectedProviderId.value || !selectedDomain.value) {
+    ElMessage.warning('请选择提供商和域名')
+    return
   }
+  await createRootDomain({ provider_id: selectedProviderId.value, domain_name: selectedDomain.value })
   ElMessage.success('根域名创建成功')
-  domainForm.value = { host: '', domain_suffix: '' }
   selectedDomain.value = ''
   loadData()
 }

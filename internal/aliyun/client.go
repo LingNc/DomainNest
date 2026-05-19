@@ -3,8 +3,6 @@ package aliyun
 import (
 	"fmt"
 
-	"domainnest/internal/config"
-
 	alidns "github.com/alibabacloud-go/alidns-20150109/v5/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/utils"
 	"github.com/alibabacloud-go/tea/dara"
@@ -13,24 +11,6 @@ import (
 type Client struct {
 	client  *alidns.Client
 	runtime *dara.RuntimeOptions
-}
-
-func NewClient(cfg *config.AliyunConfig) (*Client, error) {
-	apiConfig := &openapi.Config{
-		AccessKeyId:     dara.String(cfg.AccessKeyID),
-		AccessKeySecret: dara.String(cfg.AccessKeySecret),
-		Endpoint:        dara.String(cfg.Endpoint),
-	}
-
-	client, err := alidns.NewClient(apiConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create aliyun DNS client: %w", err)
-	}
-
-	return &Client{
-		client:  client,
-		runtime: &dara.RuntimeOptions{},
-	}, nil
 }
 
 func (c *Client) AddRecord(domainName, rr, recordType, value string, ttl int64, priority *int64) (string, error) {
