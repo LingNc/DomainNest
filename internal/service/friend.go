@@ -1,0 +1,170 @@
+package service
+
+import (
+	"errors"
+
+	"domainnest/internal/model"
+
+	"gorm.io/gorm"
+)
+
+type FriendService struct {
+	db *gorm.DB
+}
+
+func NewFriendService(db *gorm.DB) *FriendService {
+	return &FriendService{db: db}
+}
+
+// SendRequest creates a friend request from sender to receiver.
+func (s *FriendService) SendRequest(senderID, receiverID uint64) error {
+	if senderID == receiverID {
+		return errors.New("cannot add yourself as friend")
+	}
+
+	// Check receiver exists
+	var receiver model.User
+	if err := s.db.First(&receiver, receiverID).Error; err != nil {
+		return errors.New("user not found")
+	}
+
+	// Check if already friends
+	var count int64
+	s.db.Model(&model.Friendship{}).Where("user_id = ? AND friend_id = ?", senderID, receiverID).Count(&count)
+	if count > 0 {
+		return errors.New("already friends")
+	}
+
+	// Check if pending request already exists (either direction)
+	var existing model.FriendRequest
+	err := s.db.Where(
+		"((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) AND status = ?",
+		senderID, receiverID, receiverID, senderID, "pending",
+	).First(&existing).Error
+	if err == nil {
+		return errors.New("friend request already pending")
+	}
+
+	req := &model.FriendRequest{
+		SenderID:   senderID,
+		ReceiverID: receiverID,
+		Status:     "pending",
+	}
+	return s.db.Create(req).Error
+}
+
+// AcceptRequest accepts a pending friend request and creates bidirectional friendship.
+func (s *FriendService) AcceptRequest(requestID, userID uint64) error {
+	var req model.FriendRequest
+	if err := s.db.First(&req, requestID).Error; err != nil {
+		return errors.New("request not found")
+	}
+
+	if req.ReceiverID != userID {
+		return errors.New("not the receiver of this request")
+	}
+
+	if req.Status != "pending" {
+		return errors.New("request already handled")
+	}
+
+	tx := s.db.Begin()
+
+	// Update request status
+	if err := tx.Model(&req).Update("status", "accepted").Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Create bidirectional friendship
+	friendships := []model.Friendship{
+		{UserID: req.SenderID, FriendID: req.ReceiverID},
+		{UserID: req.ReceiverID, FriendID: req.SenderID},
+	}
+	if err := tx.Create(&friendships).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// RejectRequest rejects a pending friend request.
+func (s *FriendService) RejectRequest(requestID, userID uint64) error {
+	var req model.FriendRequest
+	if err := s.db.First(&req, requestID).Error; err != nil {
+		return errors.New("request not found")
+	}
+
+	if req.ReceiverID != userID {
+		return errors.New("not the receiver of this request")
+	}
+
+	if req.Status != "pending" {
+		return errors.New("request already handled")
+	}
+
+	return s.db.Model(&req).Update("status", "rejected").Error
+}
+
+// RemoveFriend removes a bidirectional friendship.
+func (s *FriendService) RemoveFriend(userID, friendID uint64) error {
+	result := s.db.Where("(user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)",
+		userID, friendID, friendID, userID).Delete(&model.Friendship{})
+	if result.RowsAffected == 0 {
+		return errors.New("friendship not found")
+	}
+	return result.Error
+}
+
+// ListFriends returns all friends of a user.
+func (s *FriendService) ListFriends(userID uint64) ([]model.Friendship, error) {
+	var friendships []model.Friendship
+	err := s.db.Preload("Friend").Where("user_id = ?", userID).Order("created_at DESC").Find(&friendships).Error
+	return friendships, err
+}
+
+// ListPendingRequests returns pending friend requests received by the user.
+func (s *FriendService) ListPendingRequests(userID uint64) ([]model.FriendRequest, error) {
+	var requests []model.FriendRequest
+	err := s.db.Preload("Sender").Where("receiver_id = ? AND status = ?", userID, "pending").
+		Order("created_at DESC").Find(&requests).Error
+	return requests, err
+}
+
+// ListSentRequests returns pending friend requests sent by the user.
+func (s *FriendService) ListSentRequests(userID uint64) ([]model.FriendRequest, error) {
+	var requests []model.FriendRequest
+	err := s.db.Preload("Receiver").Where("sender_id = ? AND status = ?", userID, "pending").
+		Order("created_at DESC").Find(&requests).Error
+	return requests, err
+}
+
+// SearchUsers searches users by username or nickname, excluding self and existing friends.
+func (s *FriendService) SearchUsers(userID uint64, keyword string) ([]model.User, error) {
+	if len(keyword) < 2 {
+		return nil, errors.New("keyword too short")
+	}
+
+	// Get friend IDs
+	var friendIDs []uint64
+	s.db.Model(&model.Friendship{}).Where("user_id = ?", userID).Pluck("friend_id", &friendIDs)
+
+	var users []model.User
+	query := s.db.Where("(username LIKE ? OR nickname LIKE ?) AND id != ?",
+		"%"+keyword+"%", "%"+keyword+"%", userID)
+
+	if len(friendIDs) > 0 {
+		query = query.Where("id NOT IN ?", friendIDs)
+	}
+
+	err := query.Select("id", "username", "nickname", "avatar").Limit(20).Find(&users).Error
+	return users, err
+}
+
+// AreFriends checks if two users are friends.
+func (s *FriendService) AreFriends(userID, otherID uint64) bool {
+	var count int64
+	s.db.Model(&model.Friendship{}).Where("user_id = ? AND friend_id = ?", userID, otherID).Count(&count)
+	return count > 0
+}
