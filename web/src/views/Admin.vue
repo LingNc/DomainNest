@@ -141,7 +141,7 @@
     <el-dialog v-model="showEditUser" title="编辑用户" width="480px">
       <el-form :model="editForm" label-width="80px">
         <el-form-item label="用户名">
-          <el-input :model-value="editTarget?.username" disabled />
+          <el-input v-model="editForm.username" />
         </el-form-item>
         <el-form-item label="角色">
           <el-select v-model="editForm.role" style="width:100%">
@@ -204,7 +204,7 @@ const assignUserId = ref(null)
 
 const showEditUser = ref(false)
 const editTarget = ref(null)
-const editForm = reactive({ role: '', status: 1, invite_limit: 5, nickname: '', email: '', phone: '' })
+const editForm = reactive({ username: '', role: '', status: 1, invite_limit: 5, nickname: '', email: '', phone: '' })
 
 const showResetPwd = ref(false)
 const resetPwdTarget = ref(null)
@@ -266,6 +266,7 @@ const handleAssign = async () => {
 
 const openEditUser = (row) => {
   editTarget.value = row
+  editForm.username = row.username || ''
   editForm.role = row.role
   editForm.status = row.status
   editForm.invite_limit = row.invite_limit || 5

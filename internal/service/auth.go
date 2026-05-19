@@ -113,6 +113,19 @@ func (s *AuthService) UpdateProfile(userID uint64, nickname, phone, email string
 	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error
 }
 
+func (s *AuthService) UpdateUsername(userID uint64, newUsername string) error {
+	if newUsername == "" {
+		return errors.New("username cannot be empty")
+	}
+
+	var existing model.User
+	if err := s.db.Where("username = ? AND id != ?", newUsername, userID).First(&existing).Error; err == nil {
+		return errors.New("username already taken")
+	}
+
+	return s.db.Model(&model.User{}).Where("id = ?", userID).Update("username", newUsername).Error
+}
+
 func (s *AuthService) ResetToken(userID uint64) (string, error) {
 	token, err := generateToken()
 	if err != nil {

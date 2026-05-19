@@ -6,7 +6,7 @@
       </template>
       <el-form :model="form" label-width="80px" style="max-width:480px">
         <el-form-item label="用户名">
-          <el-input :model-value="profile.username" disabled />
+          <el-input v-model="form.username" placeholder="修改用户名" />
         </el-form-item>
         <el-form-item label="角色">
           <el-tag :type="profile.role === 'admin' ? 'danger' : 'info'">{{ profile.role === 'admin' ? '管理员' : '普通用户' }}</el-tag>
@@ -75,17 +75,20 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { getProfile, updateProfile, changePassword, resetToken } from '../api/auth'
+import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
+const auth = useAuthStore()
 const profile = ref({})
 const saving = ref(false)
 const changingPwd = ref(false)
-const form = reactive({ nickname: '', email: '', phone: '' })
+const form = reactive({ username: '', nickname: '', email: '', phone: '' })
 const pwdForm = reactive({ old_password: '', new_password: '' })
 
 const loadProfile = async () => {
   const res = await getProfile()
   profile.value = res.data
+  form.username = res.data.username || ''
   form.nickname = res.data.nickname || ''
   form.email = res.data.email || ''
   form.phone = res.data.phone || ''
@@ -99,6 +102,8 @@ const handleSave = async () => {
     await updateProfile(form)
     ElMessage.success('保存成功')
     await loadProfile()
+    // Update auth store with new username
+    auth.setAuth(auth.token, { ...auth.user, username: form.username })
   } finally {
     saving.value = false
   }

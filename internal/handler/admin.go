@@ -164,6 +164,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	}
 
 	var req struct {
+		Username    string `json:"username"`
 		Role        string `json:"role"`
 		Status      *int   `json:"status"`
 		Nickname    string `json:"nickname"`
@@ -175,6 +176,19 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
+	}
+
+	// Handle username change separately (needs uniqueness check)
+	if req.Username != "" {
+		var existing model.User
+		if err := h.db.Where("username = ? AND id != ?", req.Username, userID).First(&existing).Error; err == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "username already taken"})
+			return
+		}
+		if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("username", req.Username).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			return
+		}
 	}
 
 	updates := map[string]interface{}{}

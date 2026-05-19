@@ -128,6 +128,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 
 	var req struct {
+		Username string `json:"username"`
 		Nickname string `json:"nickname"`
 		Phone    string `json:"phone"`
 		Email    string `json:"email"`
@@ -136,6 +137,13 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
+	}
+
+	if req.Username != "" {
+		if err := h.authService.UpdateUsername(userID, req.Username); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+			return
+		}
 	}
 
 	if err := h.authService.UpdateProfile(userID, req.Nickname, req.Phone, req.Email); err != nil {
