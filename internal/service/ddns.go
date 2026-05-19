@@ -82,7 +82,7 @@ func (s *DDNSService) createRecord(nodeID uint64, rootDomain, rrForAliyun, host,
 		return nil, fmt.Errorf("failed to create local record: %w", err)
 	}
 
-	aliyunRecordID, err := s.aliyunClient.AddRecord(rootDomain, rrForAliyun, recordType, ip, int64(ttl))
+	aliyunRecordID, err := s.aliyunClient.AddRecord(rootDomain, rrForAliyun, recordType, ip, int64(ttl), nil)
 	if err != nil {
 		s.recordService.UpdateSyncStatus(record.ID, "failed", "")
 		return nil, fmt.Errorf("failed to sync to aliyun: %w", err)
@@ -108,15 +108,21 @@ func (s *DDNSService) updateRecord(record *model.DNSRecord, rootDomain, rrForAli
 		return nil, fmt.Errorf("failed to update local record: %w", err)
 	}
 
+	var priority *int64
+	if record.Priority != nil {
+		p := int64(*record.Priority)
+		priority = &p
+	}
+
 	if record.AliyunRecordID != "" {
-		err := s.aliyunClient.UpdateRecord(record.AliyunRecordID, rrForAliyun, record.RecordType, ip, int64(ttl))
+		err := s.aliyunClient.UpdateRecord(record.AliyunRecordID, rrForAliyun, record.RecordType, ip, int64(ttl), priority)
 		if err != nil {
 			s.recordService.UpdateSyncStatus(record.ID, "failed", record.AliyunRecordID)
 			return nil, fmt.Errorf("failed to sync to aliyun: %w", err)
 		}
 		s.recordService.UpdateSyncStatus(record.ID, "synced", record.AliyunRecordID)
 	} else {
-		aliyunRecordID, err := s.aliyunClient.AddRecord(rootDomain, rrForAliyun, record.RecordType, ip, int64(ttl))
+		aliyunRecordID, err := s.aliyunClient.AddRecord(rootDomain, rrForAliyun, record.RecordType, ip, int64(ttl), priority)
 		if err != nil {
 			s.recordService.UpdateSyncStatus(record.ID, "failed", "")
 			return nil, fmt.Errorf("failed to sync to aliyun: %w", err)
@@ -138,6 +144,17 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 		return err
 	}
 
+	if !record.Enabled {
+		if record.AliyunRecordID != "" {
+			if err := s.aliyunClient.DeleteRecord(record.AliyunRecordID); err != nil {
+				s.recordService.UpdateSyncStatus(record.ID, "failed", record.AliyunRecordID)
+				return err
+			}
+			s.recordService.UpdateSyncStatus(record.ID, "disabled", "")
+		}
+		return nil
+	}
+
 	var node model.DomainNode
 	if err := s.db.First(&node, record.NodeID).Error; err != nil {
 		return err
@@ -146,15 +163,21 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 	rootDomain := getRootDomain(node.FullDomain)
 	rrForAliyun := getRRForAliyun(node.FullDomain, rootDomain, record.Host)
 
+	var priority *int64
+	if record.Priority != nil {
+		p := int64(*record.Priority)
+		priority = &p
+	}
+
 	if record.AliyunRecordID != "" {
-		err := s.aliyunClient.UpdateRecord(record.AliyunRecordID, rrForAliyun, record.RecordType, record.Value, int64(record.TTL))
+		err := s.aliyunClient.UpdateRecord(record.AliyunRecordID, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
 		if err != nil {
 			s.recordService.UpdateSyncStatus(record.ID, "failed", record.AliyunRecordID)
 			return err
 		}
 		s.recordService.UpdateSyncStatus(record.ID, "synced", record.AliyunRecordID)
 	} else {
-		aliyunRecordID, err := s.aliyunClient.AddRecord(rootDomain, rrForAliyun, record.RecordType, record.Value, int64(record.TTL))
+		aliyunRecordID, err := s.aliyunClient.AddRecord(rootDomain, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
 		if err != nil {
 			s.recordService.UpdateSyncStatus(record.ID, "failed", "")
 			return err

@@ -33,13 +33,16 @@ func NewClient(cfg *config.AliyunConfig) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) AddRecord(domainName, rr, recordType, value string, ttl int64) (string, error) {
+func (c *Client) AddRecord(domainName, rr, recordType, value string, ttl int64, priority *int64) (string, error) {
 	req := &alidns.AddDomainRecordRequest{
 		DomainName: dara.String(domainName),
 		RR:         dara.String(rr),
 		Type:       dara.String(recordType),
 		Value:      dara.String(value),
 		TTL:        dara.Int64(ttl),
+	}
+	if priority != nil {
+		req.Priority = dara.Int64(*priority)
 	}
 
 	resp, err := c.client.AddDomainRecordWithOptions(req, c.runtime)
@@ -50,13 +53,16 @@ func (c *Client) AddRecord(domainName, rr, recordType, value string, ttl int64) 
 	return dara.StringValue(resp.Body.RecordId), nil
 }
 
-func (c *Client) UpdateRecord(recordID, rr, recordType, value string, ttl int64) error {
+func (c *Client) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	req := &alidns.UpdateDomainRecordRequest{
 		RecordId: dara.String(recordID),
 		RR:       dara.String(rr),
 		Type:     dara.String(recordType),
 		Value:    dara.String(value),
 		TTL:      dara.Int64(ttl),
+	}
+	if priority != nil {
+		req.Priority = dara.Int64(*priority)
 	}
 
 	_, err := c.client.UpdateDomainRecordWithOptions(req, c.runtime)

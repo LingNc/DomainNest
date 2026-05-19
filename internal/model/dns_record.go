@@ -15,8 +15,9 @@ type DNSRecord struct {
 	TTL            int            `gorm:"default:600" json:"ttl"`
 	Priority       *int           `json:"priority,omitempty"`
 	Line           string         `gorm:"type:varchar(32);default:'default'" json:"line"`
+	Enabled        bool           `gorm:"default:true" json:"enabled"`
 	AliyunRecordID string         `gorm:"type:varchar(64)" json:"aliyun_record_id,omitempty"`
-	SyncStatus     string         `gorm:"type:enum('pending','synced','failed');default:'pending'" json:"sync_status"`
+	SyncStatus     string         `gorm:"type:varchar(16);default:'pending'" json:"sync_status"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`

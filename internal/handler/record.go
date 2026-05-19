@@ -28,13 +28,32 @@ func (h *RecordHandler) List(c *gin.Context) {
 		return
 	}
 
-	records, err := h.recordService.GetRecords(nodeID, userID)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	var enabled *bool
+	if v := c.Query("enabled"); v != "" {
+		b := v == "true" || v == "1"
+		enabled = &b
+	}
+
+	q := service.RecordQuery{
+		Host:       c.Query("host"),
+		RecordType: c.Query("record_type"),
+		Value:      c.Query("value"),
+		Enabled:    enabled,
+		SyncStatus: c.Query("sync_status"),
+		Page:       page,
+		PageSize:   pageSize,
+	}
+
+	result, err := h.recordService.ListRecords(nodeID, userID, q)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "data": records})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": result})
 }
 
 func (h *RecordHandler) Create(c *gin.Context) {
@@ -119,4 +138,85 @@ func (h *RecordHandler) Delete(c *gin.Context) {
 		nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "deleted successfully"})
+}
+
+func (h *RecordHandler) Toggle(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid record id"})
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	record, err := h.recordService.ToggleRecord(recordID, userID, req.Enabled)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	action := "enable_record"
+	if !req.Enabled {
+		action = "disable_record"
+	}
+	middleware.LogOperation(h.db, userID, action, "dns_record", &recordID,
+		map[string]interface{}{"enabled": req.Enabled}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": record})
+}
+
+func (h *RecordHandler) BatchDelete(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	var req struct {
+		IDs []uint64 `json:"ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	if err := h.recordService.BatchDelete(req.IDs, userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "batch_delete_records", "dns_record", nil,
+		map[string]interface{}{"ids": req.IDs}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "deleted successfully"})
+}
+
+func (h *RecordHandler) BatchToggle(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	var req struct {
+		IDs     []uint64 `json:"ids" binding:"required"`
+		Enabled bool     `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	if err := h.recordService.BatchToggle(req.IDs, userID, req.Enabled); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	action := "batch_enable_records"
+	if !req.Enabled {
+		action = "batch_disable_records"
+	}
+	middleware.LogOperation(h.db, userID, action, "dns_record", nil,
+		map[string]interface{}{"ids": req.IDs, "enabled": req.Enabled}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "updated successfully"})
 }

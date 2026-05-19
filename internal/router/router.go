@@ -80,6 +80,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	{
 		records.PUT("/:id", recordHandler.Update)
 		records.DELETE("/:id", recordHandler.Delete)
+		records.PUT("/:id/toggle", recordHandler.Toggle)
+		records.POST("/batch-delete", recordHandler.BatchDelete)
+		records.POST("/batch-toggle", recordHandler.BatchToggle)
 	}
 
 	ddns := v1.Group("/ddns")
