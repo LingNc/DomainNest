@@ -29,6 +29,7 @@ func AutoMigrate(db *gorm.DB) error {
 	log.Println("Running database auto-migration...")
 	return db.AutoMigrate(
 		&User{},
+		&DNSProvider{},
 		&DomainNode{},
 		&DNSRecord{},
 		&OperationLog{},

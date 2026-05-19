@@ -73,6 +73,25 @@ func (c *Client) UpdateRecord(recordID, rr, recordType, value string, ttl int64,
 	return nil
 }
 
+func NewClientFromKeys(accessKeyID, accessKeySecret, endpoint string) (*Client, error) {
+	if endpoint == "" {
+		endpoint = "alidns.aliyuncs.com"
+	}
+	apiConfig := &openapi.Config{
+		AccessKeyId:     dara.String(accessKeyID),
+		AccessKeySecret: dara.String(accessKeySecret),
+		Endpoint:        dara.String(endpoint),
+	}
+	client, err := alidns.NewClient(apiConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create aliyun DNS client: %w", err)
+	}
+	return &Client{
+		client:  client,
+		runtime: &dara.RuntimeOptions{},
+	}, nil
+}
+
 func (c *Client) DeleteRecord(recordID string) error {
 	req := &alidns.DeleteDomainRecordRequest{
 		RecordId: dara.String(recordID),
@@ -83,5 +102,38 @@ func (c *Client) DeleteRecord(recordID string) error {
 		return fmt.Errorf("aliyun DeleteRecord failed: %w", err)
 	}
 
+	return nil
+}
+
+type AliyunDomain struct {
+	DomainName  string `json:"domain_name"`
+	RecordCount int64  `json:"record_count"`
+}
+
+func (c *Client) DescribeDomains() ([]AliyunDomain, error) {
+	req := &alidns.DescribeDomainsRequest{}
+	resp, err := c.client.DescribeDomainsWithOptions(req, c.runtime)
+	if err != nil {
+		return nil, fmt.Errorf("aliyun DescribeDomains failed: %w", err)
+	}
+	var domains []AliyunDomain
+	for _, d := range resp.Body.Domains.Domain {
+		domains = append(domains, AliyunDomain{
+			DomainName:  dara.StringValue(d.DomainName),
+			RecordCount: dara.Int64Value(d.RecordCount),
+		})
+	}
+	return domains, nil
+}
+
+func (c *Client) DescribeDomainRecords(domainName string) error {
+	req := &alidns.DescribeDomainRecordsRequest{
+		DomainName: dara.String(domainName),
+		PageSize:   dara.Int64(1),
+	}
+	_, err := c.client.DescribeDomainRecordsWithOptions(req, c.runtime)
+	if err != nil {
+		return fmt.Errorf("aliyun DescribeDomainRecords failed: %w", err)
+	}
 	return nil
 }
