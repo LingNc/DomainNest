@@ -3,29 +3,29 @@
     <el-card class="reset-card">
       <div class="reset-header">
         <h2>DomainNest</h2>
-        <p>重置密码</p>
+        <p>{{ $t('resetPassword.title') }}</p>
       </div>
       <el-form v-if="!done" :model="form" @submit.prevent="handleSubmit">
         <el-form-item>
-          <el-input v-model="form.token" placeholder="请输入 6 位验证码" prefix-icon="Key" size="large" maxlength="6" />
+          <el-input v-model="form.token" :placeholder="$t('resetPassword.codePlaceholder')" prefix-icon="Key" size="large" maxlength="6" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.new_password" type="password" placeholder="新密码（至少6位）" prefix-icon="Lock" show-password size="large" autocomplete="new-password" />
+          <el-input v-model="form.new_password" type="password" :placeholder="$t('resetPassword.newPasswordPlaceholder')" prefix-icon="Lock" show-password size="large" autocomplete="new-password" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="confirmPwd" type="password" placeholder="确认新密码" prefix-icon="Lock" show-password size="large" autocomplete="new-password" />
+          <el-input v-model="confirmPwd" type="password" :placeholder="$t('resetPassword.confirmPassword')" prefix-icon="Lock" show-password size="large" autocomplete="new-password" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">重置密码</el-button>
+          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">{{ $t('resetPassword.resetBtn') }}</el-button>
         </el-form-item>
         <div class="links">
-          <router-link to="/login">返回登录</router-link>
+          <router-link to="/login">{{ $t('common.backToLogin') }}</router-link>
         </div>
       </el-form>
       <div v-else class="success-msg">
         <el-icon :size="48" color="#67c23a"><component :is="'CircleCheck'" /></el-icon>
-        <p>密码重置成功！</p>
-        <el-button type="primary" @click="$router.push('/login')" style="margin-top:16px">去登录</el-button>
+        <p>{{ $t('resetPassword.successMsg') }}</p>
+        <el-button type="primary" @click="$router.push('/login')" style="margin-top:16px">{{ $t('resetPassword.goLogin') }}</el-button>
       </div>
     </el-card>
   </div>
@@ -34,10 +34,12 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { resetPassword } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const { t } = useI18n()
 const loading = ref(false)
 const done = ref(false)
 const confirmPwd = ref('')
@@ -45,15 +47,15 @@ const form = ref({ token: '', new_password: '' })
 
 const handleSubmit = async () => {
   if (!form.value.token || form.value.token.length !== 6) {
-    ElMessage.warning('请输入 6 位验证码')
+    ElMessage.warning(t('resetPassword.enterCode'))
     return
   }
   if (!form.value.new_password || form.value.new_password.length < 6) {
-    ElMessage.warning('密码至少6位')
+    ElMessage.warning(t('resetPassword.passwordMinLength'))
     return
   }
   if (form.value.new_password !== confirmPwd.value) {
-    ElMessage.warning('两次密码不一致')
+    ElMessage.warning(t('resetPassword.passwordMismatch'))
     return
   }
   loading.value = true

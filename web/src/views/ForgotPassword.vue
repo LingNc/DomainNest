@@ -3,24 +3,24 @@
     <el-card class="forgot-card">
       <div class="forgot-header">
         <h2>DomainNest</h2>
-        <p>找回密码</p>
+        <p>{{ $t('forgotPassword.title') }}</p>
       </div>
       <el-form v-if="!sent" :model="form" @submit.prevent="handleSubmit">
         <el-form-item>
-          <el-input v-model="form.email" placeholder="请输入注册邮箱" prefix-icon="Message" size="large" />
+          <el-input v-model="form.email" :placeholder="$t('forgotPassword.emailPlaceholder')" prefix-icon="Message" size="large" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">发送验证码</el-button>
+          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">{{ $t('forgotPassword.sendCode') }}</el-button>
         </el-form-item>
         <div class="links">
-          <router-link to="/login">返回登录</router-link>
+          <router-link to="/login">{{ $t('common.backToLogin') }}</router-link>
         </div>
       </el-form>
       <div v-else class="success-msg">
         <el-icon :size="48" color="#67c23a"><component :is="'CircleCheck'" /></el-icon>
-        <p>如果该邮箱已注册，我们已向 <b>{{ form.email }}</b> 发送了验证码。</p>
-        <p class="hint">请检查收件箱（及垃圾邮件），验证码 30 分钟内有效。</p>
-        <el-button type="primary" @click="$router.push('/reset-password')" style="margin-top:16px">去重置密码</el-button>
+        <p>{{ $t('forgotPassword.successMsgBefore') }} <b>{{ form.email }}</b> {{ $t('forgotPassword.successMsgAfter') }}</p>
+        <p class="hint">{{ $t('forgotPassword.checkSpam') }}</p>
+        <el-button type="primary" @click="$router.push('/reset-password')" style="margin-top:16px">{{ $t('forgotPassword.goReset') }}</el-button>
       </div>
     </el-card>
   </div>
@@ -28,8 +28,11 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { forgotPassword } from '../api/auth'
 import { ElMessage } from 'element-plus'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const sent = ref(false)
@@ -37,7 +40,7 @@ const form = ref({ email: '' })
 
 const handleSubmit = async () => {
   if (!form.value.email) {
-    ElMessage.warning('请输入邮箱地址')
+    ElMessage.warning(t('forgotPassword.enterEmail'))
     return
   }
   loading.value = true

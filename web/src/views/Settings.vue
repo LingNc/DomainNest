@@ -2,8 +2,8 @@
 <template>
   <div>
     <div class="page-header">
-      <h2>系统设置</h2>
-      <p class="subtitle">管理您的 DDNS Token 和账号设置</p>
+      <h2>{{ $t('settings.title') }}</h2>
+      <p class="subtitle">{{ $t('settings.subtitle') }}</p>
     </div>
 
     <el-row :gutter="20">
@@ -11,23 +11,23 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>DDNS Token</span>
-              <el-button type="warning" size="small" @click="handleResetToken">重置 Token</el-button>
+              <span>{{ $t('settings.ddnsToken') }}</span>
+              <el-button type="warning" size="small" @click="handleResetToken">{{ $t('settings.resetToken') }}</el-button>
             </div>
           </template>
-          <p class="token-label">您的 DDNS Token：</p>
+          <p class="token-label">{{ $t('settings.yourDdnsToken') }}</p>
           <div class="token-row">
-            <el-tag size="large" class="token-value">{{ token || '加载中...' }}</el-tag>
+            <el-tag size="large" class="token-value">{{ token || $t('common.loading') }}</el-tag>
           </div>
 
           <el-divider />
-          <h4>ddns-go Callback 配置</h4>
-          <p class="hint">在 ddns-go 的「回调」设置中分别填入以下内容：</p>
+          <h4>{{ $t('settings.callbackConfig') }}</h4>
+          <p class="hint">{{ $t('settings.callbackHint') }}</p>
 
           <div class="config-section">
             <div class="config-label">
               <span>URL</span>
-              <el-button link type="primary" size="small" @click="copy(callbackUrl)">复制</el-button>
+              <el-button link type="primary" size="small" @click="copy(callbackUrl)">{{ $t('common.copy') }}</el-button>
             </div>
             <el-input :value="callbackUrl" readonly />
           </div>
@@ -35,19 +35,19 @@
           <div class="config-section">
             <div class="config-label">
               <span>RequestBody</span>
-              <el-button link type="primary" size="small" @click="copy(callbackBody)">复制</el-button>
+              <el-button link type="primary" size="small" @click="copy(callbackBody)">{{ $t('common.copy') }}</el-button>
             </div>
             <el-input :value="callbackBody" readonly />
           </div>
 
           <el-divider />
-          <h4>ddns-go Webhook 配置</h4>
-          <p class="hint">在 ddns-go 的「Webhook」设置中分别填入以下三项：</p>
+          <h4>{{ $t('settings.webhookConfig') }}</h4>
+          <p class="hint">{{ $t('settings.webhookHint') }}</p>
 
           <div class="config-section">
             <div class="config-label">
               <span>URL</span>
-              <el-button link type="primary" size="small" @click="copy(webhookUrl)">复制</el-button>
+              <el-button link type="primary" size="small" @click="copy(webhookUrl)">{{ $t('common.copy') }}</el-button>
             </div>
             <el-input :value="webhookUrl" readonly />
           </div>
@@ -55,7 +55,7 @@
           <div class="config-section">
             <div class="config-label">
               <span>RequestBody</span>
-              <el-button link type="primary" size="small" @click="copy(webhookBody)">复制</el-button>
+              <el-button link type="primary" size="small" @click="copy(webhookBody)">{{ $t('common.copy') }}</el-button>
             </div>
             <el-input :value="webhookBody" readonly />
           </div>
@@ -63,7 +63,7 @@
           <div class="config-section">
             <div class="config-label">
               <span>Headers</span>
-              <el-button link type="primary" size="small" @click="copy(webhookHeaders)">复制</el-button>
+              <el-button link type="primary" size="small" @click="copy(webhookHeaders)">{{ $t('common.copy') }}</el-button>
             </div>
             <el-input :value="webhookHeaders" readonly />
           </div>
@@ -74,9 +74,12 @@
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n'
 import { ref, computed, onMounted } from 'vue'
 import { getProfile, resetToken } from '../api/auth'
 import { ElMessage } from 'element-plus'
+
+const { t } = useI18n()
 
 const token = ref('')
 
@@ -97,12 +100,12 @@ const loadProfile = async () => {
 const handleResetToken = async () => {
   const res = await resetToken()
   token.value = res.data.token
-  ElMessage.success('Token 已重置')
+  ElMessage.success(t('settings.tokenReset'))
 }
 
 const copy = (text) => {
   navigator.clipboard.writeText(text)
-  ElMessage.success('已复制到剪贴板')
+  ElMessage.success(t('settings.copiedToClipboard'))
 }
 
 onMounted(loadProfile)

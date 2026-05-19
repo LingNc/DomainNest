@@ -4,21 +4,21 @@
     <el-card class="login-card">
       <div class="login-header">
         <h2>DomainNest</h2>
-        <p>域名分配与 DDNS 管理系统</p>
+        <p>{{ $t('login.subtitle') }}</p>
       </div>
       <el-form :model="form" @submit.prevent="handleLogin">
         <el-form-item>
-          <el-input v-model="form.username" placeholder="用户名" prefix-icon="User" size="large" />
+          <el-input v-model="form.username" :placeholder="$t('common.username')" prefix-icon="User" size="large" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.password" type="password" placeholder="密码" prefix-icon="Lock" show-password size="large" />
+          <el-input v-model="form.password" type="password" :placeholder="$t('common.password')" prefix-icon="Lock" show-password size="large" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">登 录</el-button>
+          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">{{ $t('login.loginBtn') }}</el-button>
         </el-form-item>
         <div class="links">
-          <router-link to="/register">注册新账号</router-link>
-          <router-link to="/forgot-password">忘记密码</router-link>
+          <router-link to="/register">{{ $t('login.register') }}</router-link>
+          <router-link to="/forgot-password">{{ $t('login.forgotPassword') }}</router-link>
         </div>
       </el-form>
     </el-card>

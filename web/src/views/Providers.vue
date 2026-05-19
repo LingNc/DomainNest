@@ -3,13 +3,13 @@
     <el-card>
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span>DNS 提供商</span>
-          <el-button type="primary" size="small" @click="openAddDialog">添加提供商</el-button>
+          <span>{{ $t('providers.title') }}</span>
+          <el-button type="primary" size="small" @click="openAddDialog">{{ $t('providers.addProvider') }}</el-button>
         </div>
       </template>
       <el-table :data="providers" stripe v-loading="loading" style="width:100%">
-        <el-table-column prop="name" label="名称" min-width="120" />
-        <el-table-column label="类型" width="100">
+        <el-table-column prop="name" :label="$t('providers.name')" min-width="120" />
+        <el-table-column :label="$t('providers.type')" width="100">
           <template #default="{ row }">
             <el-tag size="small">{{ row.provider_type }}</el-tag>
           </template>
@@ -19,34 +19,34 @@
             <span style="font-family:monospace;font-size:12px">****{{ row.access_key_id?.slice(-4) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="80">
+        <el-table-column :label="$t('providers.status')" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'active' ? '正常' : '禁用' }}
+              {{ row.status === 'active' ? $t('providers.active') : $t('common.disabled') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="170" />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+        <el-table-column :label="$t('common.actions')" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" text type="primary" @click="viewDomains(row)">域名列表</el-button>
-            <el-button size="small" text type="warning" @click="openEditDialog(row)">编辑</el-button>
-            <el-button size="small" text type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" text type="primary" @click="viewDomains(row)">{{ $t('providers.domainList') }}</el-button>
+            <el-button size="small" text type="warning" @click="openEditDialog(row)">{{ $t('common.edit') }}</el-button>
+            <el-button size="small" text type="danger" @click="handleDelete(row)">{{ $t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
     <!-- Add Provider Dialog -->
-    <el-dialog v-model="addDialogVisible" title="添加 DNS 提供商" width="480px">
+    <el-dialog v-model="addDialogVisible" :title="$t('providers.addDialogTitle')" width="480px">
       <el-form :model="addForm" label-width="100px">
-        <el-form-item label="提供商类型">
+        <el-form-item :label="$t('providers.providerType')">
           <el-select v-model="addForm.provider_type" style="width:100%" filterable>
-            <el-option v-for="p in providerTypes" :key="p.value" :label="p.label" :value="p.value" />
+            <el-option v-for="p in providerTypeOptions" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="名称">
-          <el-input v-model="addForm.name" placeholder="为这个提供商命名" />
+        <el-form-item :label="$t('providers.name')">
+          <el-input v-model="addForm.name" :placeholder="$t('providers.namePlaceholder')" />
         </el-form-item>
         <el-form-item :label="credentialLabel.id">
           <el-input v-model="addForm.access_key_id" :placeholder="credentialPlaceholder.id" />
@@ -59,15 +59,15 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="addDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleAdd">添加</el-button>
+        <el-button @click="addDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleAdd">{{ $t('providers.add') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- Edit Provider Dialog -->
-    <el-dialog v-model="editDialogVisible" title="编辑提供商" width="480px">
+    <el-dialog v-model="editDialogVisible" :title="$t('providers.editDialogTitle')" width="480px">
       <el-form :model="editForm" label-width="100px">
-        <el-form-item label="名称">
+        <el-form-item :label="$t('providers.name')">
           <el-input v-model="editForm.name" />
         </el-form-item>
         <el-form-item label="Endpoint">
@@ -75,20 +75,20 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleEdit">保存</el-button>
+        <el-button @click="editDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleEdit">{{ $t('common.save') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- Domains Dialog -->
-    <el-dialog v-model="domainsDialogVisible" :title="'域名列表 - ' + currentProvider?.name" width="600px">
+    <el-dialog v-model="domainsDialogVisible" :title="$t('providers.domainList') + ' - ' + currentProvider?.name" width="600px">
       <el-table :data="domains" stripe v-loading="loadingDomains" style="width:100%">
-        <el-table-column prop="domain_name" label="域名" min-width="200" />
-        <el-table-column prop="record_count" label="记录数" width="100" />
-        <el-table-column label="操作" width="120">
+        <el-table-column prop="domain_name" :label="$t('common.domain')" min-width="200" />
+        <el-table-column prop="record_count" :label="$t('providers.recordCount')" width="100" />
+        <el-table-column :label="$t('common.actions')" width="120">
           <template #default="{ row }">
             <el-button size="small" type="primary" :loading="claiming[row.domain_name]" @click="handleClaim(row)">
-              认领
+              {{ $t('providers.claim') }}
             </el-button>
           </template>
         </el-table-column>
@@ -99,8 +99,28 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { listProviders, createProvider, updateProvider, deleteProvider, listProviderDomains, claimDomain } from '../api/provider'
 import { ElMessage, ElMessageBox } from 'element-plus'
+
+const { t } = useI18n()
+
+const providerTypeLabelKeys = {
+  aliyun: 'providers.providerAliyun',
+  aliesa: 'providers.providerAliesa',
+  tencentcloud: 'providers.providerTencentcloud',
+  huaweicloud: 'providers.providerHuaweicloud',
+  baiducloud: 'providers.providerBaiducloud',
+  trafficroute: 'providers.providerTrafficroute',
+  rainyun: 'providers.providerRainyun',
+}
+
+const providerTypeOptions = computed(() =>
+  providerTypes.map(p => ({
+    ...p,
+    label: providerTypeLabelKeys[p.value] ? t(providerTypeLabelKeys[p.value]) : p.label,
+  }))
+)
 
 const providerTypes = [
   { value: 'aliyun', label: '阿里云 DNS' },
@@ -148,45 +168,61 @@ const loadingDomains = ref(false)
 const claiming = reactive({})
 
 const credentialLabels = {
-  aliyun: { id: 'AccessKey ID', secret: 'AccessKey Secret', ep: '可选，默认 alidns.aliyuncs.com' },
-  aliesa: { id: 'AccessKey ID', secret: 'AccessKey Secret', ep: '可选' },
-  tencentcloud: { id: 'SecretId', secret: 'SecretKey', ep: '可选，默认 dnspod.tencentcloudapi.com' },
-  cloudflare: { id: 'API Token', secret: '(留空)', ep: '可选' },
-  huaweicloud: { id: 'Access Key', secret: 'Secret Key', ep: '可选，默认 dns.myhuaweicloud.com' },
-  baiducloud: { id: 'Access Key', secret: 'Secret Key', ep: '可选' },
-  trafficroute: { id: 'Access Key', secret: 'Secret Key', ep: '可选' },
-  godaddy: { id: 'API Key', secret: 'API Secret', ep: '可选，默认 api.godaddy.com' },
-  namecheap: { id: 'API User', secret: 'API Key', ep: '可选，默认 api.namecheap.com' },
-  namesilo: { id: 'API Key', secret: '(留空)', ep: '可选' },
-  porkbun: { id: 'API Key', secret: 'Secret API Key', ep: '可选' },
-  vercel: { id: 'API Token', secret: '(留空)', ep: '可选' },
-  gcore: { id: 'API Key', secret: '(留空)', ep: '可选' },
-  nsone: { id: 'API Key', secret: '(留空)', ep: '可选' },
-  name_com: { id: '用户名', secret: 'API Token', ep: '可选，默认 api.name.com' },
-  cloudns: { id: 'Auth ID', secret: 'Auth Password', ep: '可选' },
-  dnsla: { id: '用户名', secret: '密码', ep: '可选' },
-  dynadot: { id: 'API Key', secret: '(留空)', ep: '可选' },
-  dynv6: { id: 'API Token', secret: '(留空)', ep: '可选' },
-  spaceship: { id: 'API Key', secret: 'API Secret', ep: '可选' },
-  edgeone: { id: 'SecretId', secret: 'SecretKey', ep: '可选' },
-  rainyun: { id: 'API Key', secret: '(留空)', ep: '可选' },
-  hipmdnsmgr: { id: 'API Token', secret: '(留空)', ep: '可选' },
-  nowcn: { id: 'API Key', secret: 'API Secret', ep: '可选' },
-  eranet: { id: 'API Key', secret: 'API Secret', ep: '可选' },
-  tnethk: { id: 'API Key', secret: 'API Secret', ep: '可选' },
+  aliyun: { id: 'AccessKey ID', secret: 'AccessKey Secret' },
+  aliesa: { id: 'AccessKey ID', secret: 'AccessKey Secret' },
+  tencentcloud: { id: 'SecretId', secret: 'SecretKey' },
+  cloudflare: { id: 'API Token', secret: '(留空)' },
+  huaweicloud: { id: 'Access Key', secret: 'Secret Key' },
+  baiducloud: { id: 'Access Key', secret: 'Secret Key' },
+  trafficroute: { id: 'Access Key', secret: 'Secret Key' },
+  godaddy: { id: 'API Key', secret: 'API Secret' },
+  namecheap: { id: 'API User', secret: 'API Key' },
+  namesilo: { id: 'API Key', secret: '(留空)' },
+  porkbun: { id: 'API Key', secret: 'Secret API Key' },
+  vercel: { id: 'API Token', secret: '(留空)' },
+  gcore: { id: 'API Key', secret: '(留空)' },
+  nsone: { id: 'API Key', secret: '(留空)' },
+  name_com: { id: '___USERNAME___', secret: 'API Token' },
+  cloudns: { id: 'Auth ID', secret: 'Auth Password' },
+  dnsla: { id: '___USERNAME___', secret: '___PASSWORD___' },
+  dynadot: { id: 'API Key', secret: '(留空)' },
+  dynv6: { id: 'API Token', secret: '(留空)' },
+  spaceship: { id: 'API Key', secret: 'API Secret' },
+  edgeone: { id: 'SecretId', secret: 'SecretKey' },
+  rainyun: { id: 'API Key', secret: '(留空)' },
+  hipmdnsmgr: { id: 'API Token', secret: '(留空)' },
+  nowcn: { id: 'API Key', secret: 'API Secret' },
+  eranet: { id: 'API Key', secret: 'API Secret' },
+  tnethk: { id: 'API Key', secret: 'API Secret' },
+}
+
+const endpointDefaults = {
+  aliyun: 'alidns.aliyuncs.com',
+  tencentcloud: 'dnspod.tencentcloudapi.com',
+  huaweicloud: 'dns.myhuaweicloud.com',
+  godaddy: 'api.godaddy.com',
+  namecheap: 'api.namecheap.com',
+  name_com: 'api.name.com',
+}
+
+function resolveLabel(val, fallback) {
+  if (val === '___USERNAME___') return t('providers.username')
+  if (val === '___PASSWORD___') return t('providers.password')
+  return val || fallback
 }
 
 const credentialLabel = computed(() => ({
-  id: credentialLabels[addForm.provider_type]?.id || 'AccessKey ID',
-  secret: credentialLabels[addForm.provider_type]?.secret || 'AccessKey Secret',
+  id: resolveLabel(credentialLabels[addForm.provider_type]?.id, 'AccessKey ID'),
+  secret: resolveLabel(credentialLabels[addForm.provider_type]?.secret, 'AccessKey Secret'),
 }))
 const credentialPlaceholder = computed(() => ({
-  id: `输入 ${credentialLabel.value.id}`,
-  secret: credentialLabels[addForm.provider_type]?.secret === '(留空)' ? '此提供商不需要' : `输入 ${credentialLabel.value.secret}`,
+  id: t('providers.input', { label: credentialLabel.value.id }),
+  secret: credentialLabels[addForm.provider_type]?.secret === '(留空)' ? t('providers.notRequired') : t('providers.input', { label: credentialLabel.value.secret }),
 }))
-const endpointPlaceholder = computed(() =>
-  credentialLabels[addForm.provider_type]?.ep || '可选'
-)
+const endpointPlaceholder = computed(() => {
+  const host = endpointDefaults[addForm.provider_type]
+  return host ? t('providers.optionalDefault', { host }) : t('providers.optional')
+})
 
 const loadProviders = async () => {
   loading.value = true
@@ -212,17 +248,17 @@ const openAddDialog = () => {
 const handleAdd = async () => {
   const needsSecret = credentialLabels[addForm.provider_type]?.secret !== '(留空)'
   if (!addForm.name || !addForm.access_key_id || (needsSecret && !addForm.access_key_secret)) {
-    ElMessage.warning('请填写必要字段')
+    ElMessage.warning(t('providers.pleaseFillFields'))
     return
   }
   submitting.value = true
   try {
     await createProvider(addForm)
-    ElMessage.success('提供商添加成功')
+    ElMessage.success(t('providers.addSuccess'))
     addDialogVisible.value = false
     await loadProviders()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '添加失败')
+    ElMessage.error(e.response?.data?.message || t('providers.addFailed'))
   } finally {
     submitting.value = false
   }
@@ -239,11 +275,11 @@ const handleEdit = async () => {
   submitting.value = true
   try {
     await updateProvider(editForm.id, { name: editForm.name, endpoint: editForm.endpoint })
-    ElMessage.success('更新成功')
+    ElMessage.success(t('providers.updateSuccess'))
     editDialogVisible.value = false
     await loadProviders()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '更新失败')
+    ElMessage.error(e.response?.data?.message || t('providers.updateFailed'))
   } finally {
     submitting.value = false
   }
@@ -251,12 +287,12 @@ const handleEdit = async () => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm('确定删除该提供商？需先解除所有关联域名。', '确认删除', { type: 'warning' })
+    await ElMessageBox.confirm(t('providers.confirmDeleteText'), t('common.confirmDelete'), { type: 'warning' })
     await deleteProvider(row.id)
-    ElMessage.success('已删除')
+    ElMessage.success(t('providers.deleted'))
     await loadProviders()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.response?.data?.message || '删除失败')
+    if (e !== 'cancel') ElMessage.error(e.response?.data?.message || t('providers.deleteFailed'))
   }
 }
 
@@ -269,7 +305,7 @@ const viewDomains = async (row) => {
     const res = await listProviderDomains(row.id)
     domains.value = res.data || []
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '获取域名列表失败')
+    ElMessage.error(e.response?.data?.message || t('providers.fetchDomainsFailed'))
   } finally {
     loadingDomains.value = false
   }
@@ -279,9 +315,9 @@ const handleClaim = async (domain) => {
   claiming[domain.domain_name] = true
   try {
     await claimDomain(currentProvider.value.id, { domain_name: domain.domain_name })
-    ElMessage.success(`域名 ${domain.domain_name} 认领成功`)
+    ElMessage.success(t('providers.claimSuccess', { domain: domain.domain_name }))
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '认领失败')
+    ElMessage.error(e.response?.data?.message || t('providers.claimFailed'))
   } finally {
     claiming[domain.domain_name] = false
   }

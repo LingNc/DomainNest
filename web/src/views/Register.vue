@@ -4,29 +4,29 @@
     <el-card class="register-card">
       <div class="register-header">
         <h2>DomainNest</h2>
-        <p>注册新账号</p>
+        <p>{{ $t('register.title') }}</p>
       </div>
       <el-form :model="form" @submit.prevent="handleRegister">
         <el-form-item>
-          <el-input v-model="form.username" placeholder="用户名" prefix-icon="User" size="large" @input="onUsernameInput" :class="{ 'is-error': usernameError }" />
+          <el-input v-model="form.username" :placeholder="$t('common.username')" prefix-icon="User" size="large" @input="onUsernameInput" :class="{ 'is-error': usernameError }" />
           <div v-if="usernameStatus" :class="usernameStatus === 'available' ? 'username-ok' : 'username-err'">
-            {{ usernameStatus === 'available' ? '用户名可用' : '用户名已被占用' }}
+            {{ usernameStatus === 'available' ? $t('register.usernameAvailable') : $t('register.usernameTaken') }}
           </div>
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.email" placeholder="邮箱（选填）" prefix-icon="Message" size="large" />
+          <el-input v-model="form.email" :placeholder="$t('register.emailOptional')" prefix-icon="Message" size="large" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.password" type="password" placeholder="密码" prefix-icon="Lock" show-password size="large" />
+          <el-input v-model="form.password" type="password" :placeholder="$t('common.password')" prefix-icon="Lock" show-password size="large" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.invite_code" placeholder="邀请码" prefix-icon="Link" size="large" />
+          <el-input v-model="form.invite_code" :placeholder="$t('register.inviteCode')" prefix-icon="Link" size="large" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">注 册</el-button>
+          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">{{ $t('register.registerBtn') }}</el-button>
         </el-form-item>
         <div class="links">
-          <router-link to="/login">已有账号？去登录</router-link>
+          <router-link to="/login">{{ $t('register.goLogin') }}</router-link>
         </div>
       </el-form>
     </el-card>
@@ -36,11 +36,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { register, checkUsername } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 const loading = ref(false)
 const form = ref({ username: '', email: '', password: '', invite_code: '' })
 const usernameStatus = ref('') // '' | 'available' | 'taken'
@@ -67,17 +69,17 @@ const onUsernameInput = () => {
 
 const handleRegister = async () => {
   if (!form.value.invite_code) {
-    ElMessage.warning('请输入邀请码')
+    ElMessage.warning(t('register.enterInviteCode'))
     return
   }
   if (usernameStatus.value === 'taken') {
-    ElMessage.warning('用户名已被占用')
+    ElMessage.warning(t('register.usernameTaken'))
     return
   }
   loading.value = true
   try {
     await register(form.value)
-    ElMessage.success('注册成功，请登录')
+    ElMessage.success(t('register.registerSuccess'))
     router.push('/login')
   } finally {
     loading.value = false

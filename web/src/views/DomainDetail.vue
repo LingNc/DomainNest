@@ -5,9 +5,9 @@
       <div>
         <el-button text @click="$router.push('/dashboard')">
           <el-icon><component :is="'ArrowLeft'" /></el-icon>
-          返回
+          {{ $t('common.back') }}
         </el-button>
-        <h2>{{ domain?.full_domain || '加载中...' }}</h2>
+        <h2>{{ domain?.full_domain || $t('common.loading') }}</h2>
       </div>
     </div>
 
@@ -16,83 +16,83 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>DNS 记录</span>
+              <span>{{ $t('domainDetail.dnsRecords') }}</span>
               <div class="header-actions">
-                <el-button size="small" @click="handleExport('json')">导出 JSON</el-button>
-                <el-button size="small" @click="handleExport('csv')">导出 CSV</el-button>
-                <el-button size="small" @click="showImport = true">导入</el-button>
+                <el-button size="small" @click="handleExport('json')">{{ $t('domainDetail.exportJson') }}</el-button>
+                <el-button size="small" @click="handleExport('csv')">{{ $t('domainDetail.exportCsv') }}</el-button>
+                <el-button size="small" @click="showImport = true">{{ $t('domainDetail.import') }}</el-button>
                 <el-button type="primary" size="small" @click="openAddRecord">
                   <el-icon><component :is="'Plus'" /></el-icon>
-                  添加记录
+                  {{ $t('domainDetail.addRecord') }}
                 </el-button>
               </div>
             </div>
           </template>
 
-          <!-- 搜索筛选栏 -->
+          <!-- search / filter bar -->
           <div class="filter-bar">
-            <el-input v-model="filters.host" placeholder="主机记录" clearable size="small" style="width:140px" @clear="loadRecords" @keyup.enter="loadRecords" />
-            <el-select v-model="filters.record_type" placeholder="记录类型" clearable size="small" style="width:120px" @change="loadRecords">
+            <el-input v-model="filters.host" :placeholder="$t('domainDetail.host')" clearable size="small" style="width:140px" @clear="loadRecords" @keyup.enter="loadRecords" />
+            <el-select v-model="filters.record_type" :placeholder="$t('domainDetail.recordType')" clearable size="small" style="width:120px" @change="loadRecords">
               <el-option v-for="t in recordTypes" :key="t.value" :label="t.label" :value="t.value" />
             </el-select>
-            <el-input v-model="filters.value" placeholder="记录值" clearable size="small" style="width:160px" @clear="loadRecords" @keyup.enter="loadRecords" />
-            <el-select v-model="filters.enabled" placeholder="启用状态" clearable size="small" style="width:100px" @change="loadRecords">
-              <el-option label="启用" :value="true" />
-              <el-option label="禁用" :value="false" />
+            <el-input v-model="filters.value" :placeholder="$t('domainDetail.value')" clearable size="small" style="width:160px" @clear="loadRecords" @keyup.enter="loadRecords" />
+            <el-select v-model="filters.enabled" :placeholder="$t('domainDetail.enabledStatus')" clearable size="small" style="width:100px" @change="loadRecords">
+              <el-option :label="$t('common.enabled')" :value="true" />
+              <el-option :label="$t('common.disabled')" :value="false" />
             </el-select>
-            <el-select v-model="filters.sync_status" placeholder="同步状态" clearable size="small" style="width:110px" @change="loadRecords">
-              <el-option label="已同步" value="synced" />
-              <el-option label="等待同步" value="pending" />
-              <el-option label="同步失败" value="failed" />
-              <el-option label="已禁用" value="disabled" />
+            <el-select v-model="filters.sync_status" :placeholder="$t('domainDetail.syncStatus')" clearable size="small" style="width:110px" @change="loadRecords">
+              <el-option :label="$t('common.synced')" value="synced" />
+              <el-option :label="$t('domainDetail.pendingSync')" value="pending" />
+              <el-option :label="$t('domainDetail.syncFailed')" value="failed" />
+              <el-option :label="$t('domainDetail.disabled')" value="disabled" />
             </el-select>
-            <el-button size="small" type="primary" @click="loadRecords">搜索</el-button>
+            <el-button size="small" type="primary" @click="loadRecords">{{ $t('common.search') }}</el-button>
           </div>
 
-          <!-- 批量操作栏 -->
+          <!-- batch action bar -->
           <div class="batch-bar" v-if="selectedIds.length > 0">
-            <span>已选 {{ selectedIds.length }} 项</span>
-            <el-button size="small" type="success" @click="handleBatchToggle(true)">批量启用</el-button>
-            <el-button size="small" type="warning" @click="handleBatchToggle(false)">批量禁用</el-button>
-            <el-button size="small" type="danger" @click="handleBatchDelete">批量删除</el-button>
+            <span>{{ $t('domainDetail.selectedCount', { count: selectedIds.length }) }}</span>
+            <el-button size="small" type="success" @click="handleBatchToggle(true)">{{ $t('domainDetail.batchEnable') }}</el-button>
+            <el-button size="small" type="warning" @click="handleBatchToggle(false)">{{ $t('domainDetail.batchDisable') }}</el-button>
+            <el-button size="small" type="danger" @click="handleBatchDelete">{{ $t('domainDetail.batchDelete') }}</el-button>
           </div>
 
           <el-table :data="records" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id">
             <el-table-column type="selection" width="40" />
-            <el-table-column prop="host" label="主机记录" width="120" />
-            <el-table-column prop="record_type" label="类型" width="80" />
-            <el-table-column prop="value" label="记录值" show-overflow-tooltip />
-            <el-table-column prop="priority" label="优先级" width="70">
+            <el-table-column prop="host" :label="$t('domainDetail.host')" width="120" />
+            <el-table-column prop="record_type" :label="$t('domainDetail.type')" width="80" />
+            <el-table-column prop="value" :label="$t('domainDetail.value')" show-overflow-tooltip />
+            <el-table-column prop="priority" :label="$t('domainDetail.priority')" width="70">
               <template #default="{ row }">{{ row.priority ?? '-' }}</template>
             </el-table-column>
-            <el-table-column prop="ttl" label="TTL" width="70" />
-            <el-table-column prop="line" label="线路" width="80">
+            <el-table-column prop="ttl" :label="$t('domainDetail.ttl')" width="70" />
+            <el-table-column prop="line" :label="$t('domainDetail.line')" width="80">
               <template #default="{ row }">{{ row.line || 'default' }}</template>
             </el-table-column>
-            <el-table-column label="启用" width="70">
+            <el-table-column :label="$t('common.enabled')" width="70">
               <template #default="{ row }">
                 <el-switch v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
               </template>
             </el-table-column>
-            <el-table-column prop="sync_status" label="同步状态" width="90">
+            <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="90">
               <template #default="{ row }">
                 <el-tag :type="statusType(row.sync_status)" size="small">{{ statusLabel(row.sync_status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="last_resolved_at" label="最后解析" width="160" show-overflow-tooltip>
+            <el-table-column prop="last_resolved_at" :label="$t('domainDetail.lastResolved')" width="160" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.last_resolved_at || '—' }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="150" fixed="right">
+            <el-table-column :label="$t('common.actions')" min-width="150" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="editRecord(row)">编辑</el-button>
-                <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">重试</el-button>
-                <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">删除</el-button>
+                <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
+                <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
+                <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="!loading && records.length === 0" description="暂无 DNS 记录" />
+          <el-empty v-if="!loading && records.length === 0" :description="$t('domainDetail.noRecords')" />
 
           <!-- 分页 -->
           <div class="pagination-bar" v-if="total > 0">
@@ -111,53 +111,53 @@
 
       <el-col :xs="24" :lg="7" class="right-col">
         <el-card>
-          <template #header>操作</template>
+          <template #header>{{ $t('common.actions') }}</template>
           <el-button type="primary" @click="showCreateChild = true" style="width:100%;margin-bottom:12px">
-            创建子域名
+            {{ $t('domainDetail.createSubdomain') }}
           </el-button>
           <el-button type="warning" @click="showTransfer = true" style="width:100%;margin-bottom:12px">
-            转让域名
+            {{ $t('domainDetail.transferDomain') }}
           </el-button>
           <el-button type="danger" @click="handleDeleteDomain" style="width:100%">
-            删除域名
+            {{ $t('domainDetail.deleteDomain') }}
           </el-button>
         </el-card>
 
         <el-card style="margin-top:16px" v-if="domain">
-          <template #header>域名信息</template>
+          <template #header>{{ $t('domainDetail.domainInfo') }}</template>
           <el-descriptions :column="1" size="small">
-            <el-descriptions-item label="完整域名">{{ domain.full_domain }}</el-descriptions-item>
-            <el-descriptions-item label="域名 ID">{{ domain.id }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ domain.created_at }}</el-descriptions-item>
+            <el-descriptions-item :label="$t('domainDetail.fullDomain')">{{ domain.full_domain }}</el-descriptions-item>
+            <el-descriptions-item :label="$t('domainDetail.domainId')">{{ domain.id }}</el-descriptions-item>
+            <el-descriptions-item :label="$t('common.createdAt')">{{ domain.created_at }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
 
         <el-card style="margin-top:16px">
           <template #header>
             <div class="card-header">
-              <span>权限管理</span>
-              <el-button size="small" type="primary" @click="showGrantPerm = true">授权</el-button>
+              <span>{{ $t('domainDetail.permManagement') }}</span>
+              <el-button size="small" type="primary" @click="showGrantPerm = true">{{ $t('domainDetail.grant') }}</el-button>
             </div>
           </template>
-          <div v-if="permissions.length === 0" style="color:#909399;font-size:13px">暂无委派权限</div>
+          <div v-if="permissions.length === 0" style="color:#909399;font-size:13px">{{ $t('domainDetail.noDelegatedPerms') }}</div>
           <div v-for="p in permissions" :key="p.id" class="perm-item">
             <div class="perm-info">
               <el-avatar v-if="p.user?.avatar" :src="p.user.avatar" :size="24" />
               <el-avatar v-else :size="24">{{ (p.user?.username || '?')[0]?.toUpperCase() }}</el-avatar>
               <span class="perm-user">{{ p.user?.username || 'User #' + p.user_id }}</span>
               <el-tag :type="permTagType(p.permission_level)" size="small">{{ permLabel(p.permission_level) }}</el-tag>
-              <el-tag v-if="p.status === 'pending_return'" type="warning" size="small" style="margin-left:4px">待回收</el-tag>
-              <el-tag v-if="p.status === 'returned'" type="info" size="small" style="margin-left:4px">已归还</el-tag>
+              <el-tag v-if="p.status === 'pending_return'" type="warning" size="small" style="margin-left:4px">{{ $t('domainDetail.pendingReturn') }}</el-tag>
+              <el-tag v-if="p.status === 'returned'" type="info" size="small" style="margin-left:4px">{{ $t('domainDetail.returned') }}</el-tag>
             </div>
             <div class="perm-detail" v-if="p.allowed_types || p.allowed_ips || p.host_prefix || p.max_depth">
-              <span v-if="p.host_prefix" class="perm-restrict">前缀: {{ p.host_prefix }}</span>
-              <span v-if="p.max_depth" class="perm-restrict">深度: {{ p.max_depth }}</span>
-              <span v-if="p.allowed_types" class="perm-restrict">类型: {{ p.allowed_types }}</span>
-              <span v-if="p.allowed_ips" class="perm-restrict">IP: {{ p.allowed_ips }}</span>
+              <span v-if="p.host_prefix" class="perm-restrict">{{ $t('domainDetail.prefixLabel') }} {{ p.host_prefix }}</span>
+              <span v-if="p.max_depth" class="perm-restrict">{{ $t('domainDetail.depthLabel') }} {{ p.max_depth }}</span>
+              <span v-if="p.allowed_types" class="perm-restrict">{{ $t('domainDetail.typesLabel') }} {{ p.allowed_types }}</span>
+              <span v-if="p.allowed_ips" class="perm-restrict">{{ $t('domainDetail.ipsLabel') }} {{ p.allowed_ips }}</span>
             </div>
             <div class="perm-actions">
-              <el-button v-if="p.status === 'active'" link type="danger" size="small" @click="handleRevokePerm(p.user_id)">撤销</el-button>
-              <el-button v-if="p.status === 'active' && p.permission_level !== 'read'" link type="warning" size="small" @click="handleRevokeRequest(p.user_id)">回收请求</el-button>
+              <el-button v-if="p.status === 'active'" link type="danger" size="small" @click="handleRevokePerm(p.user_id)">{{ $t('domainDetail.revoke') }}</el-button>
+              <el-button v-if="p.status === 'active' && p.permission_level !== 'read'" link type="warning" size="small" @click="handleRevokeRequest(p.user_id)">{{ $t('domainDetail.revokeRequest') }}</el-button>
             </div>
           </div>
         </el-card>
@@ -166,23 +166,23 @@
         <el-card style="margin-top:16px" v-if="pendingRecords.length > 0">
           <template #header>
             <div class="card-header">
-              <span>待分配记录</span>
+              <span>{{ $t('domainDetail.pendingRecords') }}</span>
               <div>
-                <el-button size="small" type="primary" @click="handleAssignSelected">分配选中</el-button>
-                <el-button size="small" type="danger" @click="handleDeleteSelectedPending">删除选中</el-button>
+                <el-button size="small" type="primary" @click="handleAssignSelected">{{ $t('domainDetail.assignSelected') }}</el-button>
+                <el-button size="small" type="danger" @click="handleDeleteSelectedPending">{{ $t('domainDetail.deleteSelected') }}</el-button>
               </div>
             </div>
           </template>
           <el-table :data="pendingRecords" stripe @selection-change="handlePendingSelectionChange" row-key="id">
             <el-table-column type="selection" width="40" />
-            <el-table-column prop="host" label="主机记录" width="120" />
-            <el-table-column prop="record_type" label="类型" width="80" />
-            <el-table-column prop="value" label="记录值" show-overflow-tooltip />
-            <el-table-column prop="pending_group" label="分组" width="160" show-overflow-tooltip />
-            <el-table-column label="操作" width="120">
+            <el-table-column prop="host" :label="$t('domainDetail.host')" width="120" />
+            <el-table-column prop="record_type" :label="$t('domainDetail.type')" width="80" />
+            <el-table-column prop="value" :label="$t('domainDetail.value')" show-overflow-tooltip />
+            <el-table-column prop="pending_group" :label="$t('domainDetail.group')" width="160" show-overflow-tooltip />
+            <el-table-column :label="$t('common.actions')" width="120">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="handleAssignSingle(row.id)">分配给自己</el-button>
-                <el-button link type="danger" size="small" @click="handleDeleteSinglePending(row.id)">删除</el-button>
+                <el-button link type="primary" size="small" @click="handleAssignSingle(row.id)">{{ $t('domainDetail.assignToSelf') }}</el-button>
+                <el-button link type="danger" size="small" @click="handleDeleteSinglePending(row.id)">{{ $t('common.delete') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -190,11 +190,11 @@
       </el-col>
     </el-row>
 
-    <!-- 授权对话框 -->
-    <el-dialog v-model="showGrantPerm" title="授权用户" width="520px">
+    <!-- grant permission dialog -->
+    <el-dialog v-model="showGrantPerm" :title="$t('domainDetail.grantUser')" width="520px">
       <el-form :model="grantForm" label-width="100px">
-        <el-form-item label="用户">
-          <el-select v-model="grantForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" placeholder="搜索用户" style="width:100%">
+        <el-form-item :label="$t('domainDetail.user')">
+          <el-select v-model="grantForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
             <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -205,144 +205,144 @@
             </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="权限级别">
+        <el-form-item :label="$t('domainDetail.permLevel')">
           <el-select v-model="grantForm.level" style="width:100%">
-            <el-option label="只读 (read)" value="read" />
-            <el-option label="读写 (write)" value="write" />
-            <el-option label="管理员 (admin)" value="admin" />
+            <el-option :label="$t('domainDetail.readOnlyOption')" value="read" />
+            <el-option :label="$t('domainDetail.readWriteOption')" value="write" />
+            <el-option :label="$t('domainDetail.adminOption')" value="admin" />
           </el-select>
         </el-form-item>
-        <el-form-item label="主机前缀">
-          <el-input v-model="grantForm.host_prefix" placeholder="例如 test-，留空=不限" />
-          <div style="color:#909399;font-size:12px;margin-top:4px">限制只能管理此前缀开头的主机记录，如 "test-" 只允许 test-*</div>
+        <el-form-item :label="$t('domainDetail.hostPrefix')">
+          <el-input v-model="grantForm.host_prefix" :placeholder="$t('domainDetail.hostPrefixPlaceholder')" />
+          <div style="color:#909399;font-size:12px;margin-top:4px">{{ $t('domainDetail.hostPrefixDesc') }}</div>
         </el-form-item>
-        <el-form-item label="最大深度">
-          <el-input-number v-model="grantForm.max_depth" :min="1" :max="10" placeholder="不限" />
-          <div style="color:#909399;font-size:12px;margin-top:4px">限制子域名层级，如 2 表示最多 a.b.domain，留空=不限</div>
+        <el-form-item :label="$t('domainDetail.maxDepth')">
+          <el-input-number v-model="grantForm.max_depth" :min="1" :max="10" :placeholder="$t('domainDetail.maxDepthPlaceholder')" />
+          <div style="color:#909399;font-size:12px;margin-top:4px">{{ $t('domainDetail.maxDepthDesc') }}</div>
         </el-form-item>
-        <el-form-item label="记录类型">
+        <el-form-item :label="$t('domainDetail.recordTypes')">
           <el-checkbox-group v-model="grantForm.allowed_types">
             <el-checkbox v-for="t in recordTypes" :key="t.value" :label="t.value">{{ t.value }}</el-checkbox>
           </el-checkbox-group>
-          <div style="color:#909399;font-size:12px;margin-top:4px">不选 = 允许所有类型</div>
+          <div style="color:#909399;font-size:12px;margin-top:4px">{{ $t('domainDetail.recordTypesDesc') }}</div>
         </el-form-item>
-        <el-form-item label="IP 限制">
-          <el-input v-model="grantForm.allowed_ips_text" type="textarea" :rows="2" placeholder="每行一个 CIDR，例如 192.168.1.0/24，留空=不限" />
+        <el-form-item :label="$t('domainDetail.ipRestriction')">
+          <el-input v-model="grantForm.allowed_ips_text" type="textarea" :rows="2" :placeholder="$t('domainDetail.ipPlaceholder')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showGrantPerm = false">取消</el-button>
-        <el-button type="primary" @click="handleGrantPerm">确认授权</el-button>
+        <el-button @click="showGrantPerm = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleGrantPerm">{{ $t('domainDetail.confirmGrant') }}</el-button>
       </template>
     </el-dialog>
 
-    <!-- 添加记录 -->
-    <el-dialog v-model="showAddRecord" title="添加 DNS 记录" width="520px">
+    <!-- add record -->
+    <el-dialog v-model="showAddRecord" :title="$t('domainDetail.addDnsRecord')" width="520px">
       <el-form :model="recordForm" label-width="80px">
-        <el-form-item label="主机记录">
-          <el-input v-model="recordForm.host" placeholder="@ 表示根域名" />
+        <el-form-item :label="$t('domainDetail.host')">
+          <el-input v-model="recordForm.host" :placeholder="$t('domainDetail.atRootHint')" />
         </el-form-item>
-        <el-form-item label="记录类型">
+        <el-form-item :label="$t('domainDetail.recordType')">
           <el-select v-model="recordForm.record_type" style="width:100%" @change="onTypeChange">
             <el-option v-for="t in recordTypes" :key="t.value" :label="t.label" :value="t.value" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="recordForm.record_type === 'MX'" label="优先级">
+        <el-form-item v-if="recordForm.record_type === 'MX'" :label="$t('domainDetail.priority')">
           <el-input-number v-model="recordForm.priority" :min="0" :max="65535" />
         </el-form-item>
-        <el-form-item v-if="recordForm.record_type === 'SRV'" label="SRV 值">
+        <el-form-item v-if="recordForm.record_type === 'SRV'" :label="$t('domainDetail.srvValue')">
           <div style="display:flex;gap:8px;width:100%">
-            <el-input-number v-model="srvForm.priority" :min="0" :max="65535" placeholder="优先级" style="flex:1" />
-            <el-input-number v-model="srvForm.weight" :min="0" :max="65535" placeholder="权重" style="flex:1" />
-            <el-input-number v-model="srvForm.port" :min="0" :max="65535" placeholder="端口" style="flex:1" />
+            <el-input-number v-model="srvForm.priority" :min="0" :max="65535" :placeholder="$t('domainDetail.srvPriority')" style="flex:1" />
+            <el-input-number v-model="srvForm.weight" :min="0" :max="65535" :placeholder="$t('domainDetail.srvWeight')" style="flex:1" />
+            <el-input-number v-model="srvForm.port" :min="0" :max="65535" :placeholder="$t('domainDetail.srvPort')" style="flex:1" />
           </div>
         </el-form-item>
-        <el-form-item v-if="recordForm.record_type === 'SRV'" label="目标地址">
-          <el-input v-model="srvForm.target" placeholder="target.example.com" />
+        <el-form-item v-if="recordForm.record_type === 'SRV'" :label="$t('domainDetail.srvTarget')">
+          <el-input v-model="srvForm.target" :placeholder="$t('domainDetail.srvTargetPlaceholder')" />
         </el-form-item>
-        <el-form-item v-if="recordForm.record_type === 'CAA'" label="CAA 标志">
+        <el-form-item v-if="recordForm.record_type === 'CAA'" :label="$t('domainDetail.caaFlag')">
           <el-input-number v-model="caaForm.flag" :min="0" :max="255" />
         </el-form-item>
-        <el-form-item v-if="recordForm.record_type === 'CAA'" label="CAA 标签">
+        <el-form-item v-if="recordForm.record_type === 'CAA'" :label="$t('domainDetail.caaTag')">
           <el-select v-model="caaForm.tag" style="width:100%">
-            <el-option label="issue - 授权 CA 颁发" value="issue" />
-            <el-option label="issuewild - 通配符授权" value="issuewild" />
-            <el-option label="iodef - 通知 URL" value="iodef" />
+            <el-option :label="$t('domainDetail.caaIssue')" value="issue" />
+            <el-option :label="$t('domainDetail.caaIssueWild')" value="issuewild" />
+            <el-option :label="$t('domainDetail.caaIodef')" value="iodef" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="recordForm.record_type === 'CAA'" label="CAA 值">
-          <el-input v-model="caaForm.value" placeholder="例如 letsencrypt.org" />
+        <el-form-item v-if="recordForm.record_type === 'CAA'" :label="$t('domainDetail.caaValue')">
+          <el-input v-model="caaForm.value" :placeholder="$t('domainDetail.caaValuePlaceholder')" />
         </el-form-item>
-        <el-form-item v-if="!['SRV', 'CAA'].includes(recordForm.record_type)" label="记录值">
+        <el-form-item v-if="!['SRV', 'CAA'].includes(recordForm.record_type)" :label="$t('domainDetail.value')">
           <el-input v-model="recordForm.value" :placeholder="valuePlaceholder" />
         </el-form-item>
-        <el-form-item label="TTL">
+        <el-form-item :label="$t('domainDetail.ttl')">
           <el-select v-model="recordForm.ttl" style="width:100%">
-            <el-option label="1 分钟 (60s)" :value="60" />
-            <el-option label="5 分钟 (300s)" :value="300" />
-            <el-option label="10 分钟 (600s)" :value="600" />
-            <el-option label="30 分钟 (1800s)" :value="1800" />
-            <el-option label="1 小时 (3600s)" :value="3600" />
-            <el-option label="12 小时 (43200s)" :value="43200" />
-            <el-option label="1 天 (86400s)" :value="86400" />
+            <el-option :label="$t('domainDetail.ttl60')" :value="60" />
+            <el-option :label="$t('domainDetail.ttl300')" :value="300" />
+            <el-option :label="$t('domainDetail.ttl600')" :value="600" />
+            <el-option :label="$t('domainDetail.ttl1800')" :value="1800" />
+            <el-option :label="$t('domainDetail.ttl3600')" :value="3600" />
+            <el-option :label="$t('domainDetail.ttl43200')" :value="43200" />
+            <el-option :label="$t('domainDetail.ttl86400')" :value="86400" />
           </el-select>
         </el-form-item>
-        <el-form-item label="线路">
+        <el-form-item :label="$t('domainDetail.line')">
           <el-select v-model="recordForm.line" style="width:100%">
-            <el-option label="默认" value="default" />
-            <el-option label="中国电信" value="telecom" />
-            <el-option label="中国联通" value="unicom" />
-            <el-option label="中国移动" value="mobile" />
-            <el-option label="境外" value="overseas" />
+            <el-option :label="$t('domainDetail.lineDefault')" value="default" />
+            <el-option :label="$t('domainDetail.lineTelecom')" value="telecom" />
+            <el-option :label="$t('domainDetail.lineUnicom')" value="unicom" />
+            <el-option :label="$t('domainDetail.lineMobile')" value="mobile" />
+            <el-option :label="$t('domainDetail.lineOverseas')" value="overseas" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showAddRecord = false">取消</el-button>
-        <el-button type="primary" @click="handleAddRecord">添加</el-button>
+        <el-button @click="showAddRecord = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleAddRecord">{{ $t('domainDetail.add') }}</el-button>
       </template>
     </el-dialog>
 
-    <!-- 编辑记录 -->
-    <el-dialog v-model="showEditRecord" title="编辑 DNS 记录" width="480px">
+    <!-- edit record -->
+    <el-dialog v-model="showEditRecord" :title="$t('domainDetail.editDnsRecord')" width="480px">
       <el-form :model="editForm" label-width="80px">
-        <el-form-item label="主机记录">
+        <el-form-item :label="$t('domainDetail.host')">
           <el-input v-model="editForm.host" disabled />
         </el-form-item>
-        <el-form-item label="记录类型">
+        <el-form-item :label="$t('domainDetail.recordType')">
           <el-input v-model="editForm.record_type" disabled />
         </el-form-item>
-        <el-form-item v-if="editForm.record_type === 'MX'" label="优先级">
+        <el-form-item v-if="editForm.record_type === 'MX'" :label="$t('domainDetail.priority')">
           <el-input-number v-model="editForm.priority" :min="0" :max="65535" />
         </el-form-item>
-        <el-form-item label="记录值">
+        <el-form-item :label="$t('domainDetail.value')">
           <el-input v-model="editForm.value" />
         </el-form-item>
-        <el-form-item label="TTL">
+        <el-form-item :label="$t('domainDetail.ttl')">
           <el-select v-model="editForm.ttl" style="width:100%">
-            <el-option label="1 分钟 (60s)" :value="60" />
-            <el-option label="5 分钟 (300s)" :value="300" />
-            <el-option label="10 分钟 (600s)" :value="600" />
-            <el-option label="30 分钟 (1800s)" :value="1800" />
-            <el-option label="1 小时 (3600s)" :value="3600" />
-            <el-option label="12 小时 (43200s)" :value="43200" />
-            <el-option label="1 天 (86400s)" :value="86400" />
+            <el-option :label="$t('domainDetail.ttl60')" :value="60" />
+            <el-option :label="$t('domainDetail.ttl300')" :value="300" />
+            <el-option :label="$t('domainDetail.ttl600')" :value="600" />
+            <el-option :label="$t('domainDetail.ttl1800')" :value="1800" />
+            <el-option :label="$t('domainDetail.ttl3600')" :value="3600" />
+            <el-option :label="$t('domainDetail.ttl43200')" :value="43200" />
+            <el-option :label="$t('domainDetail.ttl86400')" :value="86400" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditRecord = false">取消</el-button>
-        <el-button type="primary" @click="handleUpdateRecord">保存</el-button>
+        <el-button @click="showEditRecord = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleUpdateRecord">{{ $t('common.save') }}</el-button>
       </template>
     </el-dialog>
 
-    <!-- 导入记录 -->
-    <el-dialog v-model="showImport" title="导入 DNS 记录" width="480px">
+    <!-- import records -->
+    <el-dialog v-model="showImport" :title="$t('domainDetail.importDnsRecord')" width="480px">
       <el-tabs v-model="importTab">
-        <el-tab-pane label="JSON 导入" name="json">
+        <el-tab-pane :label="$t('domainDetail.importJson')" name="json">
           <el-input v-model="importJson" type="textarea" :rows="10" placeholder='[{"host":"@","record_type":"A","value":"1.2.3.4","ttl":600}]' />
         </el-tab-pane>
-        <el-tab-pane label="CSV 导入" name="csv">
+        <el-tab-pane :label="$t('domainDetail.importCsv')" name="csv">
           <el-upload
             :auto-upload="false"
             :limit="1"
@@ -350,40 +350,40 @@
             :on-change="handleCsvFile"
             :file-list="csvFileList"
           >
-            <el-button size="small">选择 CSV 文件</el-button>
+            <el-button size="small">{{ $t('domainDetail.selectCsvFile') }}</el-button>
             <template #tip>
-              <div class="el-upload__tip">格式: host,record_type,value,ttl,priority,line,enabled</div>
+              <div class="el-upload__tip">{{ $t('domainDetail.csvFormat') }}</div>
             </template>
           </el-upload>
         </el-tab-pane>
       </el-tabs>
       <template #footer>
-        <el-button @click="showImport = false">取消</el-button>
-        <el-button type="primary" @click="handleImport">导入</el-button>
+        <el-button @click="showImport = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleImport">{{ $t('domainDetail.import') }}</el-button>
       </template>
     </el-dialog>
 
-    <!-- 创建子域名 -->
-    <el-dialog v-model="showCreateChild" title="创建子域名" width="400px">
+    <!-- create subdomain -->
+    <el-dialog v-model="showCreateChild" :title="$t('domainDetail.createSubdomain')" width="400px">
       <el-form :model="childForm" label-width="80px">
-        <el-form-item label="子域名">
-          <el-input v-model="childForm.host" placeholder="输入子域名名称" />
+        <el-form-item :label="$t('domainDetail.subdomain')">
+          <el-input v-model="childForm.host" :placeholder="$t('domainDetail.subdomainPlaceholder')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreateChild = false">取消</el-button>
-        <el-button type="primary" @click="handleCreateChild">创建</el-button>
+        <el-button @click="showCreateChild = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleCreateChild">{{ $t('domainDetail.create') }}</el-button>
       </template>
     </el-dialog>
 
-    <!-- 转让域名 -->
-    <el-dialog v-model="showTransfer" title="转让域名" width="400px">
+    <!-- transfer domain -->
+    <el-dialog v-model="showTransfer" :title="$t('domainDetail.transferDomain')" width="400px">
       <el-alert type="warning" :closable="false" style="margin-bottom:16px">
-        转让将把该域名及其所有子域名移交给目标用户，此操作不可撤销。
+        {{ $t('domainDetail.transferWarning') }}
       </el-alert>
       <el-form :model="transferForm" label-width="80px">
-        <el-form-item label="目标用户">
-          <el-select v-model="transferForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" placeholder="搜索用户" style="width:100%">
+        <el-form-item :label="$t('domainDetail.targetUser')">
+          <el-select v-model="transferForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
             <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -396,26 +396,26 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showTransfer = false">取消</el-button>
-        <el-button type="warning" @click="handleTransfer">确认转让</el-button>
+        <el-button @click="showTransfer = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="warning" @click="handleTransfer">{{ $t('domainDetail.confirmTransfer') }}</el-button>
       </template>
     </el-dialog>
 
-    <!-- 回收权限 - 处理记录 -->
-    <el-dialog v-model="showReturnDialog" title="回收权限 - 记录处理" width="480px">
+    <!-- revoke permission - record handling -->
+    <el-dialog v-model="showReturnDialog" :title="$t('domainDetail.returnDialogTitle')" width="480px">
       <el-alert type="warning" :closable="false" style="margin-bottom:16px">
-        回收该用户的权限后，需要决定如何处理其创建的 DNS 记录。
+        {{ $t('domainDetail.returnWarning') }}
       </el-alert>
       <el-form :model="returnForm" label-width="80px">
-        <el-form-item label="处理方式">
+        <el-form-item :label="$t('domainDetail.returnAction')">
           <el-radio-group v-model="returnForm.action">
-            <el-radio value="keep">保留（设为待分配）</el-radio>
-            <el-radio value="delete">删除记录</el-radio>
-            <el-radio value="transfer">转移给其他用户</el-radio>
+            <el-radio value="keep">{{ $t('domainDetail.returnKeep') }}</el-radio>
+            <el-radio value="delete">{{ $t('domainDetail.returnDelete') }}</el-radio>
+            <el-radio value="transfer">{{ $t('domainDetail.returnTransfer') }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="returnForm.action === 'transfer'" label="目标用户">
-          <el-select v-model="returnForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" placeholder="搜索用户" style="width:100%">
+        <el-form-item v-if="returnForm.action === 'transfer'" :label="$t('domainDetail.targetUser')">
+          <el-select v-model="returnForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
             <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -428,8 +428,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showReturnDialog = false">取消</el-button>
-        <el-button type="warning" @click="handleAcceptReturn">确认处理</el-button>
+        <el-button @click="showReturnDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="warning" @click="handleAcceptReturn">{{ $t('domainDetail.confirmReturn') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -438,6 +438,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { getDomain, createDomain, transferDomain, deleteDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
 import { retrySync } from '../api/admin'
@@ -449,18 +450,19 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 const domainId = route.params.id
 
 const recordTypes = [
-  { label: 'A - IPv4', value: 'A' },
-  { label: 'AAAA - IPv6', value: 'AAAA' },
-  { label: 'CNAME - 别名', value: 'CNAME' },
-  { label: 'ALIAS - 根域名别名', value: 'ALIAS' },
-  { label: 'MX - 邮件', value: 'MX' },
-  { label: 'TXT - 文本', value: 'TXT' },
-  { label: 'CAA - 证书授权', value: 'CAA' },
-  { label: 'NS - 域名服务器', value: 'NS' },
-  { label: 'SRV - 服务记录', value: 'SRV' },
+  { label: t('domainDetail.recordTypeA'), value: 'A' },
+  { label: t('domainDetail.recordTypeAAAA'), value: 'AAAA' },
+  { label: t('domainDetail.recordTypeCNAME'), value: 'CNAME' },
+  { label: t('domainDetail.recordTypeALIAS'), value: 'ALIAS' },
+  { label: t('domainDetail.recordTypeMX'), value: 'MX' },
+  { label: t('domainDetail.recordTypeTXT'), value: 'TXT' },
+  { label: t('domainDetail.recordTypeCAA'), value: 'CAA' },
+  { label: t('domainDetail.recordTypeNS'), value: 'NS' },
+  { label: t('domainDetail.recordTypeSRV'), value: 'SRV' },
 ]
 
 const domain = ref(null)
@@ -502,11 +504,11 @@ const returnForm = ref({ action: 'keep', target_user_id: null })
 const returnTargetUserId = ref(null)
 
 const statusType = (s) => s === 'synced' ? 'success' : s === 'failed' ? 'danger' : s === 'disabled' ? 'info' : 'warning'
-const statusLabel = (s) => ({ synced: '已同步', failed: '同步失败', pending: '等待同步', disabled: '已禁用' }[s] || s)
+const statusLabel = (s) => ({ synced: t('common.synced'), failed: t('domainDetail.syncFailed'), pending: t('domainDetail.pendingSync'), disabled: t('domainDetail.disabled') }[s] || s)
 
 const valuePlaceholder = computed(() => {
-  const m = { A: '例如 192.168.1.1', AAAA: '例如 2001:db8::1', CNAME: '例如 example.com', ALIAS: '例如 example.com', MX: '例如 mail.example.com', TXT: '例如 v=spf1 include:example.com ~all', NS: '例如 ns1.example.com' }
-  return m[recordForm.value.record_type] || '输入记录值'
+  const m = { A: t('domainDetail.placeholderA'), AAAA: t('domainDetail.placeholderAAAA'), CNAME: t('domainDetail.placeholderCNAME'), ALIAS: t('domainDetail.placeholderALIAS'), MX: t('domainDetail.placeholderMX'), TXT: t('domainDetail.placeholderTXT'), NS: t('domainDetail.placeholderNS') }
+  return m[recordForm.value.record_type] || t('domainDetail.placeholderValue')
 })
 
 const loadRecords = async () => {
@@ -572,7 +574,7 @@ const handleAddRecord = async () => {
     data.priority = recordForm.value.priority
   }
   await createRecord(domainId, data)
-  ElMessage.success('记录添加成功')
+  ElMessage.success(t('domainDetail.addRecordSuccess'))
   showAddRecord.value = false
   loadRecords()
 }
@@ -588,21 +590,21 @@ const handleUpdateRecord = async () => {
     data.priority = editForm.value.priority
   }
   await updateRecord(editForm.value.id, data)
-  ElMessage.success('记录更新成功')
+  ElMessage.success(t('domainDetail.updateRecordSuccess'))
   showEditRecord.value = false
   loadRecords()
 }
 
 const handleToggle = async (id, enabled) => {
   await toggleRecord(id, { enabled })
-  ElMessage.success(enabled ? '记录已启用' : '记录已禁用')
+  ElMessage.success(enabled ? t('domainDetail.recordEnabled') : t('domainDetail.recordDisabled'))
   loadRecords()
 }
 
 const handleDeleteRecord = async (id) => {
-  await ElMessageBox.confirm('确定删除此记录？', '提示', { type: 'warning' })
+  await ElMessageBox.confirm(t('domainDetail.confirmDeleteRecord'), t('common.hint'), { type: 'warning' })
   await deleteRecord(id)
-  ElMessage.success('记录已删除')
+  ElMessage.success(t('domainDetail.recordDeleted'))
   loadRecords()
 }
 
@@ -611,15 +613,15 @@ const handleSelectionChange = (rows) => {
 }
 
 const handleBatchDelete = async () => {
-  await ElMessageBox.confirm(`确定删除选中的 ${selectedIds.value.length} 条记录？`, '批量删除', { type: 'warning' })
+  await ElMessageBox.confirm(t('domainDetail.confirmBatchDelete', { count: selectedIds.value.length }), t('domainDetail.batchDeleteTitle'), { type: 'warning' })
   await batchDeleteRecords(selectedIds.value)
-  ElMessage.success('批量删除成功')
+  ElMessage.success(t('domainDetail.batchDeleteSuccess'))
   loadRecords()
 }
 
 const handleBatchToggle = async (enabled) => {
   await batchToggleRecords(selectedIds.value, enabled)
-  ElMessage.success(enabled ? '批量启用成功' : '批量禁用成功')
+  ElMessage.success(enabled ? t('domainDetail.batchEnableSuccess') : t('domainDetail.batchDisableSuccess'))
   loadRecords()
 }
 
@@ -653,21 +655,21 @@ const handleImport = async () => {
     try {
       data = JSON.parse(importJson.value)
     } catch {
-      ElMessage.error('JSON 格式错误')
+      ElMessage.error(t('domainDetail.jsonFormatError'))
       return
     }
     const res = await importRecords(domainId, data, 'json')
     const r = res.data
-    ElMessage.success(`导入完成: 创建 ${r.created} 条, 跳过 ${r.skipped} 条`)
+    ElMessage.success(t('domainDetail.importComplete', { created: r.created, skipped: r.skipped }))
     if (r.errors?.length) console.warn('Import errors:', r.errors)
   } else {
     if (!csvFile.value) {
-      ElMessage.error('请选择 CSV 文件')
+      ElMessage.error(t('domainDetail.pleaseSelectCsv'))
       return
     }
     const res = await importRecords(domainId, csvFile.value, 'csv')
     const r = res.data
-    ElMessage.success(`导入完成: 创建 ${r.created} 条, 跳过 ${r.skipped} 条`)
+    ElMessage.success(t('domainDetail.importComplete', { created: r.created, skipped: r.skipped }))
     if (r.errors?.length) console.warn('Import errors:', r.errors)
   }
   showImport.value = false
@@ -679,29 +681,29 @@ const handleImport = async () => {
 
 const handleRetrySync = async (id) => {
   await retrySync(id)
-  ElMessage.success('已重新同步')
+  ElMessage.success(t('domainDetail.resyncSuccess'))
   loadRecords()
 }
 
 const handleCreateChild = async () => {
   await createDomain({ parent_id: parseInt(domainId), host: childForm.value.host })
-  ElMessage.success('子域名创建成功')
+  ElMessage.success(t('domainDetail.createSubdomainSuccess'))
   showCreateChild.value = false
   router.push('/dashboard')
 }
 
 const handleTransfer = async () => {
-  await ElMessageBox.confirm('确定转让此域名及所有子域名？此操作不可撤销。', '确认转让', { type: 'warning' })
+  await ElMessageBox.confirm(t('domainDetail.confirmTransferMsg'), t('domainDetail.confirmTransfer'), { type: 'warning' })
   await transferDomain(domainId, transferForm.value)
-  ElMessage.success('域名已转让')
+  ElMessage.success(t('domainDetail.transferSuccess'))
   showTransfer.value = false
   router.push('/dashboard')
 }
 
 const handleDeleteDomain = async () => {
-  await ElMessageBox.confirm('确定删除此域名？仅当无子域名和记录时可删除。', '确认删除', { type: 'error' })
+  await ElMessageBox.confirm(t('domainDetail.confirmDeleteDomain'), t('common.confirmDelete'), { type: 'error' })
   await deleteDomain(domainId)
-  ElMessage.success('域名已删除')
+  ElMessage.success(t('domainDetail.deleteDomainSuccess'))
   router.push('/dashboard')
 }
 
@@ -713,7 +715,7 @@ const loadPermissions = async () => {
 }
 
 const permTagType = (level) => ({ read: 'info', write: 'success', admin: 'warning' }[level] || 'info')
-const permLabel = (level) => ({ read: '只读', write: '读写', admin: '管理员' }[level] || level)
+const permLabel = (level) => ({ read: t('common.read'), write: t('common.write'), admin: t('common.admin') }[level] || level)
 
 const handleGrantPerm = async () => {
   const data = {
@@ -733,27 +735,27 @@ const handleGrantPerm = async () => {
     data.max_depth = grantForm.value.max_depth
   }
   await grantPermission(domainId, data)
-  ElMessage.success('授权成功')
+  ElMessage.success(t('domainDetail.grantSuccess'))
   showGrantPerm.value = false
   grantForm.value = { target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '', host_prefix: '', max_depth: null }
   loadPermissions()
 }
 
 const handleRevokePerm = async (userId) => {
-  await ElMessageBox.confirm('确定撤销该用户的权限？', '撤销权限', { type: 'warning' })
+  await ElMessageBox.confirm(t('domainDetail.confirmRevoke'), t('domainDetail.revokePermTitle'), { type: 'warning' })
   await revokePermission(domainId, userId)
-  ElMessage.success('权限已撤销')
+  ElMessage.success(t('domainDetail.revokeSuccess'))
   loadPermissions()
 }
 
 const handleRevokeRequest = async (userId) => {
-  await ElMessageBox.confirm('确定发起回收请求？对方需要确认后权限才会被回收。', '回收请求', { type: 'warning' })
+  await ElMessageBox.confirm(t('domainDetail.confirmRevokeRequest'), t('domainDetail.revokeRequestTitle'), { type: 'warning' })
   try {
     await revokeRequest(domainId, userId)
-    ElMessage.success('回收请求已发送')
+    ElMessage.success(t('domainDetail.revokeRequestSent'))
     loadPermissions()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '请求失败')
+    ElMessage.error(e.response?.data?.message || t('domainDetail.requestFailed'))
   }
 }
 
@@ -770,37 +772,37 @@ const handlePendingSelectionChange = (rows) => {
 
 const handleAssignSingle = async (id) => {
   await assignPendingRecords(domainId, { record_ids: [id] })
-  ElMessage.success('记录已分配')
+  ElMessage.success(t('domainDetail.recordAssigned'))
   loadPendingRecords()
   loadRecords()
 }
 
 const handleDeleteSinglePending = async (id) => {
-  await ElMessageBox.confirm('确定删除此待分配记录？', '提示', { type: 'warning' })
+  await ElMessageBox.confirm(t('domainDetail.confirmDeletePending'), t('common.hint'), { type: 'warning' })
   await deletePendingRecords(domainId, { record_ids: [id] })
-  ElMessage.success('记录已删除')
+  ElMessage.success(t('domainDetail.recordDeleted'))
   loadPendingRecords()
 }
 
 const handleAssignSelected = async () => {
   if (selectedPendingIds.value.length === 0) {
-    ElMessage.warning('请先选择记录')
+    ElMessage.warning(t('domainDetail.pleaseSelectRecords'))
     return
   }
   await assignPendingRecords(domainId, { record_ids: selectedPendingIds.value })
-  ElMessage.success('记录已分配')
+  ElMessage.success(t('domainDetail.recordAssigned'))
   loadPendingRecords()
   loadRecords()
 }
 
 const handleDeleteSelectedPending = async () => {
   if (selectedPendingIds.value.length === 0) {
-    ElMessage.warning('请先选择记录')
+    ElMessage.warning(t('domainDetail.pleaseSelectRecords'))
     return
   }
-  await ElMessageBox.confirm(`确定删除选中的 ${selectedPendingIds.value.length} 条记录？`, '批量删除', { type: 'warning' })
+  await ElMessageBox.confirm(t('domainDetail.confirmBatchDelete', { count: selectedPendingIds.value.length }), t('domainDetail.batchDeleteTitle'), { type: 'warning' })
   await deletePendingRecords(domainId, { record_ids: selectedPendingIds.value })
-  ElMessage.success('记录已删除')
+  ElMessage.success(t('domainDetail.recordDeleted'))
   loadPendingRecords()
 }
 
@@ -811,13 +813,13 @@ const handleAcceptReturn = async () => {
   }
   try {
     await acceptReturn(domainId, returnTargetUserId.value, data)
-    ElMessage.success('权限回收处理完成')
+    ElMessage.success(t('domainDetail.returnComplete'))
     showReturnDialog.value = false
     loadPermissions()
     loadPendingRecords()
     loadRecords()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '处理失败')
+    ElMessage.error(e.response?.data?.message || t('domainDetail.returnFailed'))
   }
 }
 

@@ -3,18 +3,18 @@
   <div>
     <div class="page-header">
       <div>
-        <h2>域名管理</h2>
-        <p class="subtitle">管理您的域名节点和子域名</p>
+        <h2>{{ $t('dashboard.title') }}</h2>
+        <p class="subtitle">{{ $t('dashboard.subtitle') }}</p>
       </div>
       <el-button v-if="auth.isAdmin" type="primary" @click="showCreateRoot = true">
         <el-icon><component :is="'Plus'" /></el-icon>
-        创建根域名
+        {{ $t('dashboard.createRootDomain') }}
       </el-button>
     </div>
 
     <el-card v-if="domains.length === 0" class="empty-card">
-      <el-empty description="暂无域名">
-        <el-button v-if="auth.isAdmin" type="primary" @click="showCreateRoot = true">创建根域名</el-button>
+      <el-empty :description="$t('dashboard.noDomains')">
+        <el-button v-if="auth.isAdmin" type="primary" @click="showCreateRoot = true">{{ $t('dashboard.createRootDomain') }}</el-button>
       </el-empty>
     </el-card>
 
@@ -35,24 +35,24 @@
             <el-tag v-if="permMap[data.id]" :type="permTagType(permMap[data.id])" size="small" class="perm-badge">
               {{ permLabel(permMap[data.id]) }}
             </el-tag>
-            <el-tag size="small" type="info">{{ data.records?.length || 0 }} 条记录</el-tag>
+            <el-tag size="small" type="info">{{ $t('dashboard.recordsCount', { count: data.records?.length || 0 }) }}</el-tag>
           </div>
         </template>
       </el-tree>
     </el-card>
 
-    <el-dialog v-model="showCreateRoot" title="创建根域名" width="400px">
+    <el-dialog v-model="showCreateRoot" :title="$t('dashboard.createRootDomain')" width="400px">
       <el-form :model="rootForm">
-        <el-form-item label="主机名">
-          <el-input v-model="rootForm.host" placeholder="例如 example" />
+        <el-form-item :label="$t('dashboard.host')">
+          <el-input v-model="rootForm.host" :placeholder="$t('dashboard.hostPlaceholder')" />
         </el-form-item>
-        <el-form-item label="域名后缀">
-          <el-input v-model="rootForm.domain_suffix" placeholder="例如 com" />
+        <el-form-item :label="$t('dashboard.domainSuffix')">
+          <el-input v-model="rootForm.domain_suffix" :placeholder="$t('dashboard.domainSuffixPlaceholder')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreateRoot = false">取消</el-button>
-        <el-button type="primary" @click="handleCreateRoot">创建</el-button>
+        <el-button @click="showCreateRoot = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleCreateRoot">{{ $t('dashboard.create') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -61,6 +61,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { getDomains } from '../api/domain'
 import { createRootDomain } from '../api/admin'
 import { getMyPermissions } from '../api/permission'
@@ -69,6 +70,7 @@ import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 const domains = ref([])
 const permissions = ref([])
 const showCreateRoot = ref(false)
@@ -83,7 +85,7 @@ const permMap = computed(() => {
 })
 
 const permTagType = (level) => ({ read: 'info', write: 'success', admin: 'warning' }[level] || 'info')
-const permLabel = (level) => ({ read: '只读', write: '读写', admin: '管理员' }[level] || level)
+const permLabel = (level) => ({ read: t('common.read'), write: t('common.write'), admin: t('common.admin') }[level] || level)
 
 const loadDomains = async () => {
   const res = await getDomains()
@@ -103,7 +105,7 @@ const handleNodeClick = (data) => {
 
 const handleCreateRoot = async () => {
   await createRootDomain(rootForm.value)
-  ElMessage.success('根域名创建成功')
+  ElMessage.success(t('dashboard.createSuccess'))
   showCreateRoot.value = false
   rootForm.value = { host: '', domain_suffix: '' }
   loadDomains()

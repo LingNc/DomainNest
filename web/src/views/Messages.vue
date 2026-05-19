@@ -1,17 +1,17 @@
 <template>
   <div>
     <div class="page-header">
-      <h2>消息</h2>
-      <p class="subtitle">与好友的聊天记录</p>
+      <h2>{{ $t('messages.title') }}</h2>
+      <p class="subtitle">{{ $t('messages.subtitle') }}</p>
     </div>
 
     <!-- New Message Dialog -->
-    <el-dialog v-model="newMsgVisible" title="新消息" width="480px">
+    <el-dialog v-model="newMsgVisible" :title="$t('messages.newMessage')" width="480px">
       <el-form @submit.prevent="handleSearchUser">
-        <el-form-item label="发送给">
-          <el-input v-model="searchKeyword" placeholder="搜索好友用户名" clearable @input="handleSearchDebounced">
+        <el-form-item :label="$t('messages.sendTo')">
+          <el-input v-model="searchKeyword" :placeholder="$t('messages.searchFriendPlaceholder')" clearable @input="handleSearchDebounced">
             <template #append>
-              <el-button @click="handleSearchUser">搜索</el-button>
+              <el-button @click="handleSearchUser">{{ $t('common.search') }}</el-button>
             </template>
           </el-input>
         </el-form-item>
@@ -28,11 +28,11 @@
           </div>
         </div>
       </div>
-      <el-empty v-else-if="searched && searchResults.length === 0" description="未找到用户" />
+      <el-empty v-else-if="searched && searchResults.length === 0" :description="$t('common.userNotFound')" />
     </el-dialog>
 
     <div class="toolbar">
-      <el-button type="primary" @click="newMsgVisible = true">新消息</el-button>
+      <el-button type="primary" @click="newMsgVisible = true">{{ $t('messages.newMessage') }}</el-button>
     </div>
 
     <el-card>
@@ -57,8 +57,8 @@
             <div class="conv-preview">{{ conv.last_message }}</div>
           </div>
         </div>
-        <el-empty v-if="!loading && conversations.length === 0" description="暂无消息">
-          <el-button type="primary" @click="newMsgVisible = true">发送第一条消息</el-button>
+        <el-empty v-if="!loading && conversations.length === 0" :description="$t('messages.noMessages')">
+          <el-button type="primary" @click="newMsgVisible = true">{{ $t('messages.sendFirstMessage') }}</el-button>
         </el-empty>
       </div>
     </el-card>

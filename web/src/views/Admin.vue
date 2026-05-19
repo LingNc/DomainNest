@@ -2,87 +2,87 @@
 <template>
   <div>
     <div class="page-header">
-      <h2>管理后台</h2>
-      <p class="subtitle">用户管理、域名分配与操作日志</p>
+      <h2>{{ $t('admin.title') }}</h2>
+      <p class="subtitle">{{ $t('admin.subtitle') }}</p>
     </div>
 
     <el-card>
       <el-tabs v-model="activeTab">
         <!-- 用户管理 -->
-        <el-tab-pane label="用户管理" name="users">
+        <el-tab-pane :label="$t('admin.userManagement')" name="users">
           <el-table :data="users" stripe v-loading="loading" style="width:100%">
-            <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column label="头像" width="60">
+            <el-table-column prop="id" :label="$t('admin.id')" width="60" />
+            <el-table-column :label="$t('admin.avatar')" width="60">
               <template #default="{ row }">
                 <el-avatar v-if="row.avatar" :src="row.avatar" :size="32" />
                 <el-avatar v-else :size="32">{{ (row.username || '?')[0]?.toUpperCase() }}</el-avatar>
               </template>
             </el-table-column>
-            <el-table-column prop="username" label="用户名" min-width="100" />
-            <el-table-column prop="email" label="邮箱" min-width="140" show-overflow-tooltip />
-            <el-table-column prop="role" label="角色" width="90">
+            <el-table-column prop="username" :label="$t('common.username')" min-width="100" />
+            <el-table-column prop="email" :label="$t('admin.email')" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="role" :label="$t('admin.role')" width="90">
               <template #default="{ row }">
                 <el-tag :type="row.is_super_admin ? 'warning' : row.role === 'admin' ? 'danger' : 'info'" size="small">
-                  {{ row.is_super_admin ? '超级管理员' : row.role === 'admin' ? '管理员' : '普通用户' }}
+                  {{ row.is_super_admin ? $t('admin.superAdmin') : row.role === 'admin' ? $t('common.admin') : $t('admin.normalUser') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="状态" width="80">
+            <el-table-column :label="$t('common.status')" width="80">
               <template #default="{ row }">
                 <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-                  {{ row.status === 1 ? '正常' : '禁用' }}
+                  {{ row.status === 1 ? $t('admin.statusNormal') : $t('admin.statusDisabled') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="invite_limit" label="邀请上限" width="90" />
-            <el-table-column prop="invite_count" label="已邀请" width="80" />
-            <el-table-column prop="created_at" label="注册时间" width="170" />
-            <el-table-column label="操作" width="200" fixed="right">
+            <el-table-column prop="invite_limit" :label="$t('admin.inviteLimit')" width="90" />
+            <el-table-column prop="invite_count" :label="$t('admin.invitedCount')" width="80" />
+            <el-table-column prop="created_at" :label="$t('admin.registerTime')" width="170" />
+            <el-table-column :label="$t('common.action')" width="200" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="openEditUser(row)">编辑</el-button>
-                <el-button link type="warning" size="small" :disabled="row.is_super_admin && row.id !== auth.user?.id" @click="openResetPwd(row)">重置密码</el-button>
-                <el-button v-if="row.status === 1" link type="danger" size="small" :disabled="row.is_super_admin" @click="handleDisable(row)">禁用</el-button>
-                <el-button v-else link type="success" size="small" @click="handleEnable(row)">启用</el-button>
+                <el-button link type="primary" size="small" @click="openEditUser(row)">{{ $t('common.edit') }}</el-button>
+                <el-button link type="warning" size="small" :disabled="row.is_super_admin && row.id !== auth.user?.id" @click="openResetPwd(row)">{{ $t('admin.resetPassword') }}</el-button>
+                <el-button v-if="row.status === 1" link type="danger" size="small" :disabled="row.is_super_admin" @click="handleDisable(row)">{{ $t('admin.disable') }}</el-button>
+                <el-button v-else link type="success" size="small" @click="handleEnable(row)">{{ $t('admin.enable') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
         <!-- 域名管理 -->
-        <el-tab-pane label="域名管理" name="domains">
+        <el-tab-pane :label="$t('admin.domainManagement')" name="domains">
           <div class="domain-actions">
             <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-              <el-select v-model="selectedProviderId" placeholder="选择提供商" style="width:200px" size="default">
+              <el-select v-model="selectedProviderId" :placeholder="$t('admin.selectProvider')" style="width:200px" size="default">
                 <el-option v-for="p in adminProviders" :key="p.id" :label="p.name" :value="p.id" />
               </el-select>
-              <el-select v-model="selectedDomain" placeholder="选择域名" style="width:240px" size="default" :loading="loadingAdminDomains" :disabled="!selectedProviderId">
-                <el-option v-for="d in adminDomains" :key="d.domain_name" :label="d.domain_name + (d.record_count != null ? ` (${d.record_count} 条记录)` : '')" :value="d.domain_name" />
+              <el-select v-model="selectedDomain" :placeholder="$t('admin.selectDomain')" style="width:240px" size="default" :loading="loadingAdminDomains" :disabled="!selectedProviderId">
+                <el-option v-for="d in adminDomains" :key="d.domain_name" :label="getDomainLabel(d)" :value="d.domain_name" />
               </el-select>
-              <el-button type="primary" @click="handleCreateRoot">创建根域名</el-button>
+              <el-button type="primary" @click="handleCreateRoot">{{ $t('admin.createRootDomain') }}</el-button>
             </div>
           </div>
 
           <el-table :data="allDomains" stripe v-loading="loading" style="width:100%">
-            <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column prop="full_domain" label="完整域名" min-width="180" />
-            <el-table-column label="当前所有者" min-width="120">
+            <el-table-column prop="id" :label="$t('admin.id')" width="60" />
+            <el-table-column prop="full_domain" :label="$t('admin.fullDomain')" min-width="180" />
+            <el-table-column :label="$t('admin.currentOwner')" min-width="120">
               <template #default="{ row }">
                 <el-tag size="small">{{ row.owner?.username || row.owner_id }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" label="创建时间" width="170" />
-            <el-table-column label="操作" width="100" fixed="right">
+            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+            <el-table-column :label="$t('common.action')" width="100" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="openAssign(row)">分配</el-button>
+                <el-button link type="primary" size="small" @click="openAssign(row)">{{ $t('admin.assign') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
         <!-- 操作日志 -->
-        <el-tab-pane label="操作日志" name="logs">
+        <el-tab-pane :label="$t('admin.operationLogs')" name="logs">
           <div class="filter-bar">
-            <el-select v-model="logFilters.user_id" placeholder="用户" clearable filterable size="small" style="width:160px">
+            <el-select v-model="logFilters.user_id" :placeholder="$t('admin.user')" clearable filterable size="small" style="width:160px">
               <el-option v-for="u in users" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
                 <div style="display:flex;align-items:center;gap:6px">
                   <el-avatar v-if="u.avatar" :src="u.avatar" :size="20" />
@@ -91,22 +91,22 @@
                 </div>
               </el-option>
             </el-select>
-            <el-input v-model="logFilters.q" placeholder="关键词搜索" clearable size="small" style="width:160px" />
-            <el-select v-model="logFilters.action" placeholder="操作类型" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
-              <el-option-group v-for="group in actionGroups" :key="group.label" :label="group.label">
+            <el-input v-model="logFilters.q" :placeholder="$t('myLogs.searchPlaceholder')" clearable size="small" style="width:160px" />
+            <el-select v-model="logFilters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
+              <el-option-group v-for="group in actionGroupsI18n" :key="group.label" :label="group.label">
                 <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
               </el-option-group>
             </el-select>
-            <el-select v-model="logFilters.target_type" placeholder="目标类型" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
-              <el-option v-for="item in targetTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+            <el-select v-model="logFilters.target_type" :placeholder="$t('myLogs.targetTypePlaceholder')" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
+              <el-option v-for="item in targetTypeOptionsI18n" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
-            <el-date-picker v-model="logFilters.dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" size="small" style="width:260px" value-format="YYYY-MM-DD" />
-            <el-button size="small" type="primary" @click="loadLogs">搜索</el-button>
-            <el-button size="small" @click="resetLogFilters">重置</el-button>
+            <el-date-picker v-model="logFilters.dateRange" type="daterange" :range-separator="$t('myLogs.dateRangeSeparator')" :start-placeholder="$t('myLogs.startDatePlaceholder')" :end-placeholder="$t('myLogs.endDatePlaceholder')" size="small" style="width:260px" value-format="YYYY-MM-DD" />
+            <el-button size="small" type="primary" @click="loadLogs">{{ $t('common.search') }}</el-button>
+            <el-button size="small" @click="resetLogFilters">{{ $t('common.reset') }}</el-button>
           </div>
           <el-table :data="logs" stripe v-loading="loading" style="width:100%">
-            <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column label="用户" min-width="120">
+            <el-table-column prop="id" :label="$t('admin.id')" width="60" />
+            <el-table-column :label="$t('admin.user')" min-width="120">
               <template #default="{ row }">
                 <div style="display:flex;align-items:center;gap:6px">
                   <el-avatar v-if="row.user?.avatar" :src="row.user.avatar" :size="24" />
@@ -115,10 +115,10 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="action" label="操作" min-width="120" />
-            <el-table-column prop="target_type" label="目标类型" min-width="100" />
-            <el-table-column prop="ip_address" label="IP 地址" width="130" />
-            <el-table-column label="详情" min-width="200">
+            <el-table-column prop="action" :label="$t('common.action')" min-width="120" />
+            <el-table-column prop="target_type" :label="$t('admin.targetTypeLabel')" min-width="100" />
+            <el-table-column prop="ip_address" :label="$t('common.ipAddress')" width="130" />
+            <el-table-column :label="$t('common.detail')" min-width="200">
               <template #default="{ row }">
                 <template v-if="row.detail && row.detail !== 'null'">
                   <el-tag v-for="(val, key) in parseDetail(row.detail)" :key="key" size="small" style="margin:2px" type="info">
@@ -128,48 +128,48 @@
                 <span v-else style="color:#909399">-</span>
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" label="时间" width="170" />
+            <el-table-column prop="created_at" :label="$t('common.time')" width="170" />
           </el-table>
           <el-pagination v-if="logTotal > 0" :current-page="logPage" :page-size="logPageSize" :total="logTotal"
             layout="total, sizes, prev, pager, next" :page-sizes="[20, 50, 100]"
             @current-change="handleLogPageChange" @size-change="handleLogSizeChange" style="margin-top:16px" />
         </el-tab-pane>
-        <el-tab-pane label="系统设置" name="settings">
+        <el-tab-pane :label="$t('admin.systemSettings')" name="settings">
           <el-form :model="smtpForm" label-width="100px" style="max-width:560px">
-            <el-divider content-position="left">SMTP 邮件配置</el-divider>
-            <el-form-item label="SMTP 主机">
-              <el-input v-model="smtpForm.host" placeholder="例如 smtp.gmail.com" />
+            <el-divider content-position="left">{{ $t('admin.smtpConfig') }}</el-divider>
+            <el-form-item :label="$t('admin.smtpHost')">
+              <el-input v-model="smtpForm.host" :placeholder="$t('admin.smtpHostPlaceholder')" />
             </el-form-item>
-            <el-form-item label="端口">
+            <el-form-item :label="$t('admin.smtpPort')">
               <el-input-number v-model="smtpForm.port" :min="1" :max="65535" />
             </el-form-item>
-            <el-form-item label="加密方式">
+            <el-form-item :label="$t('admin.encryption')">
               <el-select v-model="smtpForm.tls_type" style="width:100%" @change="onTLSTypeChange">
-                <el-option label="STARTTLS (port 587)" value="starttls" />
-                <el-option label="SSL/TLS (port 465)" value="implicit" />
-                <el-option label="无加密 (port 25)" value="none" />
+                <el-option :label="$t('admin.tlsStarttls')" value="starttls" />
+                <el-option :label="$t('admin.tlsImplicit')" value="implicit" />
+                <el-option :label="$t('admin.tlsNone')" value="none" />
               </el-select>
             </el-form-item>
-            <el-form-item label="登录邮箱">
-              <el-input v-model="smtpForm.username" placeholder="例如 yourname@qq.com" autocomplete="off" />
-              <div class="el-form-item__tip" style="color:#909399;font-size:12px;margin-top:4px">用于登录 SMTP 服务器</div>
+            <el-form-item :label="$t('admin.loginEmail')">
+              <el-input v-model="smtpForm.username" :placeholder="$t('admin.loginEmailPlaceholder')" autocomplete="off" />
+              <div class="el-form-item__tip" style="color:#909399;font-size:12px;margin-top:4px">{{ $t('admin.loginEmailTip') }}</div>
             </el-form-item>
-            <el-form-item label="授权码">
-              <el-input v-model="smtpForm.password" type="password" show-password placeholder="邮箱授权码（非登录密码）" autocomplete="new-password" />
+            <el-form-item :label="$t('admin.authorizationCode')">
+              <el-input v-model="smtpForm.password" type="password" show-password :placeholder="$t('admin.authCodePlaceholder')" autocomplete="new-password" />
             </el-form-item>
-            <el-form-item label="发件人地址">
-              <el-input v-model="smtpForm.from" placeholder="noreply@example.com" />
-              <div class="el-form-item__tip" style="color:#909399;font-size:12px;margin-top:4px">邮件中显示的发件人，可与登录邮箱相同</div>
+            <el-form-item :label="$t('admin.senderAddress')">
+              <el-input v-model="smtpForm.from" :placeholder="$t('admin.senderAddressPlaceholder')" />
+              <div class="el-form-item__tip" style="color:#909399;font-size:12px;margin-top:4px">{{ $t('admin.senderAddressTip') }}</div>
             </el-form-item>
-            <el-form-item label="发件人名称">
+            <el-form-item :label="$t('admin.senderName')">
               <el-input v-model="smtpForm.from_name" placeholder="DomainNest" />
             </el-form-item>
-            <el-form-item label="测试收件人">
-              <el-input v-model="testEmail" placeholder="接收测试邮件的邮箱地址" />
+            <el-form-item :label="$t('admin.testRecipient')">
+              <el-input v-model="testEmail" :placeholder="$t('admin.testRecipientPlaceholder')" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleSaveSMTP">保存配置</el-button>
-              <el-button @click="handleTestSMTP" :loading="testingSMTP" :disabled="!testEmail">发送测试邮件</el-button>
+              <el-button type="primary" @click="handleSaveSMTP">{{ $t('admin.saveConfig') }}</el-button>
+              <el-button @click="handleTestSMTP" :loading="testingSMTP" :disabled="!testEmail">{{ $t('admin.sendTestEmail') }}</el-button>
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -177,11 +177,11 @@
     </el-card>
 
     <!-- 分配域名对话框 -->
-    <el-dialog v-model="showAssign" title="分配域名" width="420px">
+    <el-dialog v-model="showAssign" :title="$t('admin.assignDomain')" width="420px">
       <p class="assign-info">
-        将 <strong>{{ assignTarget?.full_domain }}</strong> 分配给：
+        {{ $t('admin.assignTo', { domain: assignTarget?.full_domain }) }}
       </p>
-      <el-select v-model="assignUserId" placeholder="选择用户" style="width:100%">
+      <el-select v-model="assignUserId" :placeholder="$t('admin.selectUser')" style="width:100%">
         <el-option
           v-for="u in users"
           :key="u.id"
@@ -197,65 +197,66 @@
         </el-option>
       </el-select>
       <template #footer>
-        <el-button @click="showAssign = false">取消</el-button>
-        <el-button type="primary" @click="handleAssign">确认分配</el-button>
+        <el-button @click="showAssign = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleAssign">{{ $t('admin.confirmAssign') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 编辑用户对话框 -->
-    <el-dialog v-model="showEditUser" title="编辑用户" width="480px">
+    <el-dialog v-model="showEditUser" :title="$t('admin.editUser')" width="480px">
       <el-form :model="editForm" label-width="80px">
-        <el-form-item label="用户名">
+        <el-form-item :label="$t('common.username')">
           <el-input v-model="editForm.username" />
         </el-form-item>
-        <el-form-item label="角色">
+        <el-form-item :label="$t('admin.role')">
           <el-select v-model="editForm.role" style="width:100%" :disabled="editTarget?.is_super_admin">
-            <el-option label="普通用户" value="user" />
-            <el-option label="管理员" value="admin" />
+            <el-option :label="$t('admin.normalUser')" value="user" />
+            <el-option :label="$t('common.admin')" value="admin" />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item :label="$t('common.status')">
           <el-select v-model="editForm.status" style="width:100%">
-            <el-option label="正常" :value="1" />
-            <el-option label="禁用" :value="0" />
+            <el-option :label="$t('admin.statusNormal')" :value="1" />
+            <el-option :label="$t('admin.statusDisabled')" :value="0" />
           </el-select>
         </el-form-item>
-        <el-form-item label="邀请上限">
+        <el-form-item :label="$t('admin.inviteLimit')">
           <el-input-number v-model="editForm.invite_limit" :min="0" :max="9999" />
           <div v-if="editInviteWarning" style="color:#e6a23c;font-size:12px;margin-top:4px">
             {{ editInviteWarning }}
           </div>
         </el-form-item>
-        <el-form-item label="昵称">
+        <el-form-item :label="$t('admin.nickname')">
           <el-input v-model="editForm.nickname" />
         </el-form-item>
-        <el-form-item label="邮箱">
+        <el-form-item :label="$t('admin.email')">
           <el-input v-model="editForm.email" />
         </el-form-item>
-        <el-form-item label="手机">
+        <el-form-item :label="$t('admin.phone')">
           <el-input v-model="editForm.phone" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditUser = false">取消</el-button>
-        <el-button type="primary" @click="handleEditUser">保存</el-button>
+        <el-button @click="showEditUser = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleEditUser">{{ $t('common.save') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 重置密码对话框 -->
-    <el-dialog v-model="showResetPwd" title="重置密码" width="400px">
-      <p style="margin-bottom:12px">为 <strong>{{ resetPwdTarget?.username }}</strong> 设置新密码：</p>
-      <el-input v-model="newPassword" type="password" placeholder="新密码（至少6位）" show-password />
+    <el-dialog v-model="showResetPwd" :title="$t('admin.resetPasswordTitle')" width="400px">
+      <p style="margin-bottom:12px">{{ $t('admin.setNewPassword', { username: resetPwdTarget?.username }) }}</p>
+      <el-input v-model="newPassword" type="password" :placeholder="$t('admin.newPasswordPlaceholder')" show-password />
       <template #footer>
-        <el-button @click="showResetPwd = false">取消</el-button>
-        <el-button type="warning" @click="handleResetPwd">确认重置</el-button>
+        <el-button @click="showResetPwd = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="warning" @click="handleResetPwd">{{ $t('admin.confirmReset') }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin } from '../api/admin'
 import { listProviders, listProviderDomains } from '../api/provider'
 import { useAuthStore } from '../stores/auth'
@@ -263,6 +264,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { actionGroups, targetTypeOptions } from '../constants/operationLogs'
 
 const auth = useAuthStore()
+const { t } = useI18n()
 
 const activeTab = ref('users')
 const users = ref([])
@@ -294,19 +296,121 @@ const testEmail = ref('')
 
 const logFilters = reactive({ user_id: '', action: [], target_type: [], q: '', dateRange: null })
 
-const keyMap = { username: '用户名', full_domain: '域名', host: '主机记录', type: '记录类型', value: '记录值', amount: '数量', enabled: '状态', ids: '记录ID', target_user_id: '目标用户', invited_by: '邀请人', provider_name: '提供商' }
+const DETAIL_KEY_I18N = {
+  username: 'common.username',
+  full_domain: 'admin.detailKeyFullDomain',
+  host: 'admin.detailKeyHost',
+  type: 'admin.detailKeyType',
+  value: 'admin.detailKeyValue',
+  amount: 'admin.detailKeyAmount',
+  enabled: 'admin.detailKeyStatus',
+  ids: 'admin.detailKeyIds',
+  target_user_id: 'admin.detailKeyTargetUser',
+  invited_by: 'admin.detailKeyInvitedBy',
+  provider_name: 'admin.detailKeyProvider',
+}
 
 const parseDetail = (json) => {
   try { return JSON.parse(json) } catch { return {} }
 }
 
-const formatDetailKey = (key) => keyMap[key] || key
+const formatDetailKey = (key) => {
+  const i18nKey = DETAIL_KEY_I18N[key]
+  return i18nKey ? t(i18nKey) : key
+}
 
 const formatDetailValue = (val) => {
   if (Array.isArray(val)) return val.join(', ')
-  if (typeof val === 'boolean') return val ? '启用' : '禁用'
+  if (typeof val === 'boolean') return t(val ? 'common.enabled' : 'common.disabled')
   return String(val)
 }
+
+const getDomainLabel = (d) => d.domain_name + (d.record_count != null ? ` (${d.record_count} ${t('admin.recordCount')})` : '')
+
+const GROUP_I18N_KEYS = {
+  '域名': 'admin.actionGroupDomain',
+  '记录': 'admin.actionGroupRecord',
+  '权限': 'admin.actionGroupPermission',
+  '用户': 'admin.actionGroupUser',
+  '邀请': 'admin.actionGroupInvite',
+  '好友': 'admin.actionGroupFriend',
+  '提供商': 'admin.actionGroupProvider',
+  '设置': 'admin.actionGroupSetting',
+}
+
+const ACTION_I18N_KEYS = {
+  create_domain: 'admin.actionCreateDomain',
+  transfer_domain: 'admin.actionTransferDomain',
+  delete_domain: 'admin.actionDeleteDomain',
+  create_root_domain: 'admin.actionCreateRootDomain',
+  assign_domain: 'admin.actionAssignDomain',
+  create_record: 'admin.actionCreateRecord',
+  update_record: 'admin.actionUpdateRecord',
+  delete_record: 'admin.actionDeleteRecord',
+  toggle_record: 'admin.actionToggleRecord',
+  batch_delete: 'admin.actionBatchDelete',
+  batch_toggle: 'admin.actionBatchToggle',
+  import: 'admin.actionImport',
+  grant_permission: 'admin.actionGrantPermission',
+  revoke_permission: 'admin.actionRevokePermission',
+  revoke_request: 'admin.actionRevokeRequest',
+  accept_return: 'admin.actionAcceptReturn',
+  reject_return: 'admin.actionRejectReturn',
+  assign_pending_records: 'admin.actionAssignPendingRecords',
+  delete_pending_records: 'admin.actionDeletePendingRecords',
+  register: 'admin.actionRegister',
+  login: 'admin.actionLogin',
+  update_profile: 'admin.actionUpdateProfile',
+  change_password: 'admin.actionChangePassword',
+  reset_token: 'admin.actionResetToken',
+  upload_avatar: 'admin.actionUploadAvatar',
+  delete_account: 'admin.actionDeleteAccount',
+  update_user: 'admin.actionUpdateUser',
+  admin_reset_password: 'admin.actionAdminResetPassword',
+  disable_user: 'admin.actionDisableUser',
+  promote_to_admin: 'admin.actionPromoteToAdmin',
+  demote_from_admin: 'admin.actionDemoteFromAdmin',
+  grant_invite: 'admin.actionGrantInvite',
+  revoke_invite: 'admin.actionRevokeInvite',
+  admin_grant: 'admin.actionAdminGrant',
+  send_friend_request: 'admin.actionSendFriendRequest',
+  accept_friend: 'admin.actionAcceptFriend',
+  reject_friend: 'admin.actionRejectFriend',
+  remove_friend: 'admin.actionRemoveFriend',
+  create_provider: 'admin.actionCreateProvider',
+  update_provider: 'admin.actionUpdateProvider',
+  delete_provider: 'admin.actionDeleteProvider',
+  claim_domain: 'admin.actionClaimDomain',
+  update_settings: 'admin.actionUpdateSettings',
+  smtp_test: 'admin.actionSmtpTest',
+}
+
+const TARGET_I18N_KEYS = {
+  domain_node: 'admin.targetDomainNode',
+  dns_record: 'admin.targetDnsRecord',
+  user: 'admin.targetUser',
+  setting: 'admin.targetSetting',
+  provider: 'admin.targetProvider',
+  friend: 'admin.targetFriend',
+}
+
+const actionGroupsI18n = computed(() => {
+  return actionGroups.map(group => ({
+    ...group,
+    label: t(GROUP_I18N_KEYS[group.label] || group.label),
+    options: group.options.map(opt => ({
+      ...opt,
+      label: t(ACTION_I18N_KEYS[opt.value] || opt.label)
+    }))
+  }))
+})
+
+const targetTypeOptionsI18n = computed(() => {
+  return targetTypeOptions.map(opt => ({
+    ...opt,
+    label: t(TARGET_I18N_KEYS[opt.value] || opt.label)
+  }))
+})
 const logPage = ref(1)
 const logPageSize = ref(20)
 const logTotal = ref(0)
@@ -346,7 +450,7 @@ watch(selectedProviderId, async (id) => {
     const res = await listProviderDomains(id)
     adminDomains.value = res.data || []
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '获取域名列表失败')
+    ElMessage.error(e.response?.data?.message || t('admin.fetchDomainsFailed'))
   } finally {
     loadingAdminDomains.value = false
   }
@@ -404,11 +508,11 @@ const loadSMTP = async () => {
 
 const handleCreateRoot = async () => {
   if (!selectedProviderId.value || !selectedDomain.value) {
-    ElMessage.warning('请选择提供商和域名')
+    ElMessage.warning(t('admin.selectProviderAndDomain'))
     return
   }
   await createRootDomain({ provider_id: selectedProviderId.value, domain_name: selectedDomain.value })
-  ElMessage.success('根域名创建成功')
+  ElMessage.success(t('admin.rootDomainCreated'))
   selectedDomain.value = ''
   loadData()
 }
@@ -421,11 +525,11 @@ const openAssign = (row) => {
 
 const handleAssign = async () => {
   if (!assignUserId.value) {
-    ElMessage.warning('请选择目标用户')
+    ElMessage.warning(t('admin.selectTargetUser'))
     return
   }
   await assignDomain(assignTarget.value.id, { user_id: assignUserId.value })
-  ElMessage.success('域名分配成功')
+  ElMessage.success(t('admin.domainAssigned'))
   showAssign.value = false
   loadData()
 }
@@ -452,7 +556,7 @@ const checkInviteWarning = () => {
     if (additional > 0) {
       const available = (currentAdmin.invite_limit || 0) - (currentAdmin.invite_count || 0)
       if (additional > available) {
-        editInviteWarning.value = `你的可用邀请额度不足 (可用: ${available}, 需要: ${additional})`
+        editInviteWarning.value = t('admin.inviteQuotaInsufficient', { available, additional })
         return
       }
     }
@@ -473,7 +577,7 @@ const handleEditUser = async () => {
   // Other fields via updateUser (excluding role)
   const { role, ...rest } = editForm
   await updateUser(target.id, rest)
-  ElMessage.success('用户信息已更新')
+  ElMessage.success(t('admin.userUpdated'))
   showEditUser.value = false
   loadData()
 }
@@ -486,30 +590,30 @@ const openResetPwd = (row) => {
 
 const handleResetPwd = async () => {
   if (!newPassword.value || newPassword.value.length < 6) {
-    ElMessage.warning('密码至少6位')
+    ElMessage.warning(t('admin.passwordMinLength'))
     return
   }
   await adminResetPassword(resetPwdTarget.value.id, { new_password: newPassword.value })
-  ElMessage.success('密码已重置')
+  ElMessage.success(t('admin.passwordReset'))
   showResetPwd.value = false
 }
 
 const handleDisable = async (row) => {
-  await ElMessageBox.confirm(`确定要禁用用户 ${row.username} 吗？`, '确认', { type: 'warning' })
+  await ElMessageBox.confirm(t('admin.confirmDisableUser', { username: row.username }), t('common.confirm'), { type: 'warning' })
   await disableUser(row.id)
-  ElMessage.success('用户已禁用')
+  ElMessage.success(t('admin.userDisabled'))
   loadData()
 }
 
 const handleEnable = async (row) => {
   await updateUser(row.id, { status: 1 })
-  ElMessage.success('用户已启用')
+  ElMessage.success(t('admin.userEnabled'))
   loadData()
 }
 
 const handleSaveSMTP = async () => {
   await updateSettings('smtp', { ...smtpForm, test_email: testEmail.value })
-  ElMessage.success('SMTP 配置已保存')
+  ElMessage.success(t('admin.smtpConfigSaved'))
 }
 
 const portMap = { starttls: 587, implicit: 465, none: 25 }
@@ -521,9 +625,9 @@ const handleTestSMTP = async () => {
   testingSMTP.value = true
   try {
     await testSMTP({ to: testEmail.value })
-    ElMessage.success('测试邮件已发送，请检查邮箱')
+    ElMessage.success(t('admin.testEmailSent'))
   } catch (e) {
-    ElMessage.error('发送失败: ' + (e.response?.data?.message || e.message))
+    ElMessage.error(t('admin.sendFailed') + (e.response?.data?.message || e.message))
   } finally {
     testingSMTP.value = false
   }
