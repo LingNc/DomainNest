@@ -41,21 +41,21 @@
     <el-dialog v-model="addDialogVisible" title="添加 DNS 提供商" width="480px">
       <el-form :model="addForm" label-width="100px">
         <el-form-item label="提供商类型">
-          <el-select v-model="addForm.provider_type" style="width:100%">
-            <el-option label="阿里云 DNS" value="aliyun" />
+          <el-select v-model="addForm.provider_type" style="width:100%" filterable>
+            <el-option v-for="p in providerTypes" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="名称">
           <el-input v-model="addForm.name" placeholder="为这个提供商命名" />
         </el-form-item>
-        <el-form-item label="AccessKey ID">
-          <el-input v-model="addForm.access_key_id" placeholder="阿里云 AccessKey ID" />
+        <el-form-item :label="credentialLabel.id">
+          <el-input v-model="addForm.access_key_id" :placeholder="credentialPlaceholder.id" />
         </el-form-item>
-        <el-form-item label="AccessKey Secret">
-          <el-input v-model="addForm.access_key_secret" type="password" show-password placeholder="阿里云 AccessKey Secret" />
+        <el-form-item :label="credentialLabel.secret">
+          <el-input v-model="addForm.access_key_secret" type="password" show-password :placeholder="credentialPlaceholder.secret" />
         </el-form-item>
         <el-form-item label="Endpoint">
-          <el-input v-model="addForm.endpoint" placeholder="可选，默认 alidns.aliyuncs.com" />
+          <el-input v-model="addForm.endpoint" :placeholder="endpointPlaceholder" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -98,9 +98,38 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { listProviders, createProvider, updateProvider, deleteProvider, listProviderDomains, claimDomain } from '../api/provider'
 import { ElMessage, ElMessageBox } from 'element-plus'
+
+const providerTypes = [
+  { value: 'aliyun', label: '阿里云 DNS' },
+  { value: 'aliesa', label: '阿里云 ESA' },
+  { value: 'tencentcloud', label: '腾讯云 DNSPod' },
+  { value: 'cloudflare', label: 'Cloudflare' },
+  { value: 'huaweicloud', label: '华为云 DNS' },
+  { value: 'baiducloud', label: '百度云 DNS' },
+  { value: 'trafficroute', label: '火山引擎 DNS' },
+  { value: 'godaddy', label: 'GoDaddy' },
+  { value: 'namecheap', label: 'Namecheap' },
+  { value: 'namesilo', label: 'NameSilo' },
+  { value: 'porkbun', label: 'Porkbun' },
+  { value: 'vercel', label: 'Vercel' },
+  { value: 'gcore', label: 'Gcore' },
+  { value: 'nsone', label: 'NS1' },
+  { value: 'name_com', label: 'Name.com' },
+  { value: 'cloudns', label: 'ClouDNS' },
+  { value: 'dnsla', label: 'DNSLA' },
+  { value: 'dynadot', label: 'Dynadot' },
+  { value: 'dynv6', label: 'dynv6' },
+  { value: 'spaceship', label: 'Spaceship' },
+  { value: 'edgeone', label: 'EdgeOne' },
+  { value: 'rainyun', label: '雨云' },
+  { value: 'hipmdnsmgr', label: 'HiPM DNS' },
+  { value: 'nowcn', label: 'Nowcn' },
+  { value: 'eranet', label: 'Eranet' },
+  { value: 'tnethk', label: 'Tnethk' },
+]
 
 const providers = ref([])
 const loading = ref(false)
@@ -117,6 +146,47 @@ const currentProvider = ref(null)
 const domains = ref([])
 const loadingDomains = ref(false)
 const claiming = reactive({})
+
+const credentialLabels = {
+  aliyun: { id: 'AccessKey ID', secret: 'AccessKey Secret', ep: '可选，默认 alidns.aliyuncs.com' },
+  aliesa: { id: 'AccessKey ID', secret: 'AccessKey Secret', ep: '可选' },
+  tencentcloud: { id: 'SecretId', secret: 'SecretKey', ep: '可选，默认 dnspod.tencentcloudapi.com' },
+  cloudflare: { id: 'API Token', secret: '(留空)', ep: '可选' },
+  huaweicloud: { id: 'Access Key', secret: 'Secret Key', ep: '可选，默认 dns.myhuaweicloud.com' },
+  baiducloud: { id: 'Access Key', secret: 'Secret Key', ep: '可选' },
+  trafficroute: { id: 'Access Key', secret: 'Secret Key', ep: '可选' },
+  godaddy: { id: 'API Key', secret: 'API Secret', ep: '可选，默认 api.godaddy.com' },
+  namecheap: { id: 'API User', secret: 'API Key', ep: '可选，默认 api.namecheap.com' },
+  namesilo: { id: 'API Key', secret: '(留空)', ep: '可选' },
+  porkbun: { id: 'API Key', secret: 'Secret API Key', ep: '可选' },
+  vercel: { id: 'API Token', secret: '(留空)', ep: '可选' },
+  gcore: { id: 'API Key', secret: '(留空)', ep: '可选' },
+  nsone: { id: 'API Key', secret: '(留空)', ep: '可选' },
+  name_com: { id: '用户名', secret: 'API Token', ep: '可选，默认 api.name.com' },
+  cloudns: { id: 'Auth ID', secret: 'Auth Password', ep: '可选' },
+  dnsla: { id: '用户名', secret: '密码', ep: '可选' },
+  dynadot: { id: 'API Key', secret: '(留空)', ep: '可选' },
+  dynv6: { id: 'API Token', secret: '(留空)', ep: '可选' },
+  spaceship: { id: 'API Key', secret: 'API Secret', ep: '可选' },
+  edgeone: { id: 'SecretId', secret: 'SecretKey', ep: '可选' },
+  rainyun: { id: 'API Key', secret: '(留空)', ep: '可选' },
+  hipmdnsmgr: { id: 'API Token', secret: '(留空)', ep: '可选' },
+  nowcn: { id: 'API Key', secret: 'API Secret', ep: '可选' },
+  eranet: { id: 'API Key', secret: 'API Secret', ep: '可选' },
+  tnethk: { id: 'API Key', secret: 'API Secret', ep: '可选' },
+}
+
+const credentialLabel = computed(() => ({
+  id: credentialLabels[addForm.provider_type]?.id || 'AccessKey ID',
+  secret: credentialLabels[addForm.provider_type]?.secret || 'AccessKey Secret',
+}))
+const credentialPlaceholder = computed(() => ({
+  id: `输入 ${credentialLabel.value.id}`,
+  secret: credentialLabels[addForm.provider_type]?.secret === '(留空)' ? '此提供商不需要' : `输入 ${credentialLabel.value.secret}`,
+}))
+const endpointPlaceholder = computed(() =>
+  credentialLabels[addForm.provider_type]?.ep || '可选'
+)
 
 const loadProviders = async () => {
   loading.value = true
@@ -140,7 +210,8 @@ const openAddDialog = () => {
 }
 
 const handleAdd = async () => {
-  if (!addForm.name || !addForm.access_key_id || !addForm.access_key_secret) {
+  const needsSecret = credentialLabels[addForm.provider_type]?.secret !== '(留空)'
+  if (!addForm.name || !addForm.access_key_id || (needsSecret && !addForm.access_key_secret)) {
     ElMessage.warning('请填写必要字段')
     return
   }

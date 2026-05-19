@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"domainnest/internal/aliyun"
+	"domainnest/internal/dns"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -19,18 +19,15 @@ func NewProviderService(db *gorm.DB) *ProviderService {
 }
 
 func (s *ProviderService) Create(userID uint64, providerType, name, ak, sk, endpoint string) (*model.DNSProvider, error) {
-	if providerType != "aliyun" {
-		return nil, errors.New("only aliyun provider is supported")
-	}
-	// Verify AK connectivity
-	client, err := aliyun.NewClientFromKeys(ak, sk, endpoint)
+	// Verify credentials by creating a provider instance and listing domains
+	provider, err := dns.Create(providerType, ak, sk, endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
-	if _, err := client.DescribeDomains(); err != nil {
+	if _, err := provider.ListDomains(); err != nil {
 		return nil, fmt.Errorf("invalid credentials: %w", err)
 	}
-	provider := &model.DNSProvider{
+	dp := &model.DNSProvider{
 		UserID:          userID,
 		ProviderType:    providerType,
 		Name:            name,
@@ -39,10 +36,10 @@ func (s *ProviderService) Create(userID uint64, providerType, name, ak, sk, endp
 		Endpoint:        endpoint,
 		Status:          "active",
 	}
-	if err := s.db.Create(provider).Error; err != nil {
+	if err := s.db.Create(dp).Error; err != nil {
 		return nil, err
 	}
-	return provider, nil
+	return dp, nil
 }
 
 func (s *ProviderService) List(userID uint64) ([]model.DNSProvider, error) {
@@ -65,7 +62,6 @@ func (s *ProviderService) Update(providerID, userID uint64, name, endpoint strin
 }
 
 func (s *ProviderService) Delete(providerID, userID uint64) error {
-	// Check if any domains are using this provider
 	var count int64
 	s.db.Model(&model.DomainNode{}).Where("provider_id = ?", providerID).Count(&count)
 	if count > 0 {
@@ -74,34 +70,31 @@ func (s *ProviderService) Delete(providerID, userID uint64) error {
 	return s.db.Where("id = ? AND user_id = ?", providerID, userID).Delete(&model.DNSProvider{}).Error
 }
 
-func (s *ProviderService) ListDomains(providerID uint64) ([]aliyun.AliyunDomain, error) {
-	client, err := s.getClientByProviderID(providerID)
+func (s *ProviderService) ListDomains(providerID uint64) ([]dns.Domain, error) {
+	p, err := s.GetDNSProvider(providerID)
 	if err != nil {
 		return nil, err
 	}
-	return client.DescribeDomains()
+	return p.ListDomains()
 }
 
 func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName string) (*model.DomainNode, error) {
-	// Verify the provider belongs to user
 	var provider model.DNSProvider
 	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&provider).Error; err != nil {
 		return nil, errors.New("provider not found")
 	}
-	// Verify domain access
-	client, err := s.getClientByProviderID(providerID)
+	p, err := s.GetDNSProvider(providerID)
 	if err != nil {
 		return nil, err
 	}
-	if err := client.DescribeDomainRecords(domainName); err != nil {
+	// Verify domain access
+	if _, err := p.ListRecords(domainName); err != nil {
 		return nil, fmt.Errorf("no access to domain %s: %w", domainName, err)
 	}
-	// Check if domain already exists
 	var existing model.DomainNode
 	if err := s.db.Where("full_domain = ?", domainName).First(&existing).Error; err == nil {
 		return nil, errors.New("domain already exists in system")
 	}
-	// Extract host (e.g. "example" from "example.com")
 	host := extractHost(domainName)
 	node := &model.DomainNode{
 		Host:       host,
@@ -115,22 +108,16 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 	return node, nil
 }
 
-// GetClientByProviderID exports the client for use by DDNSService
-func (s *ProviderService) GetClientByProviderID(providerID uint64) (*aliyun.Client, error) {
-	return s.getClientByProviderID(providerID)
-}
-
-func (s *ProviderService) getClientByProviderID(providerID uint64) (*aliyun.Client, error) {
+// GetDNSProvider creates a dns.Provider instance from the stored credentials.
+func (s *ProviderService) GetDNSProvider(providerID uint64) (dns.Provider, error) {
 	var provider model.DNSProvider
 	if err := s.db.First(&provider, providerID).Error; err != nil {
 		return nil, errors.New("provider not found")
 	}
-	return aliyun.NewClientFromKeys(provider.AccessKeyID, provider.AccessKeySecret, provider.Endpoint)
+	return dns.Create(provider.ProviderType, provider.AccessKeyID, provider.AccessKeySecret, provider.Endpoint)
 }
 
 func extractHost(domain string) string {
-	// For "example.com" -> "example", "sub.example.com" -> "sub"
-	// Root domains typically have 2 parts
 	parts := splitDomainParts(domain)
 	if len(parts) >= 2 {
 		return parts[len(parts)-2]

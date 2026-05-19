@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"domainnest/internal/aliyun"
+	"domainnest/internal/dns"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -27,14 +27,13 @@ func NewDDNSService(db *gorm.DB, domainService *DomainService, recordService *Re
 	}
 }
 
-func (s *DDNSService) getClientForNode(nodeID uint64) (*aliyun.Client, error) {
+func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
 		return nil, err
 	}
-	// Try provider-based client
 	if node.ProviderID != nil && s.providerService != nil {
-		client, err := s.providerService.GetClientByProviderID(*node.ProviderID)
+		client, err := s.providerService.GetDNSProvider(*node.ProviderID)
 		if err == nil {
 			return client, nil
 		}
