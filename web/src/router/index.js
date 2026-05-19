@@ -4,8 +4,8 @@ import { useAuthStore } from '../stores/auth'
 const routes = [
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue') },
   { path: '/register', name: 'Register', component: () => import('../views/Register.vue') },
-  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('../views/ForgotPassword.vue') },
-  { path: '/reset-password', name: 'ResetPassword', component: () => import('../views/ResetPassword.vue') },
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('../views/ForgotPassword.vue'), meta: { guestOnly: true } },
+  { path: '/reset-password', name: 'ResetPassword', component: () => import('../views/ResetPassword.vue'), meta: { guestOnly: true } },
   { path: '/dashboard', name: 'Dashboard', component: () => import('../views/Dashboard.vue'), meta: { requiresAuth: true } },
   { path: '/domains/:id', name: 'DomainDetail', component: () => import('../views/DomainDetail.vue'), meta: { requiresAuth: true } },
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { requiresAuth: true } },
@@ -28,11 +28,13 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const auth = useAuthStore()
-  if (to.meta.requiresAuth && !auth.isAuthed) {
-    next('/login')
-  } else {
-    next()
+  if (to.meta.guestOnly && auth.isAuthed) {
+    return next('/dashboard')
   }
+  if (to.meta.requiresAuth && !auth.isAuthed) {
+    return next('/login')
+  }
+  next()
 })
 
 export default router

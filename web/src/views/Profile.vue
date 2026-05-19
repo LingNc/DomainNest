@@ -158,7 +158,6 @@
         </el-form-item>
         <el-form-item>
           <el-button type="warning" :loading="changingPwd" @click="handleChangePwd">修改密码</el-button>
-          <router-link to="/forgot-password" style="margin-left:16px;font-size:13px">忘记密码？通过邮箱重置</router-link>
         </el-form-item>
       </el-form>
     </el-card>
