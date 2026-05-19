@@ -153,14 +153,22 @@ func (s *AuthService) AdminResetPassword(userID uint64, newPassword string) erro
 }
 
 func (s *AuthService) EnsureAdmin(username, password string) error {
-	var count int64
-	s.db.Model(&model.User{}).Where("role = ?", "admin").Count(&count)
-	if count > 0 {
+	var admin model.User
+	err := s.db.Where("role = ?", "admin").First(&admin).Error
+	if err == nil {
+		// Admin exists - ensure super_admin flag is set
+		if !admin.IsSuperAdmin {
+			s.db.Model(&admin).Update("is_super_admin", true)
+		}
 		return nil
 	}
 
-	_, err := s.createUser(username, password, "", "admin")
-	return err
+	user, err := s.createUser(username, password, "", "admin")
+	if err != nil {
+		return err
+	}
+	// First admin is super_admin
+	return s.db.Model(user).Update("is_super_admin", true).Error
 }
 
 func (s *AuthService) createUser(username, password, email, role string) (*model.User, error) {

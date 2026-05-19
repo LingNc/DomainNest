@@ -15,6 +15,7 @@ type User struct {
 	Phone        string         `gorm:"type:varchar(20)" json:"phone"`
 	Avatar       string         `gorm:"type:varchar(512)" json:"avatar"`
 	Role         string         `gorm:"type:enum('admin','user');default:'user'" json:"role"`
+	IsSuperAdmin bool           `gorm:"default:false" json:"is_super_admin"`
 	Status       int            `gorm:"default:1" json:"status"` // 1=正常 0=禁用
 	Token        string         `gorm:"type:varchar(64);uniqueIndex;not null" json:"token,omitempty"`
 	InvitedBy    *uint64        `gorm:"index" json:"invited_by"`
