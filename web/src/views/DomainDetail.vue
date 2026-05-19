@@ -194,8 +194,8 @@
     <el-dialog v-model="showGrantPerm" title="授权用户" width="520px">
       <el-form :model="grantForm" label-width="100px">
         <el-form-item label="用户">
-          <el-select v-model="grantForm.target_user_id" filterable placeholder="搜索用户" style="width:100%">
-            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+          <el-select v-model="grantForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" placeholder="搜索用户" style="width:100%">
+            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
                 <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
@@ -383,8 +383,8 @@
       </el-alert>
       <el-form :model="transferForm" label-width="80px">
         <el-form-item label="目标用户">
-          <el-select v-model="transferForm.target_user_id" filterable placeholder="搜索用户" style="width:100%">
-            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+          <el-select v-model="transferForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" placeholder="搜索用户" style="width:100%">
+            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
                 <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
@@ -415,8 +415,8 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item v-if="returnForm.action === 'transfer'" label="目标用户">
-          <el-select v-model="returnForm.target_user_id" filterable placeholder="搜索用户" style="width:100%">
-            <el-option v-for="u in allUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+          <el-select v-model="returnForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" placeholder="搜索用户" style="width:100%">
+            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
                 <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
@@ -440,9 +440,10 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getDomain, createDomain, transferDomain, deleteDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
-import { retrySync, listUsers } from '../api/admin'
+import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
+import { searchAllUsers } from '../api/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
@@ -481,7 +482,8 @@ const csvFileList = ref([])
 const permissions = ref([])
 const showGrantPerm = ref(false)
 const grantForm = ref({ target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '', host_prefix: '', max_depth: null })
-const allUsers = ref([])
+const selectableUsers = ref([])
+const searchingUsers = ref(false)
 
 const filters = reactive({ host: '', record_type: '', value: '', enabled: undefined, sync_status: '' })
 const pagination = reactive({ page: 1, pageSize: 20 })
@@ -819,9 +821,18 @@ const handleAcceptReturn = async () => {
   }
 }
 
+const searchUsersRemote = async (query) => {
+  if (!query) { selectableUsers.value = []; return }
+  searchingUsers.value = true
+  try {
+    const res = await searchAllUsers(query)
+    selectableUsers.value = res.data || []
+  } catch { /* ignore */ }
+  searchingUsers.value = false
+}
+
 onMounted(() => {
   loadData()
-  listUsers().then(res => { allUsers.value = res.data || [] }).catch(() => {})
 })
 </script>
 

@@ -69,7 +69,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getConversations } from '../api/message'
-import { searchUsers } from '../api/friend'
+import { searchAllUsers } from '../api/auth'
 
 const router = useRouter()
 const conversations = ref([])
@@ -115,7 +115,7 @@ const handleSearchUser = async () => {
     return
   }
   try {
-    const res = await searchUsers(searchKeyword.value)
+    const res = await searchAllUsers(searchKeyword.value)
     searchResults.value = res.data || []
     searched.value = true
   } catch {

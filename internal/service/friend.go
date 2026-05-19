@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strconv"
 
 	"domainnest/internal/model"
 
@@ -169,11 +170,17 @@ func (s *FriendService) SearchAllUsers(userID uint64, keyword string) ([]model.U
 	}
 
 	var users []model.User
-	err := s.db.
+	query := s.db.
 		Select("users.id, users.username, users.nickname, users.avatar").
-		Joins("LEFT JOIN friendships ON friendships.user_id = ? AND friendships.friend_id = users.id", userID).
-		Where("(users.username LIKE ? OR users.nickname LIKE ?)", "%"+keyword+"%", "%"+keyword+"%").
-		Order("CASE WHEN friendships.user_id IS NOT NULL THEN 0 ELSE 1 END, users.username").
+		Joins("LEFT JOIN friendships ON friendships.user_id = ? AND friendships.friend_id = users.id", userID)
+
+	if id, err := strconv.ParseUint(keyword, 10, 64); err == nil {
+		query = query.Where("(users.username LIKE ? OR users.nickname LIKE ? OR users.id = ?)", "%"+keyword+"%", "%"+keyword+"%", id)
+	} else {
+		query = query.Where("(users.username LIKE ? OR users.nickname LIKE ?)", "%"+keyword+"%", "%"+keyword+"%")
+	}
+
+	err := query.Order("CASE WHEN friendships.user_id IS NOT NULL THEN 0 ELSE 1 END, users.username").
 		Limit(20).
 		Find(&users).Error
 	return users, err
