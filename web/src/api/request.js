@@ -28,7 +28,11 @@ request.interceptors.response.use(
     if (error.response?.status === 401) {
       const auth = useAuthStore()
       auth.clearAuth()
-      window.location.href = '/login'
+      // Don't redirect if already on a public page (login/register/forgot)
+      const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password']
+      if (!publicPaths.some(p => window.location.pathname.startsWith(p))) {
+        window.location.href = '/login'
+      }
     }
     ElMessage.error(error.response?.data?.message || '网络错误')
     return Promise.reject(error)
