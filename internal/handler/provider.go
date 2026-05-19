@@ -57,7 +57,7 @@ func (h *ProviderHandler) Get(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
 		return
 	}
 	provider, err := h.providerService.Get(id, userID)
@@ -72,7 +72,7 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
 		return
 	}
 	var req struct {
@@ -91,14 +91,14 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "update_provider", "dns_provider", &id,
 		map[string]interface{}{"name": req.Name, "endpoint": req.Endpoint}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "updated"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已更新"})
 }
 
 func (h *ProviderHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
 		return
 	}
 	if err := h.providerService.Delete(id, userID); err != nil {
@@ -106,13 +106,13 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 		return
 	}
 	middleware.LogOperation(h.db, userID, "delete_provider", "dns_provider", &id, nil, c.ClientIP())
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "deleted"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已删除"})
 }
 
 func (h *ProviderHandler) ListDomains(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
 		return
 	}
 	domains, err := h.providerService.ListDomains(id)
@@ -127,7 +127,7 @@ func (h *ProviderHandler) ClaimDomain(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
 		return
 	}
 	var req struct {

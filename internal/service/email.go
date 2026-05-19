@@ -138,14 +138,14 @@ var resetEmailTmpl = template.Must(template.New("reset").Parse(`<!DOCTYPE html>
 func (s *EmailService) SendPasswordReset(to, code string) error {
 	cfg := s.getSMTPConfig()
 	if cfg == nil || cfg.Host == "" || cfg.Username == "" {
-		return fmt.Errorf("SMTP not configured")
+		return fmt.Errorf("SMTP未配置")
 	}
 
 	subject := "DomainNest - 密码重置验证码"
 
 	var body bytes.Buffer
 	if err := resetEmailTmpl.Execute(&body, struct{ Code string }{Code: code}); err != nil {
-		return fmt.Errorf("template render failed: %w", err)
+		return fmt.Errorf("模板渲染失败: %w", err)
 	}
 
 	msg := fmt.Sprintf("From: %s <%s>\r\n"+
@@ -166,7 +166,7 @@ func (s *EmailService) SendPasswordReset(to, code string) error {
 func (s *EmailService) SendTestEmail(to string) error {
 	cfg := s.getSMTPConfig()
 	if cfg == nil || cfg.Host == "" || cfg.Username == "" {
-		return fmt.Errorf("SMTP not configured")
+		return fmt.Errorf("SMTP未配置")
 	}
 
 	subject := "DomainNest SMTP Test"

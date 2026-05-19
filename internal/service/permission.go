@@ -64,7 +64,7 @@ func (s *PermissionService) AccessLevel(userID, domainNodeID uint64) (int, strin
 func (s *PermissionService) RequireLevel(userID, domainNodeID uint64, minLevel int) error {
 	level, name := s.AccessLevel(userID, domainNodeID)
 	if level < minLevel {
-		return fmt.Errorf("access denied: requires %s or higher, has %s", levelName(minLevel), name)
+		return fmt.Errorf("权限不足：需要 %s 或更高级别，当前为 %s", levelName(minLevel), name)
 	}
 	return nil
 }
@@ -125,7 +125,7 @@ func (s *PermissionService) ValidateIPValue(userID, domainNodeID uint64, recordT
 
 	ip, err := netip.ParseAddr(value)
 	if err != nil {
-		return fmt.Errorf("invalid IP address: %s", value)
+		return fmt.Errorf("无效的IP地址: %s", value)
 	}
 
 	for _, cidr := range cidrs {
@@ -138,7 +138,7 @@ func (s *PermissionService) ValidateIPValue(userID, domainNodeID uint64, recordT
 		}
 	}
 
-	return fmt.Errorf("IP %s is not within allowed ranges", value)
+	return fmt.Errorf("IP %s 不在允许的范围内", value)
 }
 
 // ValidateHostPrefix checks if the given host matches the required prefix restriction.
@@ -160,7 +160,7 @@ func (s *PermissionService) ValidateHostPrefix(userID, domainNodeID uint64, host
 	}
 
 	if !strings.HasPrefix(host, perm.HostPrefix) {
-		return fmt.Errorf("host must start with '%s'", perm.HostPrefix)
+		return fmt.Errorf("主机名必须以 '%s' 开头", perm.HostPrefix)
 	}
 	return nil
 }
@@ -190,7 +190,7 @@ func (s *PermissionService) ValidateDepth(userID, domainNodeID uint64, host stri
 	}
 
 	if depth > *perm.MaxDepth {
-		return fmt.Errorf("subdomain depth %d exceeds maximum allowed %d", depth, *perm.MaxDepth)
+		return fmt.Errorf("子域名层级 %d 超过最大允许值 %d", depth, *perm.MaxDepth)
 	}
 	return nil
 }
@@ -198,13 +198,13 @@ func (s *PermissionService) ValidateDepth(userID, domainNodeID uint64, host stri
 // Grant creates or updates a permission entry.
 func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTypes, allowedIPs, hostPrefix string, maxDepth *int, createdBy uint64) error {
 	if PermLevelValue(level) == 0 && level != "read" {
-		return fmt.Errorf("invalid permission level: %s", level)
+		return fmt.Errorf("无效的权限级别: %s", level)
 	}
 
 	// Cannot grant higher than your own level
 	grantorLevel, _ := s.AccessLevel(createdBy, domainNodeID)
 	if PermLevelValue(level) >= grantorLevel {
-		return errors.New("cannot grant permission equal to or higher than your own")
+		return errors.New("不能授予等于或高于自己级别的权限")
 	}
 
 	var existing model.DomainPermission
@@ -243,13 +243,13 @@ func (s *PermissionService) Revoke(userID, domainNodeID uint64) error {
 func (s *PermissionService) RevokeRequest(targetUserID, domainNodeID, requestedBy uint64) error {
 	var perm model.DomainPermission
 	if err := s.db.Where("user_id = ? AND domain_node_id = ?", targetUserID, domainNodeID).First(&perm).Error; err != nil {
-		return errors.New("permission not found")
+		return errors.New("权限不存在")
 	}
 
 	// Cannot revoke owner
 	var node model.DomainNode
 	if err := s.db.First(&node, domainNodeID).Error; err == nil && node.OwnerID == targetUserID {
-		return errors.New("cannot revoke owner's permission")
+		return errors.New("不能撤销所有者的权限")
 	}
 
 	if perm.PermissionLevel != "admin" && perm.PermissionLevel != "write" {
@@ -265,7 +265,7 @@ func (s *PermissionService) RevokeRequest(targetUserID, domainNodeID, requestedB
 func (s *PermissionService) AcceptReturn(targetUserID, domainNodeID uint64, action string, transferUserID *uint64) error {
 	var perm model.DomainPermission
 	if err := s.db.Where("user_id = ? AND domain_node_id = ?", targetUserID, domainNodeID).First(&perm).Error; err != nil {
-		return errors.New("permission not found")
+		return errors.New("权限不存在")
 	}
 
 	tx := s.db.Begin()
@@ -280,7 +280,7 @@ func (s *PermissionService) AcceptReturn(targetUserID, domainNodeID uint64, acti
 	case "transfer":
 		if transferUserID == nil {
 			tx.Rollback()
-			return errors.New("target_user_id required for transfer")
+			return errors.New("转移操作需要指定目标用户")
 		}
 		// Records stay but ownership concept changes - just mark them
 		if err := tx.Model(&model.DNSRecord{}).Where("node_id = ? AND created_by = ?", domainNodeID, targetUserID).
@@ -298,7 +298,7 @@ func (s *PermissionService) AcceptReturn(targetUserID, domainNodeID uint64, acti
 		}
 	default:
 		tx.Rollback()
-		return errors.New("invalid action: must be keep, delete, or transfer")
+		return errors.New("无效操作：必须为 keep、delete 或 transfer")
 	}
 
 	// Remove the permission

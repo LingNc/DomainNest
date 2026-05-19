@@ -64,7 +64,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
-		"message": "success",
+		"message": "成功",
 		"data": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
@@ -104,7 +104,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	token, err := middleware.GenerateToken(h.jwtSecret, user.ID, user.Username, user.Role, h.jwtExpire)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to generate token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成令牌失败"})
 		return
 	}
 
@@ -113,7 +113,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
-		"message": "success",
+		"message": "成功",
 		"data": gin.H{
 			"token": token,
 			"user": gin.H{
@@ -133,7 +133,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 
 	user, err := h.authService.GetUserByID(userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "user not found"})
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "用户不存在"})
 		return
 	}
 
@@ -200,7 +200,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "update_profile", "user", &userID, changed, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "profile updated"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "个人资料已更新"})
 }
 
 func (h *AuthHandler) ResetToken(c *gin.Context) {
@@ -208,7 +208,7 @@ func (h *AuthHandler) ResetToken(c *gin.Context) {
 
 	newToken, err := h.authService.ResetToken(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to reset token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "重置令牌失败"})
 		return
 	}
 
@@ -216,7 +216,7 @@ func (h *AuthHandler) ResetToken(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
-		"message": "token reset successfully",
+		"message": "令牌重置成功",
 		"data": gin.H{
 			"token": newToken,
 		},
@@ -243,7 +243,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "change_password", "user", &userID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "password changed successfully"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "密码修改成功"})
 }
 
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
@@ -259,13 +259,13 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	// 无论邮箱是否存在都返回成功（防枚举）
 	var user model.User
 	if err := h.db.Where("email = ?", req.Email).First(&user).Error; err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "if the email exists, a code has been sent"})
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "如果该邮箱存在，验证码已发送"})
 		return
 	}
 
 	code, err := service.GenerateVerifyCode()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to generate code"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成验证码失败"})
 		return
 	}
 
@@ -275,7 +275,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		ExpiresAt: time.Now().Add(30 * time.Minute),
 	}
 	if err := h.db.Create(reset).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to create reset code"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建重置验证码失败"})
 		return
 	}
 
@@ -285,7 +285,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		}
 	}()
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "if the email exists, a code has been sent"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "如果该邮箱存在，验证码已发送"})
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
@@ -301,18 +301,18 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 
 	var reset model.PasswordReset
 	if err := h.db.Where("token = ? AND used = false AND expires_at > ?", req.Token, time.Now()).First(&reset).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid or expired token"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "验证码无效或已过期"})
 		return
 	}
 
 	if err := h.authService.AdminResetPassword(reset.UserID, req.NewPassword); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to reset password"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "重置密码失败"})
 		return
 	}
 
 	h.db.Model(&reset).Update("used", true)
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "password reset successfully"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "密码重置成功"})
 }
 
 func (h *AuthHandler) UploadAvatar(c *gin.Context) {
@@ -320,7 +320,7 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "missing file"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请选择文件"})
 		return
 	}
 	defer file.Close()
@@ -338,7 +338,7 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	case "image/png":
 		img, err = png.Decode(file)
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "only JPEG and PNG are supported"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "仅支持 JPEG 和 PNG 格式"})
 		return
 	}
 	if err != nil {
@@ -352,7 +352,7 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	// Encode to JPEG
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, resized, &jpeg.Options{Quality: 85}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to encode image"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "图片编码失败"})
 		return
 	}
 
@@ -361,7 +361,7 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	dataURI := fmt.Sprintf("data:image/jpeg;base64,%s", b64)
 
 	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("avatar", dataURI).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to save avatar"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存头像失败"})
 		return
 	}
 
@@ -427,7 +427,7 @@ func (h *AuthHandler) GrantInviteQuota(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "grant_invite", "user", &req.TargetUserID,
 		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "invite quota granted"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邀请额度已分配"})
 }
 
 func (h *AuthHandler) RevokeInviteQuota(c *gin.Context) {
@@ -451,7 +451,7 @@ func (h *AuthHandler) RevokeInviteQuota(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "revoke_invite", "user", &req.TargetUserID,
 		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "invite quota revoked"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邀请额度已撤销"})
 }
 
 func (h *AuthHandler) GetInviteLogs(c *gin.Context) {
@@ -497,5 +497,5 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "delete_account", "user", &userID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "account deleted"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "账号已注销"})
 }

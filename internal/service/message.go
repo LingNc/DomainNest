@@ -28,17 +28,17 @@ type Conversation struct {
 // SendMessage sends a message from sender to receiver.
 func (s *MessageService) SendMessage(senderID, receiverID uint64, content string) (*model.Message, error) {
 	if senderID == receiverID {
-		return nil, errors.New("cannot send message to yourself")
+		return nil, errors.New("不能给自己发送消息")
 	}
 
 	if content == "" {
-		return nil, errors.New("message content cannot be empty")
+		return nil, errors.New("消息内容不能为空")
 	}
 
 	// Check receiver exists
 	var receiver model.User
 	if err := s.db.First(&receiver, receiverID).Error; err != nil {
-		return nil, errors.New("receiver not found")
+		return nil, errors.New("接收者不存在")
 	}
 
 	msg := &model.Message{

@@ -46,13 +46,13 @@ func (h *SettingsHandler) Set(c *gin.Context) {
 
 	body, err := c.GetRawData()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求体无效"})
 		return
 	}
 
 	var check interface{}
 	if json.Unmarshal(body, &check) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid JSON"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "JSON格式无效"})
 		return
 	}
 
@@ -66,13 +66,13 @@ func (h *SettingsHandler) Set(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "update_settings", "setting", &targetID,
 		map[string]interface{}{"category": category}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "settings saved"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "设置已保存"})
 }
 
 func (h *SettingsHandler) TestSMTP(c *gin.Context) {
 	cfg := h.settingsService.GetSMTPConfig()
 	if cfg == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "SMTP not configured"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "SMTP未配置"})
 		return
 	}
 
@@ -86,9 +86,9 @@ func (h *SettingsHandler) TestSMTP(c *gin.Context) {
 
 	emailSvc := service.NewEmailService(cfg)
 	if err := emailSvc.SendTestEmail(req.To); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "failed to send test email: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "发送测试邮件失败: " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "test email sent"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "测试邮件已发送"})
 }

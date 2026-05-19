@@ -60,7 +60,7 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	otherID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	otherID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
@@ -104,7 +104,7 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "messages marked as read"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "消息已标记为已读"})
 }
 
 // UnreadCount returns the total unread message count.

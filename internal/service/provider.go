@@ -22,10 +22,10 @@ func (s *ProviderService) Create(userID uint64, providerType, name, ak, sk, endp
 	// Verify credentials by creating a provider instance and listing domains
 	provider, err := dns.Create(providerType, ak, sk, endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w", err)
+		return nil, fmt.Errorf("创建DNS客户端失败: %w", err)
 	}
 	if _, err := provider.ListDomains(); err != nil {
-		return nil, fmt.Errorf("invalid credentials: %w", err)
+		return nil, fmt.Errorf("身份验证失败: %w", err)
 	}
 	dp := &model.DNSProvider{
 		UserID:          userID,
@@ -51,7 +51,7 @@ func (s *ProviderService) List(userID uint64) ([]model.DNSProvider, error) {
 func (s *ProviderService) Get(providerID, userID uint64) (*model.DNSProvider, error) {
 	var p model.DNSProvider
 	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&p).Error; err != nil {
-		return nil, errors.New("provider not found")
+		return nil, errors.New("DNS服务商不存在")
 	}
 	return &p, nil
 }
@@ -65,7 +65,7 @@ func (s *ProviderService) Delete(providerID, userID uint64) error {
 	var count int64
 	s.db.Model(&model.DomainNode{}).Where("provider_id = ?", providerID).Count(&count)
 	if count > 0 {
-		return errors.New("cannot delete provider with associated domains")
+		return errors.New("无法删除已关联域名的服务商")
 	}
 	return s.db.Where("id = ? AND user_id = ?", providerID, userID).Delete(&model.DNSProvider{}).Error
 }
@@ -81,7 +81,7 @@ func (s *ProviderService) ListDomains(providerID uint64) ([]dns.Domain, error) {
 func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName string) (*model.DomainNode, error) {
 	var provider model.DNSProvider
 	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&provider).Error; err != nil {
-		return nil, errors.New("provider not found")
+		return nil, errors.New("DNS服务商不存在")
 	}
 	p, err := s.GetDNSProvider(providerID)
 	if err != nil {
@@ -89,11 +89,11 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 	}
 	// Verify domain access
 	if _, err := p.ListRecords(domainName); err != nil {
-		return nil, fmt.Errorf("no access to domain %s: %w", domainName, err)
+		return nil, fmt.Errorf("无权访问域名 %s: %w", domainName, err)
 	}
 	var existing model.DomainNode
 	if err := s.db.Where("full_domain = ?", domainName).First(&existing).Error; err == nil {
-		return nil, errors.New("domain already exists in system")
+		return nil, errors.New("域名已存在于系统中")
 	}
 	host := extractHost(domainName)
 	node := &model.DomainNode{
@@ -112,7 +112,7 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 func (s *ProviderService) GetDNSProvider(providerID uint64) (dns.Provider, error) {
 	var provider model.DNSProvider
 	if err := s.db.First(&provider, providerID).Error; err != nil {
-		return nil, errors.New("provider not found")
+		return nil, errors.New("DNS服务商不存在")
 	}
 	return dns.Create(provider.ProviderType, provider.AccessKeyID, provider.AccessKeySecret, provider.Endpoint)
 }

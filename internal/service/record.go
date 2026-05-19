@@ -86,7 +86,7 @@ func (s *RecordService) ListRecords(nodeID, userID uint64, q RecordQuery) (*Reco
 
 func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, value string, ttl int, priority *int, line string) (*model.DNSRecord, error) {
 	if !IsValidRecordType(recordType) {
-		return nil, fmt.Errorf("unsupported record type: %s", recordType)
+		return nil, fmt.Errorf("不支持的记录类型: %s", recordType)
 	}
 
 	if err := s.perm.RequireLevel(userID, nodeID, 2); err != nil {
@@ -94,7 +94,7 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 	}
 
 	if !s.perm.CanUseRecordType(userID, nodeID, recordType) {
-		return nil, fmt.Errorf("you are not allowed to create %s records on this domain", recordType)
+		return nil, fmt.Errorf("您无权在该域名上创建 %s 记录", recordType)
 	}
 
 	if err := s.perm.ValidateIPValue(userID, nodeID, recordType, value); err != nil {
@@ -143,7 +143,7 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 func (s *RecordService) UpdateRecord(recordID, userID uint64, value string, ttl *int, priority *int) (*model.DNSRecord, error) {
 	var record model.DNSRecord
 	if err := s.db.First(&record, recordID).Error; err != nil {
-		return nil, errors.New("record not found")
+		return nil, errors.New("记录不存在")
 	}
 
 	if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
@@ -180,7 +180,7 @@ func (s *RecordService) UpdateRecord(recordID, userID uint64, value string, ttl 
 func (s *RecordService) DeleteRecord(recordID, userID uint64) error {
 	var record model.DNSRecord
 	if err := s.db.First(&record, recordID).Error; err != nil {
-		return errors.New("record not found")
+		return errors.New("记录不存在")
 	}
 
 	if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
@@ -193,7 +193,7 @@ func (s *RecordService) DeleteRecord(recordID, userID uint64) error {
 func (s *RecordService) ToggleRecord(recordID, userID uint64, enabled bool) (*model.DNSRecord, error) {
 	var record model.DNSRecord
 	if err := s.db.First(&record, recordID).Error; err != nil {
-		return nil, errors.New("record not found")
+		return nil, errors.New("记录不存在")
 	}
 
 	if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
@@ -221,10 +221,10 @@ func (s *RecordService) BatchDelete(recordIDs []uint64, userID uint64) error {
 	for _, id := range recordIDs {
 		var record model.DNSRecord
 		if err := s.db.First(&record, id).Error; err != nil {
-			return fmt.Errorf("record %d not found", id)
+			return fmt.Errorf("记录 %d 不存在", id)
 		}
 		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
-			return fmt.Errorf("access denied for record %d", id)
+			return fmt.Errorf("无权访问记录 %d", id)
 		}
 	}
 
@@ -235,10 +235,10 @@ func (s *RecordService) BatchToggle(recordIDs []uint64, userID uint64, enabled b
 	for _, id := range recordIDs {
 		var record model.DNSRecord
 		if err := s.db.First(&record, id).Error; err != nil {
-			return fmt.Errorf("record %d not found", id)
+			return fmt.Errorf("记录 %d 不存在", id)
 		}
 		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
-			return fmt.Errorf("access denied for record %d", id)
+			return fmt.Errorf("无权访问记录 %d", id)
 		}
 	}
 
@@ -378,26 +378,26 @@ func validateRecordValue(recordType, value string, priority *int) error {
 	switch recordType {
 	case "MX":
 		if priority == nil {
-			return errors.New("MX records require a priority value")
+			return errors.New("MX记录需要指定优先级")
 		}
 	case "SRV":
 		parts := strings.Fields(value)
 		if len(parts) != 4 {
-			return errors.New("SRV value must be 'priority weight port target'")
+			return errors.New("SRV记录值格式必须为 '优先级 权重 端口 目标'")
 		}
 		if _, err := strconv.Atoi(parts[0]); err != nil {
-			return errors.New("SRV priority must be a number")
+			return errors.New("SRV优先级必须为数字")
 		}
 		if _, err := strconv.Atoi(parts[1]); err != nil {
-			return errors.New("SRV weight must be a number")
+			return errors.New("SRV权重必须为数字")
 		}
 		if _, err := strconv.Atoi(parts[2]); err != nil {
-			return errors.New("SRV port must be a number")
+			return errors.New("SRV端口必须为数字")
 		}
 	case "CAA":
 		parts := strings.SplitN(value, " ", 3)
 		if len(parts) != 3 {
-			return errors.New("CAA value must be 'flag tag value'")
+			return errors.New("CAA记录值格式必须为 '标志 标签 值'")
 		}
 	}
 	return nil

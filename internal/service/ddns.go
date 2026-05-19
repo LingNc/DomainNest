@@ -38,7 +38,7 @@ func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 			return client, nil
 		}
 	}
-	return nil, errors.New("no DNS provider available for this domain")
+	return nil, errors.New("该域名没有可用的DNS服务商")
 }
 
 type DDNSUpdateResult struct {

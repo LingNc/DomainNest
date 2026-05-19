@@ -20,20 +20,20 @@ func NewFriendService(db *gorm.DB) *FriendService {
 // SendRequest creates a friend request from sender to receiver.
 func (s *FriendService) SendRequest(senderID, receiverID uint64) error {
 	if senderID == receiverID {
-		return errors.New("cannot add yourself as friend")
+		return errors.New("不能添加自己为好友")
 	}
 
 	// Check receiver exists
 	var receiver model.User
 	if err := s.db.First(&receiver, receiverID).Error; err != nil {
-		return errors.New("user not found")
+		return errors.New("用户不存在")
 	}
 
 	// Check if already friends
 	var count int64
 	s.db.Model(&model.Friendship{}).Where("user_id = ? AND friend_id = ?", senderID, receiverID).Count(&count)
 	if count > 0 {
-		return errors.New("already friends")
+		return errors.New("已经是好友")
 	}
 
 	// Check if pending request already exists (either direction)
@@ -43,7 +43,7 @@ func (s *FriendService) SendRequest(senderID, receiverID uint64) error {
 		senderID, receiverID, receiverID, senderID, "pending",
 	).First(&existing).Error
 	if err == nil {
-		return errors.New("friend request already pending")
+		return errors.New("好友请求已发送，请等待处理")
 	}
 
 	req := &model.FriendRequest{
@@ -58,15 +58,15 @@ func (s *FriendService) SendRequest(senderID, receiverID uint64) error {
 func (s *FriendService) AcceptRequest(requestID, userID uint64) error {
 	var req model.FriendRequest
 	if err := s.db.First(&req, requestID).Error; err != nil {
-		return errors.New("request not found")
+		return errors.New("请求不存在")
 	}
 
 	if req.ReceiverID != userID {
-		return errors.New("not the receiver of this request")
+		return errors.New("您不是该请求的接收者")
 	}
 
 	if req.Status != "pending" {
-		return errors.New("request already handled")
+		return errors.New("该请求已处理")
 	}
 
 	tx := s.db.Begin()
@@ -94,15 +94,15 @@ func (s *FriendService) AcceptRequest(requestID, userID uint64) error {
 func (s *FriendService) RejectRequest(requestID, userID uint64) error {
 	var req model.FriendRequest
 	if err := s.db.First(&req, requestID).Error; err != nil {
-		return errors.New("request not found")
+		return errors.New("请求不存在")
 	}
 
 	if req.ReceiverID != userID {
-		return errors.New("not the receiver of this request")
+		return errors.New("您不是该请求的接收者")
 	}
 
 	if req.Status != "pending" {
-		return errors.New("request already handled")
+		return errors.New("该请求已处理")
 	}
 
 	return s.db.Model(&req).Update("status", "rejected").Error
@@ -113,7 +113,7 @@ func (s *FriendService) RemoveFriend(userID, friendID uint64) error {
 	result := s.db.Where("(user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)",
 		userID, friendID, friendID, userID).Delete(&model.Friendship{})
 	if result.RowsAffected == 0 {
-		return errors.New("friendship not found")
+		return errors.New("好友关系不存在")
 	}
 	return result.Error
 }
@@ -144,7 +144,7 @@ func (s *FriendService) ListSentRequests(userID uint64) ([]model.FriendRequest, 
 // SearchUsers searches users by username or nickname, excluding self and existing friends.
 func (s *FriendService) SearchUsers(userID uint64, keyword string) ([]model.User, error) {
 	if len(keyword) < 2 {
-		return nil, errors.New("keyword too short")
+		return nil, errors.New("搜索关键词太短")
 	}
 
 	// Get friend IDs
@@ -166,7 +166,7 @@ func (s *FriendService) SearchUsers(userID uint64, keyword string) ([]model.User
 // SearchAllUsers searches all users by username or nickname, with friends sorted first.
 func (s *FriendService) SearchAllUsers(userID uint64, keyword string) ([]model.User, error) {
 	if len(keyword) < 2 {
-		return nil, errors.New("keyword too short")
+		return nil, errors.New("搜索关键词太短")
 	}
 
 	var users []model.User

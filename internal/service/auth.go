@@ -23,17 +23,17 @@ func NewAuthService(db *gorm.DB) *AuthService {
 func (s *AuthService) Register(username, password, email, inviteCode string) (*model.User, error) {
 	var existing model.User
 	if err := s.db.Where("username = ?", username).First(&existing).Error; err == nil {
-		return nil, errors.New("username already exists")
+		return nil, errors.New("用户名已存在")
 	}
 
 	// 验证邀请码
 	var inviter model.User
 	if err := s.db.Where("invite_code = ?", inviteCode).First(&inviter).Error; err != nil {
-		return nil, errors.New("invalid invite code")
+		return nil, errors.New("邀请码无效")
 	}
 	// Pool check: inviter's available pool (InviteLimit - InviteCount) >= 1
 	if inviter.InviteLimit-inviter.InviteCount < 1 {
-		return nil, errors.New("invite limit reached")
+		return nil, errors.New("邀请额度已用完")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -95,15 +95,15 @@ func (s *AuthService) Register(username, password, email, inviteCode string) (*m
 func (s *AuthService) Login(username, password string) (*model.User, error) {
 	var user model.User
 	if err := s.db.Where("username = ?", username).First(&user).Error; err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, errors.New("账号或密码错误")
 	}
 
 	if user.Status == 0 {
-		return nil, errors.New("account disabled")
+		return nil, errors.New("账号已被禁用")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, errors.New("账号或密码错误")
 	}
 
 	return &user, nil
@@ -129,12 +129,12 @@ func (s *AuthService) UpdateProfile(userID uint64, nickname, phone, email, avata
 
 func (s *AuthService) UpdateUsername(userID uint64, newUsername string) error {
 	if newUsername == "" {
-		return errors.New("username cannot be empty")
+		return errors.New("用户名不能为空")
 	}
 
 	var existing model.User
 	if err := s.db.Where("username = ? AND id != ?", newUsername, userID).First(&existing).Error; err == nil {
-		return errors.New("username already taken")
+		return errors.New("用户名已被占用")
 	}
 
 	return s.db.Model(&model.User{}).Where("id = ?", userID).Update("username", newUsername).Error
@@ -160,7 +160,7 @@ func (s *AuthService) ChangePassword(userID uint64, oldPassword, newPassword str
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(oldPassword)); err != nil {
-		return errors.New("incorrect old password")
+		return errors.New("原密码错误")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
@@ -247,31 +247,31 @@ func generateInviteCode() (string, error) {
 // If inviter is super_admin, pool check is skipped and invite_count is not incremented.
 func (s *AuthService) GrantInviteQuota(inviterID, inviteeID uint64, amount int) error {
 	if amount <= 0 {
-		return errors.New("amount must be positive")
+		return errors.New("数量必须为正数")
 	}
 
 	var inviter model.User
 	if err := s.db.First(&inviter, inviterID).Error; err != nil {
-		return errors.New("inviter not found")
+		return errors.New("邀请人不存在")
 	}
 
 	var invitee model.User
 	if err := s.db.First(&invitee, inviteeID).Error; err != nil {
-		return errors.New("invitee not found")
+		return errors.New("被邀请人不存在")
 	}
 
 	if inviterID == inviteeID && !inviter.IsSuperAdmin {
-		return errors.New("cannot grant quota to yourself")
+		return errors.New("不能给自己分配邀请额度")
 	}
 
 	if invitee.Status == 0 {
-		return errors.New("cannot grant quota to disabled user")
+		return errors.New("不能给已禁用的用户分配邀请额度")
 	}
 
 	// Check inviter is not super_admin for pool check
 	if !inviter.IsSuperAdmin {
 		if inviter.InviteLimit-inviter.InviteCount < amount {
-			return errors.New("insufficient invite quota")
+			return errors.New("邀请额度不足")
 		}
 	}
 
@@ -308,21 +308,21 @@ func (s *AuthService) GrantInviteQuota(inviterID, inviteeID uint64, amount int) 
 // RevokeInviteQuota revokes unused invite quota from invitee back to inviter.
 func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int) error {
 	if amount <= 0 {
-		return errors.New("amount must be positive")
+		return errors.New("数量必须为正数")
 	}
 
 	var inviter model.User
 	if err := s.db.First(&inviter, inviterID).Error; err != nil {
-		return errors.New("inviter not found")
+		return errors.New("邀请人不存在")
 	}
 
 	if inviterID == inviteeID && !inviter.IsSuperAdmin {
-		return errors.New("cannot revoke quota from yourself")
+		return errors.New("不能撤销自己的邀请额度")
 	}
 
 	var invitee model.User
 	if err := s.db.First(&invitee, inviteeID).Error; err != nil {
-		return errors.New("invitee not found")
+		return errors.New("被邀请人不存在")
 	}
 
 	// Authorization: check that inviter has granted quota to invitee that hasn't been fully revoked
@@ -334,7 +334,7 @@ func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int)
 
 	maxRevokable := totalGranted - totalRevoked
 	if !inviter.IsSuperAdmin && maxRevokable <= 0 {
-		return errors.New("no quota to revoke from this user")
+		return errors.New("该用户无可撤销的额度")
 	}
 	if !inviter.IsSuperAdmin && amount > maxRevokable {
 		amount = maxRevokable
@@ -343,7 +343,7 @@ func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int)
 	// Revokeable = unused quota the invitee has
 	revokeable := invitee.InviteLimit - invitee.InviteCount
 	if revokeable <= 0 {
-		return errors.New("no revocable quota")
+		return errors.New("无可撤销的邀请额度")
 	}
 	if amount > revokeable {
 		amount = revokeable
@@ -383,11 +383,11 @@ func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int)
 func (s *AuthService) DeleteAccount(userID uint64) error {
 	var user model.User
 	if err := s.db.First(&user, userID).Error; err != nil {
-		return errors.New("user not found")
+		return errors.New("用户不存在")
 	}
 
 	if user.IsSuperAdmin {
-		return errors.New("super admin account cannot be deleted")
+		return errors.New("超级管理员账号不可注销")
 	}
 
 	tx := s.db.Begin()
@@ -404,7 +404,7 @@ func (s *AuthService) DeleteAccount(userID uint64) error {
 			transferTargetID = &tid
 		} else {
 			tx.Rollback()
-			return errors.New("cannot delete: promote another admin first to transfer your domains")
+			return errors.New("无法注销：请先提升其他管理员以转移您的域名")
 		}
 	}
 

@@ -56,7 +56,7 @@ func (h *DomainHandler) Create(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
-		"message": "success",
+		"message": "成功",
 		"data":    node,
 	})
 }
@@ -65,7 +65,7 @@ func (h *DomainHandler) Get(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -82,7 +82,7 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -103,14 +103,14 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "transfer_domain", "domain_node", &nodeID,
 		map[string]interface{}{"target_user_id": req.TargetUserID}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "transfer successful"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "转移成功"})
 }
 
 func (h *DomainHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -122,5 +122,5 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "delete_domain", "domain_node", &nodeID,
 		nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }

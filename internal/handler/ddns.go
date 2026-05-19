@@ -55,7 +55,7 @@ func (h *DDNSHandler) Callback(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
-		"message": "success",
+		"message": "成功",
 		"data":    result,
 	})
 }
@@ -130,7 +130,7 @@ func (h *DDNSHandler) Webhook(c *gin.Context) {
 	message := "success"
 	if len(errors) > 0 {
 		code = 1
-		message = "partial success: " + strings.Join(errors, "; ")
+		message = "部分成功: " + strings.Join(errors, "; ")
 	}
 
 	c.JSON(http.StatusOK, gin.H{

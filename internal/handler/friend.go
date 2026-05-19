@@ -39,7 +39,7 @@ func (h *FriendHandler) SendRequest(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "send_friend_request", "user", &req.ReceiverID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "friend request sent"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "好友请求已发送"})
 }
 
 // AcceptRequest accepts a pending friend request.
@@ -47,7 +47,7 @@ func (h *FriendHandler) AcceptRequest(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	requestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid request id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求ID"})
 		return
 	}
 
@@ -59,7 +59,7 @@ func (h *FriendHandler) AcceptRequest(c *gin.Context) {
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	middleware.LogOperation(h.db, userID, "accept_friend", "friend", &friendID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "friend request accepted"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "好友请求已接受"})
 }
 
 // RejectRequest rejects a pending friend request.
@@ -67,7 +67,7 @@ func (h *FriendHandler) RejectRequest(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	requestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid request id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求ID"})
 		return
 	}
 
@@ -79,7 +79,7 @@ func (h *FriendHandler) RejectRequest(c *gin.Context) {
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	middleware.LogOperation(h.db, userID, "reject_friend", "friend", &friendID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "friend request rejected"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "好友请求已拒绝"})
 }
 
 // RemoveFriend removes a friend.
@@ -87,7 +87,7 @@ func (h *FriendHandler) RemoveFriend(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	friendID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid friend id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的好友ID"})
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *FriendHandler) RemoveFriend(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "remove_friend", "friend", &friendID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "friend removed"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "好友已删除"})
 }
 
 // ListFriends returns all friends of the current user.

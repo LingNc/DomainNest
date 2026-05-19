@@ -21,7 +21,7 @@ func NewDomainService(db *gorm.DB, perm *PermissionService) *DomainService {
 func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64) (*model.DomainNode, error) {
 	var parent model.DomainNode
 	if err := s.db.First(&parent, parentID).Error; err != nil {
-		return nil, errors.New("parent node not found")
+		return nil, errors.New("父节点不存在")
 	}
 
 	if err := s.perm.RequireLevel(ownerID, parentID, 2); err != nil {
@@ -32,7 +32,7 @@ func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64)
 
 	var existing model.DomainNode
 	if err := s.db.Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
-		return nil, errors.New("domain already exists")
+		return nil, errors.New("域名已存在")
 	}
 
 	node := &model.DomainNode{
@@ -96,7 +96,7 @@ func (s *DomainService) GetNode(nodeID, userID uint64) (*model.DomainNode, error
 
 	var node model.DomainNode
 	if err := s.db.Preload("Children").Preload("Records").First(&node, nodeID).Error; err != nil {
-		return nil, errors.New("domain node not found")
+		return nil, errors.New("域名节点不存在")
 	}
 	return &node, nil
 }
@@ -107,7 +107,7 @@ func (s *DomainService) FindNodeByDomain(domain string, userID uint64) (*model.D
 		return nil, "", err
 	}
 	if len(accessibleIDs) == 0 {
-		return nil, "", errors.New("domain not found or access denied")
+		return nil, "", errors.New("域名不存在或无访问权限")
 	}
 
 	var node model.DomainNode
@@ -117,7 +117,7 @@ func (s *DomainService) FindNodeByDomain(domain string, userID uint64) (*model.D
 		First(&node).Error
 
 	if err != nil {
-		return nil, "", errors.New("domain not found or access denied")
+		return nil, "", errors.New("域名不存在或无访问权限")
 	}
 
 	var rr string
@@ -134,7 +134,7 @@ func (s *DomainService) FindNodeByDomain(domain string, userID uint64) (*model.D
 func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("node not found")
+		return errors.New("节点不存在")
 	}
 
 	if err := s.perm.RequireLevel(ownerID, nodeID, 4); err != nil {
@@ -166,7 +166,7 @@ func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) error
 func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("node not found")
+		return errors.New("节点不存在")
 	}
 
 	if err := s.perm.RequireLevel(userID, nodeID, 4); err != nil {
@@ -176,13 +176,13 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	var childCount int64
 	s.db.Model(&model.DomainNode{}).Where("parent_id = ?", nodeID).Count(&childCount)
 	if childCount > 0 {
-		return errors.New("cannot delete node with children")
+		return errors.New("无法删除含有子节点的节点")
 	}
 
 	var recordCount int64
 	s.db.Model(&model.DNSRecord{}).Where("node_id = ?", nodeID).Count(&recordCount)
 	if recordCount > 0 {
-		return errors.New("cannot delete node with DNS records")
+		return errors.New("无法删除含有DNS记录的节点")
 	}
 
 	return s.db.Delete(&node).Error

@@ -26,7 +26,7 @@ func (h *PermissionHandler) List(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -85,20 +85,20 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "grant_permission", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": req.TargetUserID, "level": req.Level}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "permission granted"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已授予"})
 }
 
 func (h *PermissionHandler) Revoke(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
 	targetUserID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
@@ -116,7 +116,7 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "revoke_permission", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": targetUserID}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "permission revoked"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已撤销"})
 }
 
 func (h *PermissionHandler) MyPermissions(c *gin.Context) {
@@ -135,13 +135,13 @@ func (h *PermissionHandler) RevokeRequest(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
 	targetUserID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
@@ -159,20 +159,20 @@ func (h *PermissionHandler) RevokeRequest(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "revoke_request", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": targetUserID}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "revoke request sent"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "撤销请求已发送"})
 }
 
 func (h *PermissionHandler) AcceptReturn(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
 	targetUserID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
@@ -180,7 +180,7 @@ func (h *PermissionHandler) AcceptReturn(c *gin.Context) {
 	if userID != targetUserID {
 		// Or an admin/owner can force accept
 		if err := h.permissionService.RequireLevel(userID, nodeID, 3); err != nil {
-			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "only the permission holder or admin can accept"})
+			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅权限持有者或管理员可接受"})
 			return
 		}
 	}
@@ -203,26 +203,26 @@ func (h *PermissionHandler) AcceptReturn(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "accept_return", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": targetUserID, "action": req.Action}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "permission return accepted"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限归还已接受"})
 }
 
 func (h *PermissionHandler) RejectReturn(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
 	targetUserID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
 	// Only the target user can reject
 	if userID != targetUserID {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "only the permission holder can reject"})
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅权限持有者可拒绝"})
 		return
 	}
 
@@ -234,14 +234,14 @@ func (h *PermissionHandler) RejectReturn(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "reject_return", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": targetUserID}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "return request rejected"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "归还请求已拒绝"})
 }
 
 func (h *PermissionHandler) GetPendingRecords(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -264,7 +264,7 @@ func (h *PermissionHandler) AssignPendingRecords(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -291,14 +291,14 @@ func (h *PermissionHandler) AssignPendingRecords(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "assign_pending_records", "domain_node", &nodeID,
 		map[string]interface{}{"record_ids": req.RecordIDs}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "records assigned"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "记录已分配"})
 }
 
 func (h *PermissionHandler) DeletePendingRecords(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -325,7 +325,7 @@ func (h *PermissionHandler) DeletePendingRecords(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "delete_pending_records", "domain_node", &nodeID,
 		map[string]interface{}{"record_ids": req.RecordIDs}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "records deleted"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "记录已删除"})
 }
 
 func (h *PermissionHandler) GetPendingReturns(c *gin.Context) {

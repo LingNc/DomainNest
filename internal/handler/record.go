@@ -26,7 +26,7 @@ func (h *RecordHandler) List(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -62,7 +62,7 @@ func (h *RecordHandler) Create(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -96,7 +96,7 @@ func (h *RecordHandler) Update(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid record id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
 		return
 	}
 
@@ -127,7 +127,7 @@ func (h *RecordHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid record id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
 		return
 	}
 
@@ -139,14 +139,14 @@ func (h *RecordHandler) Delete(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "delete_record", "dns_record", &recordID,
 		nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }
 
 func (h *RecordHandler) Toggle(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid record id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
 		return
 	}
 
@@ -193,7 +193,7 @@ func (h *RecordHandler) BatchDelete(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "batch_delete_records", "dns_record", nil,
 		map[string]interface{}{"ids": req.IDs}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }
 
 func (h *RecordHandler) BatchToggle(c *gin.Context) {
@@ -220,14 +220,14 @@ func (h *RecordHandler) BatchToggle(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, action, "dns_record", nil,
 		map[string]interface{}{"ids": req.IDs, "enabled": req.Enabled}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "updated successfully"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "更新成功"})
 }
 
 func (h *RecordHandler) Export(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -262,7 +262,7 @@ func (h *RecordHandler) Import(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -274,7 +274,7 @@ func (h *RecordHandler) Import(c *gin.Context) {
 	case "csv":
 		file, _, err := c.Request.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "csv file required"})
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请上传CSV文件"})
 			return
 		}
 		defer file.Close()
@@ -282,11 +282,11 @@ func (h *RecordHandler) Import(c *gin.Context) {
 		reader := csv.NewReader(file)
 		rows, err := reader.ReadAll()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "failed to read csv: " + err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "读取CSV文件失败: " + err.Error()})
 			return
 		}
 		if len(rows) < 2 {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "csv must have header row and at least one data row"})
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "CSV文件必须包含表头和至少一行数据"})
 			return
 		}
 
@@ -323,17 +323,17 @@ func (h *RecordHandler) Import(c *gin.Context) {
 	default:
 		body, err := c.GetRawData()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "failed to read body"})
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "读取请求体失败"})
 			return
 		}
 		if err := json.Unmarshal(body, &records); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid json: " + err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "JSON格式无效: " + err.Error()})
 			return
 		}
 	}
 
 	if len(records) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "no records to import"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "没有要导入的记录"})
 		return
 	}
 

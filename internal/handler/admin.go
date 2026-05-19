@@ -38,13 +38,13 @@ func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
 	// Verify provider exists
 	var provider model.DNSProvider
 	if err := h.db.First(&provider, req.ProviderID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "provider not found"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "DNS服务商不存在"})
 		return
 	}
 
 	var existing model.DomainNode
 	if err := h.db.Where("full_domain = ?", req.DomainName).First(&existing).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "domain already exists"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "域名已存在"})
 		return
 	}
 
@@ -78,7 +78,7 @@ func extractHostFromDomain(domain string) string {
 func (h *AdminHandler) AssignDomain(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid node id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
 
@@ -93,13 +93,13 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 
 	var user model.User
 	if err := h.db.First(&user, req.UserID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "target user not found"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "目标用户不存在"})
 		return
 	}
 
 	var node model.DomainNode
 	if err := h.db.First(&node, nodeID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "domain not found"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "域名不存在"})
 		return
 	}
 	oldOwnerID := node.OwnerID
@@ -113,7 +113,7 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 	middleware.LogOperation(h.db, callerID, "assign_domain", "domain_node", &nodeID,
 		map[string]interface{}{"old_owner_id": oldOwnerID, "new_owner_id": req.UserID}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "domain assigned successfully"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "域名分配成功"})
 }
 
 func (h *AdminHandler) ListDomains(c *gin.Context) {
@@ -176,7 +176,7 @@ func (h *AdminHandler) ListLogs(c *gin.Context) {
 func (h *AdminHandler) RetrySync(c *gin.Context) {
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid record id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
 		return
 	}
 
@@ -186,13 +186,13 @@ func (h *AdminHandler) RetrySync(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "sync retry queued"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已加入同步重试队列"})
 }
 
 func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
@@ -215,7 +215,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	if req.Username != "" {
 		var existing model.User
 		if err := h.db.Where("username = ? AND id != ?", req.Username, userID).First(&existing).Error; err == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "username already taken"})
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户名已被占用"})
 			return
 		}
 		if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("username", req.Username).Error; err != nil {
@@ -231,7 +231,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	updates := map[string]interface{}{}
 	if req.Role != "" {
 		if !caller.IsSuperAdmin {
-			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "only super_admin can change user roles"})
+			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅超级管理员可修改用户角色"})
 			return
 		}
 		updates["role"] = req.Role
@@ -250,17 +250,17 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	}
 	if req.InviteLimit != nil {
 		if *req.InviteLimit < 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invite_limit cannot be negative"})
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "邀请额度上限不能为负数"})
 			return
 		}
 		// Cannot decrease below current invite_count (skip for superadmin)
 		var targetUser model.User
 		if err := h.db.First(&targetUser, userID).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
 			return
 		}
 		if !caller.IsSuperAdmin && *req.InviteLimit < targetUser.InviteCount {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("invite_limit cannot be less than current invite_count (%d)", targetUser.InviteCount)})
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("邀请额度上限不能低于已使用数量 (%d)", targetUser.InviteCount)})
 			return
 		}
 
@@ -270,7 +270,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 			if additionalAmount > 0 {
 				available := caller.InviteLimit - caller.InviteCount
 				if available < additionalAmount {
-					c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("insufficient invite quota in your pool (available: %d, requested: %d)", available, additionalAmount)})
+					c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("您的邀请额度池不足（可用: %d，需要: %d)", available, additionalAmount)})
 					return
 				}
 				// Deduct from admin's pool
@@ -291,7 +291,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	}
 
 	if len(updates) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "no fields to update"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "没有要更新的字段"})
 		return
 	}
 
@@ -303,24 +303,24 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	callerID2 := c.GetUint64("user_id")
 	middleware.LogOperation(h.db, callerID2, "update_user", "user", &userID, updates, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user updated"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "用户信息已更新"})
 }
 
 func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
 	var targetUser model.User
 	if err := h.db.First(&targetUser, userID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
 		return
 	}
 	callerID := c.GetUint64("user_id")
 	if targetUser.IsSuperAdmin && callerID != targetUser.ID {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "cannot reset super admin password"})
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可重置超级管理员密码"})
 		return
 	}
 
@@ -335,7 +335,7 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to hash password"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "密码加密失败"})
 		return
 	}
 
@@ -346,13 +346,13 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 
 	middleware.LogOperation(h.db, callerID, "admin_reset_password", "user", &userID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "password reset successfully"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "密码重置成功"})
 }
 
 func (h *AdminHandler) DisableUser(c *gin.Context) {
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
@@ -362,12 +362,12 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	// Handle invite pool cleanup: free the registration slot from the inviter
 	var user model.User
 	if err := tx.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
 		return
 	}
 
 	if user.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "cannot disable super admin account"})
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可禁用超级管理员账号"})
 		return
 	}
 
@@ -405,13 +405,13 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	callerID := c.GetUint64("user_id")
 	middleware.LogOperation(h.db, callerID, "disable_user", "user", &userID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user disabled"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "用户已禁用"})
 }
 
 func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
@@ -419,18 +419,18 @@ func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 	callerID := c.GetUint64("user_id")
 	var caller model.User
 	if err := h.db.First(&caller, callerID).Error; err != nil || !caller.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "only super_admin can promote users"})
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅超级管理员可提升用户"})
 		return
 	}
 
 	var target model.User
 	if err := h.db.First(&target, targetID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
 		return
 	}
 
 	if target.Role == "admin" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user is already admin"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "该用户已是管理员"})
 		return
 	}
 
@@ -441,36 +441,36 @@ func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 
 	middleware.LogOperation(h.db, callerID, "promote_to_admin", "user", &targetID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user promoted to admin"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "用户已提升为管理员"})
 }
 
 func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
 	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
 		return
 	}
 
 	callerID := c.GetUint64("user_id")
 	var caller model.User
 	if err := h.db.First(&caller, callerID).Error; err != nil || !caller.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "only super_admin can demote admins"})
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅超级管理员可降级管理员"})
 		return
 	}
 
 	var target model.User
 	if err := h.db.First(&target, targetID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
 		return
 	}
 
 	if target.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "cannot demote super_admin"})
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可降级超级管理员"})
 		return
 	}
 
 	if target.Role != "admin" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user is not admin"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "该用户不是管理员"})
 		return
 	}
 
@@ -481,5 +481,5 @@ func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
 
 	middleware.LogOperation(h.db, callerID, "demote_from_admin", "user", &targetID, nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "admin demoted to user"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "管理员已降级为普通用户"})
 }

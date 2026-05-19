@@ -63,7 +63,7 @@ func (h *RAMTokenHandler) Get(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	tokenID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid token id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的令牌ID"})
 		return
 	}
 
@@ -80,7 +80,7 @@ func (h *RAMTokenHandler) Update(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	tokenID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid token id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的令牌ID"})
 		return
 	}
 
@@ -112,7 +112,7 @@ func (h *RAMTokenHandler) ResetToken(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	tokenID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid token id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的令牌ID"})
 		return
 	}
 
@@ -132,7 +132,7 @@ func (h *RAMTokenHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	tokenID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid token id"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的令牌ID"})
 		return
 	}
 
@@ -144,7 +144,7 @@ func (h *RAMTokenHandler) Delete(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "delete_ram_token", "ram_token", &tokenID,
 		nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "deleted"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已删除"})
 }
 
 func parseJSONUint64Array(s string) []uint64 {
