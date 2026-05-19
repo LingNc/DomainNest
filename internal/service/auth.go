@@ -385,19 +385,32 @@ func (s *AuthService) DeleteAccount(userID uint64) error {
 	if err := s.db.First(&user, userID).Error; err != nil {
 		return errors.New("user not found")
 	}
-	if user.IsSuperAdmin {
-		return errors.New("super admin cannot delete account")
-	}
 
 	tx := s.db.Begin()
 
-	// If user has an inviter, transfer dependencies
+	// Determine transfer target for domains/permissions
+	var transferTargetID *uint64
 	if user.InvitedBy != nil {
-		inviterID := *user.InvitedBy
+		transferTargetID = user.InvitedBy
+	} else if user.IsSuperAdmin {
+		// Find another active admin to transfer to
+		var otherAdmin model.User
+		if err := tx.Where("role = 'admin' AND id != ? AND status = 1", userID).First(&otherAdmin).Error; err == nil {
+			tid := otherAdmin.ID
+			transferTargetID = &tid
+		} else {
+			tx.Rollback()
+			return errors.New("cannot delete: promote another admin first to transfer your domains")
+		}
+	}
 
-		// 1. Transfer owned domains to inviter
+	// If we have a transfer target, transfer dependencies
+	if transferTargetID != nil {
+		targetID := *transferTargetID
+
+		// 1. Transfer owned domains to target
 		if err := tx.Model(&model.DomainNode{}).Where("owner_id = ?", userID).
-			Update("owner_id", inviterID).Error; err != nil {
+			Update("owner_id", targetID).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -408,24 +421,24 @@ func (s *AuthService) DeleteAccount(userID uint64) error {
 			return err
 		}
 
-		// 3. Transfer permissions where user is grantor to inviter
+		// 3. Transfer permissions where user is grantor to target
 		if err := tx.Model(&model.DomainPermission{}).Where("created_by = ?", userID).
-			Update("created_by", inviterID).Error; err != nil {
+			Update("created_by", targetID).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
 
-		// 4. Reclaim unused invite quota to inviter
+		// 4. Reclaim unused invite quota to target
 		unusedQuota := user.InviteLimit - user.InviteCount
 		if unusedQuota > 0 {
-			if err := tx.Model(&model.User{}).Where("id = ?", inviterID).
+			if err := tx.Model(&model.User{}).Where("id = ?", targetID).
 				UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", unusedQuota)).Error; err != nil {
 				tx.Rollback()
 				return err
 			}
 		}
 		// Also free the registration slot
-		if err := tx.Model(&model.User{}).Where("id = ?", inviterID).
+		if err := tx.Model(&model.User{}).Where("id = ?", targetID).
 			UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error; err != nil {
 			tx.Rollback()
 			return err
@@ -433,13 +446,24 @@ func (s *AuthService) DeleteAccount(userID uint64) error {
 
 		// 5. Create InviteLog for the reclaim
 		tx.Create(&model.InviteLog{
-			InviterID: inviterID,
+			InviterID: targetID,
 			InviteeID: userID,
 			Action:    "revoke",
 			Amount:    unusedQuota,
 		})
 	} else {
-		// No inviter — just zero out quota
+		// No transfer target — zero out domain ownership
+		if err := tx.Model(&model.DomainNode{}).Where("owner_id = ?", userID).
+			Update("owner_id", 0).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+		// Delete permissions where user is grantee
+		if err := tx.Where("user_id = ?", userID).Delete(&model.DomainPermission{}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+		// Zero out invite quota
 		tx.Model(&user).UpdateColumn("invite_limit", 0)
 	}
 
