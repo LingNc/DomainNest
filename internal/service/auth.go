@@ -260,7 +260,7 @@ func (s *AuthService) GrantInviteQuota(inviterID, inviteeID uint64, amount int) 
 		return errors.New("invitee not found")
 	}
 
-	if inviterID == inviteeID {
+	if inviterID == inviteeID && !inviter.IsSuperAdmin {
 		return errors.New("cannot grant quota to yourself")
 	}
 
@@ -357,11 +357,13 @@ func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int)
 		return err
 	}
 
-	// Decrease inviter's invite count (never below 0)
-	if err := tx.Model(&inviter).
-		UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", amount)).Error; err != nil {
-		tx.Rollback()
-		return err
+	// Decrease inviter's invite count (never below 0, skip for super_admin)
+	if !inviter.IsSuperAdmin {
+		if err := tx.Model(&inviter).
+			UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", amount)).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
 	// Create InviteLog
@@ -452,6 +454,9 @@ func (s *AuthService) DeleteAccount(userID uint64) error {
 
 	// Clean up friend requests
 	tx.Where("sender_id = ? OR receiver_id = ?", userID, userID).Delete(&model.FriendRequest{})
+
+	// Clean up messages (both sent and received)
+	tx.Where("sender_id = ? OR receiver_id = ?", userID, userID).Delete(&model.Message{})
 
 	// Soft-delete: anonymize user instead of hard delete (preserve audit trail)
 	deletedName := fmt.Sprintf("deleted_%d", userID)
