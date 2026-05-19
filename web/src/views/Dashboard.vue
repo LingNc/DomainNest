@@ -29,6 +29,9 @@
         <template #default="{ data }">
           <div class="tree-node">
             <span class="domain-name">{{ data.full_domain }}</span>
+            <el-tag v-if="permMap[data.id]" :type="permTagType(permMap[data.id])" size="small" class="perm-badge">
+              {{ permLabel(permMap[data.id]) }}
+            </el-tag>
             <el-tag size="small" type="info">{{ data.records?.length || 0 }} 条记录</el-tag>
           </div>
         </template>
@@ -53,22 +56,42 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getDomains } from '../api/domain'
 import { createRootDomain } from '../api/admin'
+import { getMyPermissions } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const auth = useAuthStore()
 const domains = ref([])
+const permissions = ref([])
 const showCreateRoot = ref(false)
 const rootForm = ref({ host: '', domain_suffix: '' })
+
+const permMap = computed(() => {
+  const map = {}
+  for (const p of permissions.value) {
+    map[p.domain_node_id] = p.permission_level
+  }
+  return map
+})
+
+const permTagType = (level) => ({ read: 'info', write: 'success', admin: 'warning' }[level] || 'info')
+const permLabel = (level) => ({ read: '只读', write: '读写', admin: '管理员' }[level] || level)
 
 const loadDomains = async () => {
   const res = await getDomains()
   domains.value = res.data
+}
+
+const loadPermissions = async () => {
+  try {
+    const res = await getMyPermissions()
+    permissions.value = res.data || []
+  } catch { /* ignore */ }
 }
 
 const handleNodeClick = (data) => {
@@ -83,7 +106,10 @@ const handleCreateRoot = async () => {
   loadDomains()
 }
 
-onMounted(loadDomains)
+onMounted(() => {
+  loadDomains()
+  loadPermissions()
+})
 </script>
 
 <style scoped>
@@ -111,6 +137,9 @@ onMounted(loadDomains)
 }
 .domain-name {
   font-size: 14px;
+}
+.perm-badge {
+  margin-left: -4px;
 }
 .empty-card {
   min-height: 300px;
