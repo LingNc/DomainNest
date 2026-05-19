@@ -8,8 +8,9 @@ import (
 )
 
 func applyLogFilters(query *gorm.DB, c *gin.Context) *gorm.DB {
-	if action := c.Query("action"); action != "" {
-		query = query.Where("action = ?", action)
+	if actions := c.Query("action"); actions != "" {
+		actionList := strings.Split(actions, ",")
+		query = query.Where("action IN ?", actionList)
 	}
 	if targetTypes := c.Query("target_type"); targetTypes != "" {
 		types := strings.Split(targetTypes, ",")

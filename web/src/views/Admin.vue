@@ -92,7 +92,7 @@
               </el-option>
             </el-select>
             <el-input v-model="logFilters.q" placeholder="关键词搜索" clearable size="small" style="width:160px" />
-            <el-select v-model="logFilters.action" placeholder="操作类型" clearable filterable size="small" style="width:160px">
+            <el-select v-model="logFilters.action" placeholder="操作类型" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
               <el-option-group v-for="group in actionGroups" :key="group.label" :label="group.label">
                 <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
               </el-option-group>
@@ -292,7 +292,7 @@ const smtpForm = reactive({ host: '', port: 587, username: '', password: '', fro
 const testingSMTP = ref(false)
 const testEmail = ref('')
 
-const logFilters = reactive({ user_id: '', action: '', target_type: [], q: '', dateRange: null })
+const logFilters = reactive({ user_id: '', action: [], target_type: [], q: '', dateRange: null })
 
 const keyMap = { username: '用户名', full_domain: '域名', host: '主机记录', type: '记录类型', value: '记录值', amount: '数量', enabled: '状态', ids: '记录ID', target_user_id: '目标用户', invited_by: '邀请人', provider_name: '提供商' }
 
@@ -355,7 +355,7 @@ watch(selectedProviderId, async (id) => {
 const loadLogs = async () => {
   const params = { page: logPage.value, page_size: logPageSize.value }
   if (logFilters.user_id) params.user_id = logFilters.user_id
-  if (logFilters.action) params.action = logFilters.action
+  if (logFilters.action.length > 0) params.action = logFilters.action.join(',')
   if (logFilters.target_type.length > 0) params.target_type = logFilters.target_type.join(',')
   if (logFilters.q) params.q = logFilters.q
   if (logFilters.dateRange && logFilters.dateRange.length === 2) {
@@ -369,7 +369,7 @@ const loadLogs = async () => {
 
 const resetLogFilters = () => {
   logFilters.user_id = ''
-  logFilters.action = ''
+  logFilters.action = []
   logFilters.target_type = []
   logFilters.q = ''
   logFilters.dateRange = null

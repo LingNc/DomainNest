@@ -7,7 +7,7 @@
     <el-card>
       <div class="filter-bar">
         <el-input v-model="filters.q" placeholder="关键词搜索" clearable size="small" style="width:160px" />
-        <el-select v-model="filters.action" placeholder="操作类型" clearable filterable size="small" style="width:160px" @change="loadLogs">
+        <el-select v-model="filters.action" placeholder="操作类型" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px" @change="loadLogs">
           <el-option-group v-for="group in actionGroups" :key="group.label" :label="group.label">
             <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
           </el-option-group>
@@ -68,13 +68,13 @@ const formatDetailValue = (val) => {
   return String(val)
 }
 
-const filters = reactive({ action: '', target_type: [], q: '', dateRange: null })
+const filters = reactive({ action: [], target_type: [], q: '', dateRange: null })
 
 const loadLogs = async () => {
   loading.value = true
   try {
     const params = { page: page.value, page_size: pageSize.value }
-    if (filters.action) params.action = filters.action
+    if (filters.action.length > 0) params.action = filters.action.join(',')
     if (filters.target_type.length > 0) params.target_type = filters.target_type.join(',')
     if (filters.q) params.q = filters.q
     if (filters.dateRange && filters.dateRange.length === 2) {
@@ -90,7 +90,7 @@ const loadLogs = async () => {
 }
 
 const resetFilters = () => {
-  filters.action = ''
+  filters.action = []
   filters.target_type = []
   filters.q = ''
   filters.dateRange = null
