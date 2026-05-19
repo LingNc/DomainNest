@@ -219,6 +219,23 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("invite_limit cannot be less than current invite_count (%d)", targetUser.InviteCount)})
 			return
 		}
+
+		// Pool model: if admin is not super_admin, deduct from admin's available pool
+		adminID := c.GetUint64("user_id")
+		var admin model.User
+		if err := h.db.First(&admin, adminID).Error; err == nil && !admin.IsSuperAdmin {
+			additionalAmount := *req.InviteLimit - targetUser.InviteLimit
+			if additionalAmount > 0 {
+				available := admin.InviteLimit - admin.InviteCount
+				if available < additionalAmount {
+					c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("insufficient invite quota in your pool (available: %d, requested: %d)", available, additionalAmount)})
+					return
+				}
+				// Deduct from admin's pool
+				h.db.Model(&admin).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", additionalAmount))
+			}
+		}
+
 		updates["invite_limit"] = *req.InviteLimit
 	}
 
@@ -270,6 +287,13 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid user id"})
 		return
+	}
+
+	// Handle invite pool cleanup: free the registration slot from the inviter
+	var user model.User
+	if err := h.db.First(&user, userID).Error; err == nil && user.InvitedBy != nil {
+		h.db.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
+			UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)"))
 	}
 
 	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("status", 0).Error; err != nil {

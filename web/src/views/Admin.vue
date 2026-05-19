@@ -177,6 +177,9 @@
         </el-form-item>
         <el-form-item label="邀请上限">
           <el-input-number v-model="editForm.invite_limit" :min="0" :max="9999" />
+          <div v-if="editInviteWarning" style="color:#e6a23c;font-size:12px;margin-top:4px">
+            {{ editInviteWarning }}
+          </div>
         </el-form-item>
         <el-form-item label="昵称">
           <el-input v-model="editForm.nickname" />
@@ -207,9 +210,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin } from '../api/admin'
+import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+
+const auth = useAuthStore()
 
 const activeTab = ref('users')
 const users = ref([])
@@ -232,6 +238,8 @@ const newPassword = ref('')
 
 const smtpForm = reactive({ host: '', port: 465, username: '', password: '', from: '', from_name: 'DomainNest' })
 const testingSMTP = ref(false)
+
+const editInviteWarning = ref('')
 
 const loadData = async () => {
   loading.value = true
@@ -293,7 +301,25 @@ const openEditUser = (row) => {
   editForm.nickname = row.nickname || ''
   editForm.email = row.email || ''
   editForm.phone = row.phone || ''
+  editInviteWarning.value = ''
   showEditUser.value = true
+}
+
+const checkInviteWarning = () => {
+  const target = editTarget.value
+  if (!target) return
+  const currentAdmin = users.value.find(u => u.id === auth.user?.id)
+  if (currentAdmin && !currentAdmin.is_super_admin) {
+    const additional = editForm.invite_limit - (target.invite_limit || 0)
+    if (additional > 0) {
+      const available = (currentAdmin.invite_limit || 0) - (currentAdmin.invite_count || 0)
+      if (additional > available) {
+        editInviteWarning.value = `你的可用邀请额度不足 (可用: ${available}, 需要: ${additional})`
+        return
+      }
+    }
+  }
+  editInviteWarning.value = ''
 }
 
 const handleEditUser = async () => {
@@ -359,6 +385,8 @@ const handleTestSMTP = async () => {
     testingSMTP.value = false
   }
 }
+
+watch(() => editForm.invite_limit, checkInviteWarning)
 
 onMounted(loadData)
 </script>

@@ -58,6 +58,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	middleware.LogOperation(h.db, user.ID, "register", "user", &user.ID,
+		map[string]interface{}{"username": user.Username, "invited_by": user.InvitedBy}, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "success",
@@ -103,6 +106,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to generate token"})
 		return
 	}
+
+	middleware.LogOperation(h.db, user.ID, "login", "user", &user.ID,
+		map[string]interface{}{"username": user.Username}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
@@ -352,6 +358,64 @@ func (h *AuthHandler) MyLogs(c *gin.Context) {
 
 	var logs []model.OperationLog
 	h.db.Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&logs)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"items":     logs,
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
+}
+
+func (h *AuthHandler) GrantInviteQuota(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	var req struct {
+		TargetUserID uint64 `json:"target_user_id" binding:"required"`
+		Amount       int    `json:"amount" binding:"required,min=1"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	if err := h.authService.GrantInviteQuota(userID, req.TargetUserID, req.Amount); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "grant_invite", "user", &req.TargetUserID,
+		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "invite quota granted"})
+}
+
+func (h *AuthHandler) GetInviteLogs(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	var total int64
+	h.db.Model(&model.InviteLog{}).Where("inviter_id = ? OR invitee_id = ?", userID, userID).Count(&total)
+
+	var logs []model.InviteLog
+	h.db.Where("inviter_id = ? OR invitee_id = ?", userID, userID).
+		Preload("Inviter").Preload("Invitee").
 		Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).

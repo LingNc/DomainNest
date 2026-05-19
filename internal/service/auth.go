@@ -30,7 +30,8 @@ func (s *AuthService) Register(username, password, email, inviteCode string) (*m
 	if err := s.db.Where("invite_code = ?", inviteCode).First(&inviter).Error; err != nil {
 		return nil, errors.New("invalid invite code")
 	}
-	if inviter.InviteCount >= inviter.InviteLimit {
+	// Pool check: inviter's available pool (InviteLimit - InviteCount) >= 1
+	if inviter.InviteLimit-inviter.InviteCount < 1 {
 		return nil, errors.New("invite limit reached")
 	}
 
@@ -58,7 +59,7 @@ func (s *AuthService) Register(username, password, email, inviteCode string) (*m
 		Token:       token,
 		InvitedBy:   &invitedBy,
 		InviteCode:  newInviteCode,
-		InviteLimit: 5,
+		InviteLimit: 0,
 	}
 
 	tx := s.db.Begin()
@@ -68,6 +69,17 @@ func (s *AuthService) Register(username, password, email, inviteCode string) (*m
 	}
 
 	if err := tx.Model(&inviter).UpdateColumn("invite_count", gorm.Expr("invite_count + 1")).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// Create InviteLog for registration
+	if err := tx.Create(&model.InviteLog{
+		InviterID: inviter.ID,
+		InviteeID: user.ID,
+		Action:    "register",
+		Amount:    1,
+	}).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -228,4 +240,124 @@ func generateInviteCode() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes), nil
+}
+
+// GrantInviteQuota allocates invite quota from inviter to invitee.
+// If inviter is super_admin, pool check is skipped.
+func (s *AuthService) GrantInviteQuota(inviterID, inviteeID uint64, amount int) error {
+	if amount <= 0 {
+		return errors.New("amount must be positive")
+	}
+
+	var inviter model.User
+	if err := s.db.First(&inviter, inviterID).Error; err != nil {
+		return errors.New("inviter not found")
+	}
+
+	var invitee model.User
+	if err := s.db.First(&invitee, inviteeID).Error; err != nil {
+		return errors.New("invitee not found")
+	}
+
+	// Check inviter is not super_admin for pool check
+	if !inviter.IsSuperAdmin {
+		if inviter.InviteLimit-inviter.InviteCount < amount {
+			return errors.New("insufficient invite quota")
+		}
+	}
+
+	tx := s.db.Begin()
+
+	// Increase inviter's allocated count
+	if err := tx.Model(&inviter).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", amount)).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Increase invitee's invite limit
+	if err := tx.Model(&invitee).UpdateColumn("invite_limit", gorm.Expr("invite_limit + ?", amount)).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Create InviteLog
+	if err := tx.Create(&model.InviteLog{
+		InviterID: inviterID,
+		InviteeID: inviteeID,
+		Action:    "grant",
+		Amount:    amount,
+	}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// OnUserDeactivate handles invite pool cleanup when a user account is deactivated/deleted.
+// Reduces the inviter's InviteCount by 1 (the registration slot is freed).
+func (s *AuthService) OnUserDeactivate(userID uint64) error {
+	var user model.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return err
+	}
+
+	if user.InvitedBy == nil {
+		return nil
+	}
+
+	// Free the registration slot from the inviter
+	return s.db.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
+		UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error
+}
+
+// AdminGrantInviteQuota allows admin to grant invite quota to a user.
+// If admin is super_admin, no pool deduction. If regular admin, deducts from admin's pool.
+func (s *AuthService) AdminGrantInviteQuota(adminID, targetUserID uint64, amount int) error {
+	if amount <= 0 {
+		return errors.New("amount must be positive")
+	}
+
+	var admin model.User
+	if err := s.db.First(&admin, adminID).Error; err != nil {
+		return errors.New("admin not found")
+	}
+
+	var target model.User
+	if err := s.db.First(&target, targetUserID).Error; err != nil {
+		return errors.New("target user not found")
+	}
+
+	tx := s.db.Begin()
+
+	// If not super_admin, deduct from admin's pool
+	if !admin.IsSuperAdmin {
+		if admin.InviteLimit-admin.InviteCount < amount {
+			tx.Rollback()
+			return errors.New("insufficient invite quota")
+		}
+		if err := tx.Model(&admin).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", amount)).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// Increase target's invite limit
+	if err := tx.Model(&target).UpdateColumn("invite_limit", gorm.Expr("invite_limit + ?", amount)).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Create InviteLog
+	if err := tx.Create(&model.InviteLog{
+		InviterID: adminID,
+		InviteeID: targetUserID,
+		Action:    "admin_grant",
+		Amount:    amount,
+	}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }

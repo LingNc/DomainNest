@@ -54,8 +54,56 @@
           <el-button size="small" text type="primary" @click="copyCode" style="margin-left:8px">复制</el-button>
         </el-descriptions-item>
         <el-descriptions-item label="邀请上限">{{ profile.invite_limit }}</el-descriptions-item>
-        <el-descriptions-item label="已邀请">{{ profile.invite_count }}</el-descriptions-item>
+        <el-descriptions-item label="已分配">{{ profile.invite_count }}</el-descriptions-item>
+        <el-descriptions-item label="可用额度">
+          <el-tag :type="(profile.invite_limit - profile.invite_count) > 0 ? 'success' : 'danger'">
+            {{ profile.invite_limit - profile.invite_count }}
+          </el-tag>
+        </el-descriptions-item>
       </el-descriptions>
+    </el-card>
+
+    <el-card style="margin-top:16px">
+      <template #header>
+        <span>分配邀请额度</span>
+      </template>
+      <el-form :model="grantForm" label-width="80px" style="max-width:480px">
+        <el-form-item label="目标用户">
+          <el-input-number v-model="grantForm.target_user_id" :min="1" placeholder="用户 ID" />
+        </el-form-item>
+        <el-form-item label="数量">
+          <el-input-number v-model="grantForm.amount" :min="1" :max="profile.invite_limit - profile.invite_count" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="granting" @click="handleGrantInvite">分配</el-button>
+          <span style="color:#909399;font-size:12px;margin-left:12px">从你的可用额度中分配给其他用户</span>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card style="margin-top:16px">
+      <template #header>
+        <span>邀请记录</span>
+      </template>
+      <el-table :data="inviteLogs" stripe v-loading="loadingInviteLogs" style="width:100%">
+        <el-table-column label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.action === 'register' ? 'success' : row.action === 'grant' ? 'primary' : 'warning'" size="small">
+              {{ {register: '注册', grant: '分配', admin_grant: '管理分配'}[row.action] || row.action }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="对象" min-width="120">
+          <template #default="{ row }">
+            <span v-if="row.inviter_id === profile.id">{{ row.invitee?.username || 'User #' + row.invitee_id }}</span>
+            <span v-else>{{ row.inviter?.username || 'User #' + row.inviter_id }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="amount" label="数量" width="80" />
+        <el-table-column prop="created_at" label="时间" width="170" />
+      </el-table>
+      <el-pagination v-if="inviteLogTotal > 10" :current-page="inviteLogPage" :page-size="10" :total="inviteLogTotal"
+        layout="total, prev, pager, next" @current-change="handleInviteLogPageChange" style="margin-top:12px" />
     </el-card>
 
     <el-card style="margin-top:16px">
@@ -93,7 +141,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar } from '../api/auth'
+import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, getInviteLogs } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
@@ -106,6 +154,13 @@ let checkTimer = null
 const form = reactive({ username: '', nickname: '', email: '', phone: '', avatar: '' })
 const pwdForm = reactive({ old_password: '', new_password: '' })
 
+const grantForm = reactive({ target_user_id: null, amount: 1 })
+const granting = ref(false)
+const inviteLogs = ref([])
+const loadingInviteLogs = ref(false)
+const inviteLogPage = ref(1)
+const inviteLogTotal = ref(0)
+
 const loadProfile = async () => {
   const res = await getProfile()
   profile.value = res.data
@@ -116,7 +171,21 @@ const loadProfile = async () => {
   form.avatar = res.data.avatar || ''
 }
 
-onMounted(loadProfile)
+const loadInviteLogs = async () => {
+  loadingInviteLogs.value = true
+  try {
+    const res = await getInviteLogs({ page: inviteLogPage.value, page_size: 10 })
+    inviteLogs.value = res.data.items || []
+    inviteLogTotal.value = res.data.total || 0
+  } finally {
+    loadingInviteLogs.value = false
+  }
+}
+
+onMounted(() => {
+  loadProfile()
+  loadInviteLogs()
+})
 
 const onUsernameInput = () => {
   usernameStatus.value = ''
@@ -184,6 +253,36 @@ const copyCode = () => {
 const copyToken = () => {
   navigator.clipboard.writeText(profile.value.ddns_token)
   ElMessage.success('已复制')
+}
+
+const handleGrantInvite = async () => {
+  if (!grantForm.target_user_id) {
+    ElMessage.warning('请输入目标用户 ID')
+    return
+  }
+  const available = profile.value.invite_limit - profile.value.invite_count
+  if (grantForm.amount > available) {
+    ElMessage.warning('超出可用额度')
+    return
+  }
+  granting.value = true
+  try {
+    await grantInviteQuota(grantForm)
+    ElMessage.success('邀请额度分配成功')
+    grantForm.target_user_id = null
+    grantForm.amount = 1
+    await loadProfile()
+    await loadInviteLogs()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '分配失败')
+  } finally {
+    granting.value = false
+  }
+}
+
+const handleInviteLogPageChange = (p) => {
+  inviteLogPage.value = p
+  loadInviteLogs()
 }
 
 const beforeAvatarUpload = (file) => {
