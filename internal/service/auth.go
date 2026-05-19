@@ -243,7 +243,7 @@ func generateInviteCode() (string, error) {
 }
 
 // GrantInviteQuota allocates invite quota from inviter to invitee.
-// If inviter is super_admin, pool check is skipped.
+// If inviter is super_admin, pool check is skipped and invite_count is not incremented.
 func (s *AuthService) GrantInviteQuota(inviterID, inviteeID uint64, amount int) error {
 	if amount <= 0 {
 		return errors.New("amount must be positive")
@@ -268,10 +268,12 @@ func (s *AuthService) GrantInviteQuota(inviterID, inviteeID uint64, amount int) 
 
 	tx := s.db.Begin()
 
-	// Increase inviter's allocated count
-	if err := tx.Model(&inviter).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", amount)).Error; err != nil {
-		tx.Rollback()
-		return err
+	// Increase inviter's allocated count (skip for super_admin)
+	if !inviter.IsSuperAdmin {
+		if err := tx.Model(&inviter).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", amount)).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
 	// Increase invitee's invite limit
@@ -285,6 +287,59 @@ func (s *AuthService) GrantInviteQuota(inviterID, inviteeID uint64, amount int) 
 		InviterID: inviterID,
 		InviteeID: inviteeID,
 		Action:    "grant",
+		Amount:    amount,
+	}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// RevokeInviteQuota revokes unused invite quota from invitee back to inviter.
+func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int) error {
+	var inviter model.User
+	if err := s.db.First(&inviter, inviterID).Error; err != nil {
+		return errors.New("inviter not found")
+	}
+
+	var invitee model.User
+	if err := s.db.First(&invitee, inviteeID).Error; err != nil {
+		return errors.New("invitee not found")
+	}
+
+	// Revokeable = unused quota the invitee has
+	revokeable := invitee.InviteLimit - invitee.InviteCount
+	if revokeable <= 0 {
+		return errors.New("no revocable quota")
+	}
+	if amount > revokeable {
+		amount = revokeable
+	}
+	if amount <= 0 {
+		return errors.New("amount must be positive")
+	}
+
+	tx := s.db.Begin()
+
+	// Decrease invitee's invite limit
+	if err := tx.Model(&invitee).UpdateColumn("invite_limit", gorm.Expr("invite_limit - ?", amount)).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Decrease inviter's invite count (never below 0)
+	if err := tx.Model(&inviter).
+		UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", amount)).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Create InviteLog
+	if err := tx.Create(&model.InviteLog{
+		InviterID: inviterID,
+		InviteeID: inviteeID,
+		Action:    "revoke",
 		Amount:    amount,
 	}).Error; err != nil {
 		tx.Rollback()
@@ -311,53 +366,3 @@ func (s *AuthService) OnUserDeactivate(userID uint64) error {
 		UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error
 }
 
-// AdminGrantInviteQuota allows admin to grant invite quota to a user.
-// If admin is super_admin, no pool deduction. If regular admin, deducts from admin's pool.
-func (s *AuthService) AdminGrantInviteQuota(adminID, targetUserID uint64, amount int) error {
-	if amount <= 0 {
-		return errors.New("amount must be positive")
-	}
-
-	var admin model.User
-	if err := s.db.First(&admin, adminID).Error; err != nil {
-		return errors.New("admin not found")
-	}
-
-	var target model.User
-	if err := s.db.First(&target, targetUserID).Error; err != nil {
-		return errors.New("target user not found")
-	}
-
-	tx := s.db.Begin()
-
-	// If not super_admin, deduct from admin's pool
-	if !admin.IsSuperAdmin {
-		if admin.InviteLimit-admin.InviteCount < amount {
-			tx.Rollback()
-			return errors.New("insufficient invite quota")
-		}
-		if err := tx.Model(&admin).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", amount)).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-
-	// Increase target's invite limit
-	if err := tx.Model(&target).UpdateColumn("invite_limit", gorm.Expr("invite_limit + ?", amount)).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// Create InviteLog
-	if err := tx.Create(&model.InviteLog{
-		InviterID: adminID,
-		InviteeID: targetUserID,
-		Action:    "admin_grant",
-		Amount:    amount,
-	}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	return tx.Commit().Error
-}

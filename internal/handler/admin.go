@@ -237,13 +237,16 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		updates["phone"] = req.Phone
 	}
 	if req.InviteLimit != nil {
-		// Cannot decrease below current invite_count
+		// Cannot decrease below current invite_count (skip for superadmin)
 		var targetUser model.User
 		if err := h.db.First(&targetUser, userID).Error; err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
 			return
 		}
-		if *req.InviteLimit < targetUser.InviteCount {
+		callerID := c.GetUint64("user_id")
+		var caller model.User
+		h.db.First(&caller, callerID)
+		if !caller.IsSuperAdmin && *req.InviteLimit < targetUser.InviteCount {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("invite_limit cannot be less than current invite_count (%d)", targetUser.InviteCount)})
 			return
 		}
@@ -322,6 +325,13 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	if err := h.db.First(&user, userID).Error; err == nil && user.InvitedBy != nil {
 		h.db.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
 			UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)"))
+
+		// Reclaim unused invite quota back to the inviter
+		unusedQuota := user.InviteLimit - user.InviteCount
+		if unusedQuota > 0 {
+			h.db.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
+				UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", unusedQuota))
+		}
 	}
 
 	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("status", 0).Error; err != nil {

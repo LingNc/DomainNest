@@ -12,5 +12,6 @@ export const checkUsername = (username) => request.get('/auth/check-username', {
 export const uploadAvatar = (formData) => request.post('/auth/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
 export const getMyLogs = (params) => request.get('/auth/logs', { params })
 export const grantInviteQuota = (data) => request.post('/auth/grant-invite', data)
+export const revokeInviteQuota = (data) => request.post('/auth/revoke-invite', data)
 export const getInviteLogs = (params) => request.get('/auth/invite-logs', { params })
 export const getPendingReturns = () => request.get('/auth/pending-returns')

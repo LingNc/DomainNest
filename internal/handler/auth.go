@@ -415,6 +415,30 @@ func (h *AuthHandler) GrantInviteQuota(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "invite quota granted"})
 }
 
+func (h *AuthHandler) RevokeInviteQuota(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	var req struct {
+		TargetUserID uint64 `json:"target_user_id" binding:"required"`
+		Amount       int    `json:"amount" binding:"required,min=1"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	if err := h.authService.RevokeInviteQuota(userID, req.TargetUserID, req.Amount); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "revoke_invite", "user", &req.TargetUserID,
+		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "invite quota revoked"})
+}
+
 func (h *AuthHandler) GetInviteLogs(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 

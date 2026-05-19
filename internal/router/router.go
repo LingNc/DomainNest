@@ -73,6 +73,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		authProtected.GET("/logs", authHandler.MyLogs)
 		authProtected.GET("/permissions", permissionHandler.MyPermissions)
 		authProtected.POST("/grant-invite", authHandler.GrantInviteQuota)
+		authProtected.POST("/revoke-invite", authHandler.RevokeInviteQuota)
 		authProtected.GET("/invite-logs", authHandler.GetInviteLogs)
 		authProtected.GET("/pending-returns", permissionHandler.GetPendingReturns)
 	}
