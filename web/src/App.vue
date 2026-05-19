@@ -51,9 +51,10 @@
         </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">
-        <div class="user-info">
-          <el-icon><component :is="'User'" /></el-icon>
-          <span>{{ auth.username }}</span>
+        <div class="user-info" @click="$router.push('/profile')">
+          <el-avatar v-if="auth.avatar" :src="auth.avatar" :size="28" />
+          <el-icon v-else><component :is="'User'" /></el-icon>
+          <span>{{ auth.nickname }}</span>
         </div>
         <el-button text size="small" @click="handleLogout" class="logout-btn">退出登录</el-button>
       </div>
@@ -109,7 +110,17 @@ body {
     width: 90vw !important;
   }
   .el-table {
+    font-size: 12px;
+  }
+  .el-table .cell {
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+  .el-form-item__label {
     font-size: 13px;
+  }
+  .el-card__body {
+    padding: 12px;
   }
 }
 </style>
@@ -158,6 +169,13 @@ body {
   color: #a3a6b4;
   font-size: 14px;
   margin-bottom: 8px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.user-info:hover {
+  background: rgba(255,255,255,0.08);
 }
 .logout-btn {
   color: #f56c6c !important;

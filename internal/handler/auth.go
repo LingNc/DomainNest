@@ -60,6 +60,19 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	})
 }
 
+func (h *AuthHandler) CheckUsername(c *gin.Context) {
+	username := c.Query("username")
+	if len(username) < 3 {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"available": false}})
+		return
+	}
+
+	var user model.User
+	err := h.db.Where("username = ?", username).First(&user).Error
+	available := err != nil // gorm.ErrRecordNotFound means available
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"available": available}})
+}
+
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
@@ -91,6 +104,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"user": gin.H{
 				"id":       user.ID,
 				"username": user.Username,
+				"nickname": user.Nickname,
+				"avatar":   user.Avatar,
 				"role":     user.Role,
 			},
 		},
@@ -206,35 +221,29 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	// 无论邮箱是否存在都返回成功（防枚举）
 	var user model.User
 	if err := h.db.Where("email = ?", req.Email).First(&user).Error; err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "if the email exists, a reset link has been sent"})
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "if the email exists, a code has been sent"})
 		return
 	}
 
-	token, err := service.GenerateToken(32)
+	code, err := service.GenerateVerifyCode()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to generate token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to generate code"})
 		return
 	}
 
 	reset := &model.PasswordReset{
 		UserID:    user.ID,
-		Token:     token,
+		Token:     code,
 		ExpiresAt: time.Now().Add(30 * time.Minute),
 	}
 	if err := h.db.Create(reset).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to create reset token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to create reset code"})
 		return
 	}
 
-	origin := c.GetHeader("Origin")
-	if origin == "" {
-		origin = "http://" + c.Request.Host
-	}
-	resetLink := origin + "/reset-password?token=" + token
+	go h.emailSvc.SendPasswordReset(user.Email, code)
 
-	go h.emailSvc.SendPasswordReset(user.Email, resetLink)
-
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "if the email exists, a reset link has been sent"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "if the email exists, a code has been sent"})
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {

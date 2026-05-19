@@ -55,6 +55,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/forgot-password", authHandler.ForgotPassword)
 		auth.POST("/reset-password", authHandler.ResetPassword)
+		auth.GET("/check-username", authHandler.CheckUsername)
 	}
 
 	authProtected := v1.Group("/auth")

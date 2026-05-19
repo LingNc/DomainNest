@@ -8,6 +8,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthed = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
   const username = computed(() => user.value?.username || '')
+  const nickname = computed(() => user.value?.nickname || user.value?.username || '')
+  const avatar = computed(() => user.value?.avatar || '')
 
   function setAuth(t, u) {
     token.value = t
@@ -23,5 +25,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
-  return { token, user, isAuthed, isAdmin, username, setAuth, clearAuth }
+  return { token, user, isAuthed, isAdmin, username, nickname, avatar, setAuth, clearAuth }
 })

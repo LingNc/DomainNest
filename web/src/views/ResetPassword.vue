@@ -7,10 +7,13 @@
       </div>
       <el-form v-if="!done" :model="form" @submit.prevent="handleSubmit">
         <el-form-item>
-          <el-input v-model="form.new_password" type="password" placeholder="新密码（至少6位）" prefix-icon="Lock" show-password size="large" />
+          <el-input v-model="form.token" placeholder="请输入 6 位验证码" prefix-icon="Key" size="large" maxlength="6" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="confirmPwd" type="password" placeholder="确认新密码" prefix-icon="Lock" show-password size="large" />
+          <el-input v-model="form.new_password" type="password" placeholder="新密码（至少6位）" prefix-icon="Lock" show-password size="large" autocomplete="new-password" />
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="confirmPwd" type="password" placeholder="确认新密码" prefix-icon="Lock" show-password size="large" autocomplete="new-password" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">重置密码</el-button>
@@ -29,26 +32,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { resetPassword } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
-const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const done = ref(false)
-const token = ref('')
 const confirmPwd = ref('')
 const form = ref({ token: '', new_password: '' })
 
-onMounted(() => {
-  token.value = route.query.token || ''
-  if (!token.value) {
-    ElMessage.error('缺少重置令牌')
-  }
-})
-
 const handleSubmit = async () => {
+  if (!form.value.token || form.value.token.length !== 6) {
+    ElMessage.warning('请输入 6 位验证码')
+    return
+  }
   if (!form.value.new_password || form.value.new_password.length < 6) {
     ElMessage.warning('密码至少6位')
     return
@@ -59,7 +58,7 @@ const handleSubmit = async () => {
   }
   loading.value = true
   try {
-    await resetPassword({ token: token.value, new_password: form.value.new_password })
+    await resetPassword({ token: form.value.token, new_password: form.value.new_password })
     done.value = true
   } finally {
     loading.value = false

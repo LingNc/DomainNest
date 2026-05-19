@@ -32,19 +32,19 @@ func (s *EmailService) getSMTPConfig() *config.SMTPConfig {
 	return s.cfg
 }
 
-func (s *EmailService) SendPasswordReset(to, resetLink string) {
+func (s *EmailService) SendPasswordReset(to, code string) {
 	cfg := s.getSMTPConfig()
 	if cfg == nil || cfg.Host == "" || cfg.Username == "" {
 		log.Printf("[Email] SMTP not configured, skip sending reset email to %s", to)
 		return
 	}
 
-	subject := "DomainNest - Password Reset"
-	body := fmt.Sprintf("Hello,<br><br>"+
-		"You requested a password reset. Click the link below to reset your password:<br><br>"+
-		"<a href=\"%s\">%s</a><br><br>"+
-		"This link will expire in 30 minutes.<br><br>"+
-		"If you did not request this, please ignore this email.", resetLink, resetLink)
+	subject := "DomainNest - 密码重置验证码"
+	body := fmt.Sprintf("您好，<br><br>"+
+		"您正在进行密码重置操作，验证码如下：<br><br>"+
+		"<h2 style=\"color:#409eff;letter-spacing:4px\">%s</h2><br>"+
+		"验证码 30 分钟内有效。<br><br>"+
+		"如果这不是您的操作，请忽略此邮件。", code)
 
 	msg := fmt.Sprintf("From: %s <%s>\r\n"+
 		"To: %s\r\n"+
@@ -61,6 +61,15 @@ func (s *EmailService) SendPasswordReset(to, resetLink string) {
 	} else {
 		log.Printf("[Email] Reset email sent to %s", to)
 	}
+}
+
+func GenerateVerifyCode() (string, error) {
+	bytes := make([]byte, 3)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	n := int(bytes[0])<<16 | int(bytes[1])<<8 | int(bytes[2])
+	return fmt.Sprintf("%06d", n%1000000), nil
 }
 
 func GenerateToken(n int) (string, error) {

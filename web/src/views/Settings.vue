@@ -72,18 +72,8 @@
 
       <el-col :xs="24" :lg="10" style="margin-top:16px">
         <el-card>
-          <template #header>修改密码</template>
-          <el-form :model="passwordForm" @submit.prevent="handleChangePassword" label-width="80px">
-            <el-form-item label="旧密码">
-              <el-input v-model="passwordForm.old_password" type="password" show-password />
-            </el-form-item>
-            <el-form-item label="新密码">
-              <el-input v-model="passwordForm.new_password" type="password" show-password />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" native-type="submit">修改密码</el-button>
-            </el-form-item>
-          </el-form>
+          <template #header>DDNS 配置说明</template>
+          <p class="hint">如需修改密码或个人信息，请前往「个人信息」页面。</p>
         </el-card>
       </el-col>
     </el-row>
@@ -92,11 +82,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getProfile, resetToken, changePassword } from '../api/auth'
+import { getProfile, resetToken } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
 const token = ref('')
-const passwordForm = ref({ old_password: '', new_password: '' })
 
 // Callback 模式（逐域名更新）
 const callbackUrl = computed(() => `${window.location.origin}/api/v1/ddns/callback?token=${token.value}`)
@@ -116,12 +105,6 @@ const handleResetToken = async () => {
   const res = await resetToken()
   token.value = res.data.token
   ElMessage.success('Token 已重置')
-}
-
-const handleChangePassword = async () => {
-  await changePassword(passwordForm.value)
-  ElMessage.success('密码修改成功')
-  passwordForm.value = { old_password: '', new_password: '' }
 }
 
 const copy = (text) => {

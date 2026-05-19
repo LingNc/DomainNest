@@ -6,7 +6,10 @@
       </template>
       <el-form :model="form" label-width="80px" style="max-width:480px">
         <el-form-item label="用户名">
-          <el-input v-model="form.username" placeholder="修改用户名" />
+          <el-input v-model="form.username" placeholder="修改用户名" @input="onUsernameInput" />
+          <div v-if="usernameStatus" :class="usernameStatus === 'available' ? 'username-ok' : 'username-err'">
+            {{ usernameStatus === 'available' ? '用户名可用' : '用户名已被占用' }}
+          </div>
         </el-form-item>
         <el-form-item label="角色">
           <el-tag :type="profile.role === 'admin' ? 'danger' : 'info'">{{ profile.role === 'admin' ? '管理员' : '普通用户' }}</el-tag>
@@ -46,7 +49,7 @@
       </template>
       <el-form :model="pwdForm" label-width="80px" style="max-width:480px">
         <el-form-item label="旧密码">
-          <el-input v-model="pwdForm.old_password" type="password" show-password />
+          <el-input v-model="pwdForm.old_password" type="password" show-password autocomplete="off" />
         </el-form-item>
         <el-form-item label="新密码">
           <el-input v-model="pwdForm.new_password" type="password" show-password />
@@ -74,7 +77,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getProfile, updateProfile, changePassword, resetToken } from '../api/auth'
+import { getProfile, updateProfile, changePassword, resetToken, checkUsername } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
@@ -82,6 +85,8 @@ const auth = useAuthStore()
 const profile = ref({})
 const saving = ref(false)
 const changingPwd = ref(false)
+const usernameStatus = ref('')
+let checkTimer = null
 const form = reactive({ username: '', nickname: '', email: '', phone: '' })
 const pwdForm = reactive({ old_password: '', new_password: '' })
 
@@ -96,14 +101,31 @@ const loadProfile = async () => {
 
 onMounted(loadProfile)
 
+const onUsernameInput = () => {
+  usernameStatus.value = ''
+  clearTimeout(checkTimer)
+  const name = form.username.trim()
+  if (name.length < 3 || name === profile.value.username) return
+  checkTimer = setTimeout(async () => {
+    try {
+      const res = await checkUsername(name)
+      usernameStatus.value = res.data.available ? 'available' : 'taken'
+    } catch { /* ignore */ }
+  }, 400)
+}
+
 const handleSave = async () => {
+  if (usernameStatus.value === 'taken') {
+    ElMessage.warning('用户名已被占用')
+    return
+  }
   saving.value = true
   try {
     await updateProfile(form)
     ElMessage.success('保存成功')
     await loadProfile()
-    // Update auth store with new username
-    auth.setAuth(auth.token, { ...auth.user, username: form.username })
+    // Update auth store with new profile data
+    auth.setAuth(auth.token, { ...auth.user, username: form.username, nickname: form.nickname })
   } finally {
     saving.value = false
   }
@@ -156,5 +178,15 @@ const copyToken = () => {
   font-family: monospace;
   font-size: 14px;
   color: #409eff;
+}
+.username-ok {
+  color: #67c23a;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.username-err {
+  color: #f56c6c;
+  font-size: 12px;
+  margin-top: 4px;
 }
 </style>

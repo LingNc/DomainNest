@@ -10,7 +10,7 @@
           <el-input v-model="form.email" placeholder="请输入注册邮箱" prefix-icon="Message" size="large" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">发送重置邮件</el-button>
+          <el-button type="primary" :loading="loading" native-type="submit" size="large" style="width:100%">发送验证码</el-button>
         </el-form-item>
         <div class="links">
           <router-link to="/login">返回登录</router-link>
@@ -18,9 +18,9 @@
       </el-form>
       <div v-else class="success-msg">
         <el-icon :size="48" color="#67c23a"><component :is="'CircleCheck'" /></el-icon>
-        <p>如果该邮箱已注册，我们已向 <b>{{ form.email }}</b> 发送了重置邮件。</p>
-        <p class="hint">请检查收件箱（及垃圾邮件），邮件中的链接 30 分钟内有效。</p>
-        <el-button type="primary" @click="$router.push('/login')" style="margin-top:16px">返回登录</el-button>
+        <p>如果该邮箱已注册，我们已向 <b>{{ form.email }}</b> 发送了验证码。</p>
+        <p class="hint">请检查收件箱（及垃圾邮件），验证码 30 分钟内有效。</p>
+        <el-button type="primary" @click="$router.push('/reset-password')" style="margin-top:16px">去重置密码</el-button>
       </div>
     </el-card>
   </div>

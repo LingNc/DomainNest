@@ -374,5 +374,19 @@ onMounted(loadData)
   .domain-actions :deep(.el-form--inline) {
     display: block;
   }
+  :deep(.el-table) {
+    font-size: 12px;
+  }
+  :deep(.el-table .cell) {
+    padding: 0 6px;
+  }
+  /* Hide less critical columns on mobile */
+  :deep(.el-table__body-wrapper) {
+    overflow-x: auto;
+  }
+  :deep(.el-tabs__item) {
+    padding: 0 10px;
+    font-size: 13px;
+  }
 }
 </style>

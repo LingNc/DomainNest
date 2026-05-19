@@ -8,7 +8,10 @@
       </div>
       <el-form :model="form" @submit.prevent="handleRegister">
         <el-form-item>
-          <el-input v-model="form.username" placeholder="用户名" prefix-icon="User" size="large" />
+          <el-input v-model="form.username" placeholder="用户名" prefix-icon="User" size="large" @input="onUsernameInput" :class="{ 'is-error': usernameError }" />
+          <div v-if="usernameStatus" :class="usernameStatus === 'available' ? 'username-ok' : 'username-err'">
+            {{ usernameStatus === 'available' ? '用户名可用' : '用户名已被占用' }}
+          </div>
         </el-form-item>
         <el-form-item>
           <el-input v-model="form.email" placeholder="邮箱（选填）" prefix-icon="Message" size="large" />
@@ -33,13 +36,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { register } from '../api/auth'
+import { register, checkUsername } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
 const form = ref({ username: '', email: '', password: '', invite_code: '' })
+const usernameStatus = ref('') // '' | 'available' | 'taken'
+let checkTimer = null
 
 onMounted(() => {
   if (route.query.code) {
@@ -47,9 +52,26 @@ onMounted(() => {
   }
 })
 
+const onUsernameInput = () => {
+  usernameStatus.value = ''
+  clearTimeout(checkTimer)
+  const name = form.value.username.trim()
+  if (name.length < 3) return
+  checkTimer = setTimeout(async () => {
+    try {
+      const res = await checkUsername(name)
+      usernameStatus.value = res.data.available ? 'available' : 'taken'
+    } catch { /* ignore */ }
+  }, 400)
+}
+
 const handleRegister = async () => {
   if (!form.value.invite_code) {
     ElMessage.warning('请输入邀请码')
+    return
+  }
+  if (usernameStatus.value === 'taken') {
+    ElMessage.warning('用户名已被占用')
     return
   }
   loading.value = true
@@ -96,5 +118,15 @@ const handleRegister = async () => {
   color: #409eff;
   text-decoration: none;
   font-size: 14px;
+}
+.username-ok {
+  color: #67c23a;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.username-err {
+  color: #f56c6c;
+  font-size: 12px;
+  margin-top: 4px;
 }
 </style>
