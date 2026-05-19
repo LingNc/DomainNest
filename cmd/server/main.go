@@ -38,12 +38,13 @@ func main() {
 	ddnsService := service.NewDDNSService(db, domainService, recordService, aliyunClient)
 	settingsService := service.NewSettingsService(db)
 	emailService := service.NewEmailServiceWithSettings(&cfg.SMTP, settingsService)
+	ramTokenService := service.NewRAMTokenService(db)
 
 	if err := authService.EnsureAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
 		log.Fatalf("Failed to ensure admin user: %v", err)
 	}
 
-	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService)
+	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Server starting on %s", addr)

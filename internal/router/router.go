@@ -16,7 +16,8 @@ import (
 func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	domainService *service.DomainService, recordService *service.RecordService,
 	ddnsService *service.DDNSService, emailService *service.EmailService,
-	settingsService *service.SettingsService, permissionService *service.PermissionService) *gin.Engine {
+	settingsService *service.SettingsService, permissionService *service.PermissionService,
+	ramTokenService *service.RAMTokenService) *gin.Engine {
 
 	r := gin.Default()
 
@@ -40,10 +41,11 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	authHandler := handler.NewAuthHandler(authService, emailService, db, &cfg.JWT)
 	domainHandler := handler.NewDomainHandler(domainService, db)
 	recordHandler := handler.NewRecordHandler(recordService, db)
-	ddnsHandler := handler.NewDDNSHandler(ddnsService)
+	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
 	adminHandler := handler.NewAdminHandler(db)
 	settingsHandler := handler.NewSettingsHandler(settingsService)
 	permissionHandler := handler.NewPermissionHandler(permissionService, db)
+	ramTokenHandler := handler.NewRAMTokenHandler(ramTokenService, db)
 
 	v1 := r.Group("/api/v1")
 
@@ -98,6 +100,17 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		ddns.POST("/callback", ddnsHandler.Callback)
 		ddns.POST("/update", ddnsHandler.Callback) // backwards compat
 		ddns.POST("/webhook", ddnsHandler.Webhook)
+	}
+
+	ramTokens := v1.Group("/ram-tokens")
+	ramTokens.Use(middleware.JWTAuth(cfg.JWT.Secret))
+	{
+		ramTokens.GET("", ramTokenHandler.List)
+		ramTokens.POST("", ramTokenHandler.Create)
+		ramTokens.GET("/:id", ramTokenHandler.Get)
+		ramTokens.PUT("/:id", ramTokenHandler.Update)
+		ramTokens.POST("/:id/reset", ramTokenHandler.ResetToken)
+		ramTokens.DELETE("/:id", ramTokenHandler.Delete)
 	}
 
 	admin := v1.Group("/admin")

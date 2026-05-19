@@ -46,16 +46,28 @@ func TokenAuth(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Try user token first (DDNS token)
 		var user model.User
-		if err := db.Where("token = ?", token).First(&user).Error; err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "invalid token"})
-			c.Abort()
+		if err := db.Where("token = ?", token).First(&user).Error; err == nil {
+			c.Set("user_id", user.ID)
+			c.Set("username", user.Username)
+			c.Set("role", user.Role)
+			c.Set("auth_type", "user_token")
+			c.Next()
 			return
 		}
 
-		c.Set("user_id", user.ID)
-		c.Set("username", user.Username)
-		c.Set("role", user.Role)
-		c.Next()
+		// Try RAM token
+		var ramToken model.RAMToken
+		if err := db.Where("token = ? AND enabled = ?", token, true).First(&ramToken).Error; err == nil {
+			c.Set("user_id", ramToken.UserID)
+			c.Set("ram_token_id", ramToken.ID)
+			c.Set("auth_type", "ram_token")
+			c.Next()
+			return
+		}
+
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "invalid token"})
+		c.Abort()
 	}
 }
