@@ -259,6 +259,14 @@ func (s *AuthService) GrantInviteQuota(inviterID, inviteeID uint64, amount int) 
 		return errors.New("invitee not found")
 	}
 
+	if inviterID == inviteeID {
+		return errors.New("cannot grant quota to yourself")
+	}
+
+	if invitee.Status == 0 {
+		return errors.New("cannot grant quota to disabled user")
+	}
+
 	// Check inviter is not super_admin for pool check
 	if !inviter.IsSuperAdmin {
 		if inviter.InviteLimit-inviter.InviteCount < amount {
@@ -298,6 +306,14 @@ func (s *AuthService) GrantInviteQuota(inviterID, inviteeID uint64, amount int) 
 
 // RevokeInviteQuota revokes unused invite quota from invitee back to inviter.
 func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int) error {
+	if amount <= 0 {
+		return errors.New("amount must be positive")
+	}
+
+	if inviterID == inviteeID {
+		return errors.New("cannot revoke quota from yourself")
+	}
+
 	var inviter model.User
 	if err := s.db.First(&inviter, inviterID).Error; err != nil {
 		return errors.New("inviter not found")
@@ -308,6 +324,21 @@ func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int)
 		return errors.New("invitee not found")
 	}
 
+	// Authorization: check that inviter has granted quota to invitee that hasn't been fully revoked
+	var totalGranted int
+	s.db.Model(&model.InviteLog{}).Where("inviter_id = ? AND invitee_id = ? AND action = ?", inviterID, inviteeID, "grant").Select("COALESCE(SUM(amount),0)").Scan(&totalGranted)
+
+	var totalRevoked int
+	s.db.Model(&model.InviteLog{}).Where("inviter_id = ? AND invitee_id = ? AND action = ?", inviterID, inviteeID, "revoke").Select("COALESCE(SUM(amount),0)").Scan(&totalRevoked)
+
+	maxRevokable := totalGranted - totalRevoked
+	if !inviter.IsSuperAdmin && maxRevokable <= 0 {
+		return errors.New("no quota to revoke from this user")
+	}
+	if !inviter.IsSuperAdmin && amount > maxRevokable {
+		amount = maxRevokable
+	}
+
 	// Revokeable = unused quota the invitee has
 	revokeable := invitee.InviteLimit - invitee.InviteCount
 	if revokeable <= 0 {
@@ -315,9 +346,6 @@ func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int)
 	}
 	if amount > revokeable {
 		amount = revokeable
-	}
-	if amount <= 0 {
-		return errors.New("amount must be positive")
 	}
 
 	tx := s.db.Begin()
@@ -347,22 +375,5 @@ func (s *AuthService) RevokeInviteQuota(inviterID, inviteeID uint64, amount int)
 	}
 
 	return tx.Commit().Error
-}
-
-// OnUserDeactivate handles invite pool cleanup when a user account is deactivated/deleted.
-// Reduces the inviter's InviteCount by 1 (the registration slot is freed).
-func (s *AuthService) OnUserDeactivate(userID uint64) error {
-	var user model.User
-	if err := s.db.First(&user, userID).Error; err != nil {
-		return err
-	}
-
-	if user.InvitedBy == nil {
-		return nil
-	}
-
-	// Free the registration slot from the inviter
-	return s.db.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
-		UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error
 }
 

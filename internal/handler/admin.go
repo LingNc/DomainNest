@@ -237,6 +237,10 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		updates["phone"] = req.Phone
 	}
 	if req.InviteLimit != nil {
+		if *req.InviteLimit < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invite_limit cannot be negative"})
+			return
+		}
 		// Cannot decrease below current invite_count (skip for superadmin)
 		var targetUser model.User
 		if err := h.db.First(&targetUser, userID).Error; err != nil {
@@ -252,18 +256,25 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		}
 
 		// Pool model: if admin is not super_admin, deduct from admin's available pool
-		adminID := c.GetUint64("user_id")
-		var admin model.User
-		if err := h.db.First(&admin, adminID).Error; err == nil && !admin.IsSuperAdmin {
+		if !caller.IsSuperAdmin {
 			additionalAmount := *req.InviteLimit - targetUser.InviteLimit
 			if additionalAmount > 0 {
-				available := admin.InviteLimit - admin.InviteCount
+				available := caller.InviteLimit - caller.InviteCount
 				if available < additionalAmount {
 					c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("insufficient invite quota in your pool (available: %d, requested: %d)", available, additionalAmount)})
 					return
 				}
 				// Deduct from admin's pool
-				h.db.Model(&admin).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", additionalAmount))
+				if err := h.db.Model(&caller).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", additionalAmount)).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+					return
+				}
+			} else if additionalAmount < 0 {
+				// Return quota to admin's pool
+				if err := h.db.Model(&caller).UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count + ?, 0)", additionalAmount)).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+					return
+				}
 			}
 		}
 
@@ -320,25 +331,46 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 		return
 	}
 
+	tx := h.db.Begin()
+	defer tx.Rollback()
+
 	// Handle invite pool cleanup: free the registration slot from the inviter
 	var user model.User
-	if err := h.db.First(&user, userID).Error; err == nil && user.InvitedBy != nil {
-		h.db.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
-			UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)"))
+	if err := tx.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "user not found"})
+		return
+	}
+
+	if user.InvitedBy != nil {
+		if err := tx.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
+			UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			return
+		}
 
 		// Reclaim unused invite quota back to the inviter
 		unusedQuota := user.InviteLimit - user.InviteCount
 		if unusedQuota > 0 {
-			h.db.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
-				UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", unusedQuota))
+			if err := tx.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
+				UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", unusedQuota)).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+				return
+			}
+		}
+	} else {
+		// No inviter — just zero out the orphaned quota
+		if err := tx.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("invite_limit", 0).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			return
 		}
 	}
 
-	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("status", 0).Error; err != nil {
+	if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("status", 0).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
 
+	tx.Commit()
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "user disabled"})
 }
 
