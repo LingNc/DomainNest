@@ -607,7 +607,7 @@ export default {
     detailKeyHost: '主机',
     detailKeyType: '类型',
     detailKeyValue: '值',
-    detailKeyAmount: '金额',
+    detailKeyAmount: '邀请额度',
     detailKeyStatus: '状态',
     detailKeyIds: 'ID',
     detailKeyTargetUser: '目标用户',

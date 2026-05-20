@@ -607,7 +607,7 @@ export default {
     detailKeyHost: 'Host',
     detailKeyType: 'Type',
     detailKeyValue: 'Value',
-    detailKeyAmount: 'Amount',
+    detailKeyAmount: 'Invite Quota',
     detailKeyStatus: 'Status',
     detailKeyIds: 'ID',
     detailKeyTargetUser: 'Target User',
