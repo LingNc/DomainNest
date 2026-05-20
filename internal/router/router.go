@@ -6,6 +6,7 @@ import (
 	"domainnest/internal/middleware"
 	"domainnest/internal/service"
 	"domainnest/internal/static"
+	"domainnest/internal/ws"
 	"io/fs"
 	"net/http"
 
@@ -18,7 +19,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	ddnsService *service.DDNSService, emailService *service.EmailService,
 	settingsService *service.SettingsService, permissionService *service.PermissionService,
 	ramTokenService *service.RAMTokenService, friendService *service.FriendService,
-	messageService *service.MessageService, providerService *service.ProviderService) *gin.Engine {
+	messageService *service.MessageService, providerService *service.ProviderService,
+	hub *ws.Hub) *gin.Engine {
 
 	r := gin.Default()
 
@@ -53,6 +55,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	providerHandler := handler.NewProviderHandler(providerService, db)
 
 	v1 := r.Group("/api/v1")
+
+	// WebSocket endpoint (JWT via query param)
+	v1.GET("/ws", ws.HandleUpgrade(hub, cfg.JWT.Secret))
 
 	auth := v1.Group("/auth")
 	{

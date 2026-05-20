@@ -8,6 +8,7 @@ import (
 	"domainnest/internal/model"
 	"domainnest/internal/router"
 	"domainnest/internal/service"
+	"domainnest/internal/ws"
 )
 
 func main() {
@@ -37,11 +38,13 @@ func main() {
 	friendService := service.NewFriendService(db)
 	messageService := service.NewMessageService(db)
 
+	wsHub := ws.InitHub()
+
 	if err := authService.EnsureAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
 		log.Fatalf("Failed to ensure admin user: %v", err)
 	}
 
-	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService)
+	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService, wsHub)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Server starting on %s", addr)
