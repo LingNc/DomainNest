@@ -177,7 +177,7 @@ body {
   .el-dialog {
     --el-dialog-width: 92vw !important;
     width: 92vw !important;
-    margin: 16px auto;
+    margin: auto;
     max-height: calc(100vh - 32px);
   }
   .el-dialog__body {

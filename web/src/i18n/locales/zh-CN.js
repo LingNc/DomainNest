@@ -404,6 +404,7 @@ export default {
     deleteFailed: '注销失败',
     passwordChanged: '密码修改成功',
     tokenReset: 'Token 已重置',
+    resetToken: '重置 Token',
     ddnsToken: 'DDNS Token',
     token: 'Token',
     time: '时间',

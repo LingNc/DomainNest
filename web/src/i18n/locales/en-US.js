@@ -404,6 +404,7 @@ export default {
     deleteFailed: 'Delete failed',
     passwordChanged: 'Password changed successfully',
     tokenReset: 'Token has been reset',
+    resetToken: 'Reset Token',
     ddnsToken: 'DDNS Token',
     token: 'Token',
     time: 'Time',

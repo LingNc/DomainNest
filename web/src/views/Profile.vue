@@ -172,7 +172,7 @@
           <el-button size="small" text type="primary" @click="copyToken" style="margin-left:8px">{{ $t('common.copy') }}</el-button>
         </el-descriptions-item>
       </el-descriptions>
-      <el-button type="danger" size="small" style="margin-top:12px" @click="handleResetToken">{{ $t('profile.tokenReset') }}</el-button>
+      <el-button type="danger" size="small" style="margin-top:12px" @click="handleResetToken">{{ $t('profile.resetToken') }}</el-button>
     </el-card>
 
     <el-card v-if="!auth.isSuperAdmin" style="margin-top:16px">
