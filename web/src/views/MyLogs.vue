@@ -43,14 +43,15 @@
           <el-button size="small" @click="resetFilters">{{ $t('common.reset') }}</el-button>
         </div>
       </div>
-      <el-table :data="logs" stripe v-loading="loading" style="width:100%">
-        <el-table-column :label="$t('myLogs.actorUser')" min-width="120">
+      <el-table :data="logs" stripe v-loading="loading" style="width:100%" :row-class-name="rowClassName">
+        <!-- All view: single related user column -->
+        <el-table-column v-if="viewFilter === 'all'" :label="$t('myLogs.relatedUser')" min-width="120">
           <template #default="{ row }">
-            <template v-if="viewFilter === 'target' && row.user">
+            <template v-if="getRelatedUser(row)">
               <div style="display:flex;align-items:center;gap:6px">
-                <el-avatar v-if="getSrc(row.user_id, row.user?.avatar)" :src="getSrc(row.user_id, row.user?.avatar)" :size="24" />
-                <el-avatar v-else :size="24">{{ firstLetter(row.user?.username) }}</el-avatar>
-                <span>{{ row.user.username }}</span>
+                <el-avatar v-if="getSrc(getRelatedUser(row).id, getRelatedUser(row).user?.avatar)" :src="getSrc(getRelatedUser(row).id, getRelatedUser(row).user?.avatar)" :size="24" />
+                <el-avatar v-else :size="24">{{ firstLetter(getRelatedUser(row).user?.username) }}</el-avatar>
+                <span>{{ getRelatedUser(row).user.username }}</span>
               </div>
             </template>
             <span v-else style="color:#909399">-</span>
@@ -59,13 +60,27 @@
         <el-table-column prop="action" :label="$t('common.action')" min-width="120" />
         <el-table-column prop="target_type" :label="$t('common.targetType')" min-width="100" />
         <el-table-column prop="ip_address" :label="$t('common.ipAddress')" width="130" />
-        <el-table-column :label="$t('myLogs.targetUser')" min-width="120">
+        <!-- Actor view: target user is "the other person", actor column hidden (current user is always actor) -->
+        <el-table-column v-if="viewFilter === 'actor'" :label="$t('myLogs.targetUser')" min-width="120">
           <template #default="{ row }">
             <template v-if="row.target_user">
               <div style="display:flex;align-items:center;gap:6px">
                 <el-avatar v-if="getSrc(row.target_user_id, row.target_user?.avatar)" :src="getSrc(row.target_user_id, row.target_user?.avatar)" :size="24" />
                 <el-avatar v-else :size="24">{{ firstLetter(row.target_user?.username) }}</el-avatar>
                 <span>{{ row.target_user.username }}</span>
+              </div>
+            </template>
+            <span v-else style="color:#909399">-</span>
+          </template>
+        </el-table-column>
+        <!-- Target view: actor is "the other person", target column hidden (current user is always target) -->
+        <el-table-column v-if="viewFilter === 'target'" :label="$t('myLogs.actorUser')" min-width="120">
+          <template #default="{ row }">
+            <template v-if="row.user">
+              <div style="display:flex;align-items:center;gap:6px">
+                <el-avatar v-if="getSrc(row.user_id, row.user?.avatar)" :src="getSrc(row.user_id, row.user?.avatar)" :size="24" />
+                <el-avatar v-else :size="24">{{ firstLetter(row.user?.username) }}</el-avatar>
+                <span>{{ row.user.username }}</span>
               </div>
             </template>
             <span v-else style="color:#909399">-</span>
@@ -92,14 +107,31 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getMyLogs } from '../api/auth'
 import { actionGroups, targetTypeOptions } from '../constants/operationLogs'
 import { useAvatar } from '../composables/useAvatar'
+import { useAuthStore } from '../stores/auth'
 
 const { t } = useI18n()
 const { getSrc, firstLetter } = useAvatar()
+const authStore = useAuthStore()
+const currentUserId = computed(() => authStore.user?.id)
+
+const getRelatedUser = (row) => {
+  if (row.user_id === currentUserId.value) {
+    return row.target_user ? { user: row.target_user, id: row.target_user_id } : null
+  }
+  return row.user ? { user: row.user, id: row.user_id } : null
+}
+
+const isMyAction = (row) => row.user_id === currentUserId.value
+
+const rowClassName = ({ row }) => {
+  if (viewFilter.value !== 'all') return ''
+  return isMyAction(row) ? 'row-my-action' : 'row-action-on-me'
+}
 
 const logs = ref([])
 const loading = ref(false)
@@ -236,5 +268,14 @@ onMounted(loadLogs)
 }
 .view-filter {
   margin-bottom: 12px;
+}
+:deep(.el-table .row-my-action) {
+  --el-table-tr-bg-color: transparent;
+}
+:deep(.el-table .row-action-on-me) {
+  --el-table-tr-bg-color: rgba(64, 158, 255, 0.04);
+}
+:deep(.el-table .row-action-on-me:hover > td) {
+  background-color: rgba(64, 158, 255, 0.08) !important;
 }
 </style>
