@@ -48,8 +48,8 @@
           <template #default="{ row }">
             <template v-if="viewFilter === 'target' && row.user">
               <div style="display:flex;align-items:center;gap:6px">
-                <el-avatar v-if="row.user.avatar" :src="row.user.avatar" :size="24" />
-                <el-avatar v-else :size="24">{{ (row.user.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <el-avatar v-if="getSrc(row.user_id, row.user?.avatar)" :src="getSrc(row.user_id, row.user?.avatar)" :size="24" />
+                <el-avatar v-else :size="24">{{ firstLetter(row.user?.username) }}</el-avatar>
                 <span>{{ row.user.username }}</span>
               </div>
             </template>
@@ -63,8 +63,8 @@
           <template #default="{ row }">
             <template v-if="row.target_user">
               <div style="display:flex;align-items:center;gap:6px">
-                <el-avatar v-if="row.target_user.avatar" :src="row.target_user.avatar" :size="24" />
-                <el-avatar v-else :size="24">{{ (row.target_user.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <el-avatar v-if="getSrc(row.target_user_id, row.target_user?.avatar)" :src="getSrc(row.target_user_id, row.target_user?.avatar)" :size="24" />
+                <el-avatar v-else :size="24">{{ firstLetter(row.target_user?.username) }}</el-avatar>
                 <span>{{ row.target_user.username }}</span>
               </div>
             </template>
@@ -96,8 +96,10 @@ import { ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getMyLogs } from '../api/auth'
 import { actionGroups, targetTypeOptions } from '../constants/operationLogs'
+import { useAvatar } from '../composables/useAvatar'
 
 const { t } = useI18n()
+const { getSrc, firstLetter } = useAvatar()
 
 const logs = ref([])
 const loading = ref(false)
