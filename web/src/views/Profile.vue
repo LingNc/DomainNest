@@ -144,14 +144,24 @@
         <el-table-column :label="$t('profile.type')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.action === 'register' ? 'success' : row.action === 'grant' ? 'primary' : row.action === 'revoke' ? 'danger' : 'warning'" size="small">
-              {{ actionLabel(row.action) }}
+              {{ actionLabel(row.action, row) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('profile.target')" min-width="120">
+        <el-table-column :label="$t('profile.direction')" min-width="180">
           <template #default="{ row }">
-            <span v-if="row.inviter_id === profile.id">{{ row.invitee?.username || 'User #' + row.invitee_id }}</span>
-            <span v-else>{{ row.inviter?.username || 'User #' + row.inviter_id }}</span>
+            <template v-if="row.inviter_id === profile.id">
+              <span style="color:#409eff;font-weight:500">我</span>
+              <span v-if="row.action === 'revoke'" style="margin:0 4px">←</span>
+              <span v-else style="margin:0 4px">→</span>
+              <span>{{ row.invitee?.nickname || row.invitee?.username || '#' + row.invitee_id }}</span>
+            </template>
+            <template v-else>
+              <span>{{ row.inviter?.nickname || row.inviter?.username || '#' + row.inviter_id }}</span>
+              <span v-if="row.action === 'revoke'" style="margin:0 4px">←</span>
+              <span v-else style="margin:0 4px">→</span>
+              <span style="color:#409eff;font-weight:500">我</span>
+            </template>
           </template>
         </el-table-column>
         <el-table-column prop="amount" :label="$t('profile.quantity')" width="80" />
@@ -220,9 +230,13 @@ const roleLabel = (p) => {
   return t('profile.user')
 }
 
-const actionLabel = (action) => {
-  const map = { register: 'profile.register', grant: 'profile.grantAction', admin_grant: 'profile.adminGrant', revoke: 'profile.revokeAction' }
-  return t(map[action]) || action
+const actionLabel = (action, row) => {
+  const isMe = row.inviter_id === profile.value?.id
+  if (action === 'register') return isMe ? t('profile.register') : t('profile.registeredVia')
+  if (action === 'grant') return isMe ? t('profile.grantAction') : t('profile.grantReceived')
+  if (action === 'admin_grant') return isMe ? t('profile.adminGrant') : t('profile.grantReceived')
+  if (action === 'revoke') return isMe ? t('profile.revokeAction') : t('profile.revokeReceived')
+  return action
 }
 const router = useRouter()
 const profile = ref({})
