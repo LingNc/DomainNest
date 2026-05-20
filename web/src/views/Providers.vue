@@ -38,7 +38,7 @@
     </el-card>
 
     <!-- Add Provider Dialog -->
-    <el-dialog v-model="addDialogVisible" :title="$t('providers.addDialogTitle')" width="480px">
+    <el-dialog v-model="addDialogVisible" :title="$t('providers.addDialogTitle')" width="480px" destroy-on-close>
       <el-form :model="addForm" label-width="100px">
         <el-form-item :label="$t('providers.providerType')">
           <el-select v-model="addForm.provider_type" style="width:100%" filterable>
@@ -65,7 +65,7 @@
     </el-dialog>
 
     <!-- Edit Provider Dialog -->
-    <el-dialog v-model="editDialogVisible" :title="$t('providers.editDialogTitle')" width="480px">
+    <el-dialog v-model="editDialogVisible" :title="$t('providers.editDialogTitle')" width="480px" destroy-on-close>
       <el-form :model="editForm" label-width="100px">
         <el-form-item :label="$t('providers.name')">
           <el-input v-model="editForm.name" />
@@ -81,7 +81,7 @@
     </el-dialog>
 
     <!-- Domains Dialog -->
-    <el-dialog v-model="domainsDialogVisible" :title="$t('providers.domainList') + ' - ' + currentProvider?.name" width="600px">
+    <el-dialog v-model="domainsDialogVisible" :title="$t('providers.domainList') + ' - ' + currentProvider?.name" width="600px" destroy-on-close>
       <el-table :data="domains" stripe v-loading="loadingDomains" style="width:100%">
         <el-table-column prop="domain_name" :label="$t('common.domain')" min-width="200" />
         <el-table-column prop="record_count" :label="$t('providers.recordCount')" width="100" />

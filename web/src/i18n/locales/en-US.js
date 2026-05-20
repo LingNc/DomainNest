@@ -578,6 +578,8 @@ export default {
     targetSetting: 'Settings',
     targetProvider: 'Provider',
     targetFriend: 'Friend',
+    selectProviderAndDomain: 'Please select a provider and domain first',
+    noProvidersHint: 'No providers available, please add one in Providers page',
   },
   chat: {
     loadMore: 'Load More',

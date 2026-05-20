@@ -578,6 +578,8 @@ export default {
     targetSetting: '设置',
     targetProvider: '提供商',
     targetFriend: '好友',
+    selectProviderAndDomain: '请先选择提供商和域名',
+    noProvidersHint: '暂无提供商，请先在提供商页面添加',
   },
   chat: {
     loadMore: '加载更多',

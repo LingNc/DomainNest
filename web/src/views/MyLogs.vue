@@ -31,8 +31,10 @@
           </el-tooltip>
         </div>
         <el-date-picker v-model="filters.dateRange" type="daterange" :range-separator="$t('myLogs.dateRangeSeparator')" :start-placeholder="$t('myLogs.startDatePlaceholder')" :end-placeholder="$t('myLogs.endDatePlaceholder')" size="small" style="width:230px" value-format="YYYY-MM-DD" />
-        <el-button size="small" type="primary" @click="loadLogs">{{ $t('common.search') }}</el-button>
-        <el-button size="small" @click="resetFilters">{{ $t('common.reset') }}</el-button>
+        <div class="filter-actions">
+          <el-button size="small" type="primary" @click="loadLogs">{{ $t('common.search') }}</el-button>
+          <el-button size="small" @click="resetFilters">{{ $t('common.reset') }}</el-button>
+        </div>
       </div>
       <el-table :data="logs" stripe v-loading="loading" style="width:100%">
         <el-table-column prop="action" :label="$t('common.action')" min-width="120" />
@@ -185,5 +187,10 @@ onMounted(loadLogs)
   display: flex;
   align-items: center;
   gap: 2px;
+}
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 </style>
