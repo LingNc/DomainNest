@@ -2,6 +2,7 @@ package ws
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -17,10 +18,19 @@ const (
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
-	hub    *Hub
-	conn   *websocket.Conn
-	userID uint64
-	send   chan []byte
+	hub        *Hub
+	conn       *websocket.Conn
+	userID     uint64
+	send       chan []byte
+	closeOnce  sync.Once
+}
+
+// Close safely closes the send channel and connection exactly once.
+func (c *Client) Close() {
+	c.closeOnce.Do(func() {
+		close(c.send)
+		c.conn.Close()
+	})
 }
 
 // NewClient creates a Client and registers it with the hub.

@@ -32,8 +32,7 @@ func (h *Hub) Register(c *Client) {
 
 	if old, ok := h.clients[c.userID]; ok {
 		// Close old connection gracefully.
-		close(old.send)
-		old.conn.Close()
+		old.Close()
 	}
 
 	h.clients[c.userID] = c
@@ -58,14 +57,6 @@ func BroadcastToUser(userID uint64, msgType string, payload interface{}) {
 		return
 	}
 
-	defaultHub.mu.RLock()
-	c, ok := defaultHub.clients[userID]
-	defaultHub.mu.RUnlock()
-
-	if !ok {
-		return
-	}
-
 	env := Envelope{Type: msgType, Payload: payload}
 	data, err := json.Marshal(env)
 	if err != nil {
@@ -73,12 +64,19 @@ func BroadcastToUser(userID uint64, msgType string, payload interface{}) {
 		return
 	}
 
-	select {
-	case c.send <- data:
-	default:
-		// Buffer full – drop message and clean up.
-		log.Printf("ws: send buffer full for user %d, dropping", userID)
-		defaultHub.Unregister(c)
-		c.conn.Close()
+	defaultHub.mu.RLock()
+	c, ok := defaultHub.clients[userID]
+	if ok {
+		select {
+		case c.send <- data:
+		default:
+			// Buffer full – drop message and clean up.
+			log.Printf("ws: send buffer full for user %d, dropping", userID)
+			defaultHub.mu.RUnlock()
+			defaultHub.Unregister(c)
+			c.Close()
+			return
+		}
 	}
+	defaultHub.mu.RUnlock()
 }

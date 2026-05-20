@@ -491,6 +491,7 @@ func (h *AuthHandler) GrantInviteQuota(c *gin.Context) {
 		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
 
 	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
 		svc := service.NewMessageService(h.db)
 		svc.SendSystemNotification(req.TargetUserID, "邀请额度变更",
 			fmt.Sprintf("你收到了 %d 个邀请额度", req.Amount), "", "")
@@ -525,6 +526,7 @@ func (h *AuthHandler) RevokeInviteQuota(c *gin.Context) {
 		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
 
 	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
 		svc := service.NewMessageService(h.db)
 		svc.SendSystemNotification(req.TargetUserID, "邀请额度变更",
 			fmt.Sprintf("你的 %d 个邀请额度已被收回", req.Amount), "", "")

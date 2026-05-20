@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -98,6 +99,7 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 
 	// Notify target user
 	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
 		if nodeLoaded {
 			svc := service.NewMessageService(h.db)
 			svc.SendSystemNotification(req.TargetUserID, "权限授予",
@@ -142,6 +144,7 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 		map[string]interface{}{}, c.ClientIP())
 
 	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
 		var node model.DomainNode
 		if h.db.First(&node, nodeID).Error == nil {
 			svc := service.NewMessageService(h.db)
@@ -198,6 +201,7 @@ func (h *PermissionHandler) RevokeRequest(c *gin.Context) {
 		map[string]interface{}{}, c.ClientIP())
 
 	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
 		var node model.DomainNode
 		if h.db.First(&node, nodeID).Error == nil {
 			svc := service.NewMessageService(h.db)

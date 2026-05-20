@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"domainnest/internal/config"
 
@@ -21,6 +22,15 @@ func InitDB(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetConnMaxLifetime(5 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(3 * time.Minute)
 
 	return db, nil
 }
