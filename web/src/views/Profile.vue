@@ -38,6 +38,22 @@
         <el-form-item :label="$t('profile.email')">
           <el-input v-model="form.email" :placeholder="$t('profile.emailPlaceholder')" />
         </el-form-item>
+        <el-form-item v-if="form.email && form.email !== profile.email && !emailVerified">
+          <div class="verify-row">
+            <el-input v-model="emailCode" :placeholder="$t('register.codePlaceholder')" prefix-icon="Key" />
+            <el-button type="primary" :loading="sendingCode" :disabled="emailCountdown > 0" @click="handleSendEmailCode">
+              {{ emailCountdown > 0 ? $t('register.resendCountdown', { seconds: emailCountdown }) : (emailCodeSent ? $t('register.resendCode') : $t('register.sendCode')) }}
+            </el-button>
+          </div>
+        </el-form-item>
+        <el-form-item v-if="form.email && form.email !== profile.email && emailCodeSent && !emailVerified">
+          <el-button type="success" :loading="verifyingEmail" style="width:100%" @click="handleVerifyEmail">
+            {{ $t('register.verify') }}
+          </el-button>
+        </el-form-item>
+        <el-form-item v-if="emailVerified">
+          <el-tag type="success">{{ $t('register.emailVerified') }}</el-tag>
+        </el-form-item>
         <el-form-item :label="$t('profile.phone')">
           <el-input v-model="form.phone" :placeholder="$t('profile.phonePlaceholder')" />
         </el-form-item>
@@ -191,7 +207,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs, searchAllUsers, deleteAccount } from '../api/auth'
+import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs, searchAllUsers, deleteAccount, sendVerifyEmail, verifyEmail } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -228,6 +244,13 @@ const loadingInviteLogs = ref(false)
 const inviteLogPage = ref(1)
 const inviteLogTotal = ref(0)
 const deleting = ref(false)
+const emailCode = ref('')
+const sendingCode = ref(false)
+const verifyingEmail = ref(false)
+const emailCodeSent = ref(false)
+const emailVerified = ref(false)
+const emailCountdown = ref(0)
+let emailCountdownTimer = null
 
 const loadProfile = async () => {
   const res = await getProfile()
@@ -273,6 +296,10 @@ const handleSave = async () => {
     ElMessage.warning(t('profile.usernameTaken'))
     return
   }
+  if (form.email && form.email !== profile.value.email && !emailVerified.value) {
+    ElMessage.warning(t('register.verifyEmailFirst'))
+    return
+  }
   saving.value = true
   try {
     await updateProfile(form)
@@ -280,8 +307,56 @@ const handleSave = async () => {
     await loadProfile()
     // Update auth store with new profile data
     auth.setAuth(auth.token, { ...auth.user, username: form.username, nickname: form.nickname, avatar: form.avatar })
+    emailVerified.value = false
+    emailCodeSent.value = false
+    emailCode.value = ''
   } finally {
     saving.value = false
+  }
+}
+
+const startEmailCountdown = () => {
+  emailCountdown.value = 60
+  emailCountdownTimer = setInterval(() => {
+    emailCountdown.value--
+    if (emailCountdown.value <= 0) {
+      clearInterval(emailCountdownTimer)
+    }
+  }, 1000)
+}
+
+const handleSendEmailCode = async () => {
+  if (!form.email) {
+    ElMessage.warning(t('register.emailRequired'))
+    return
+  }
+  sendingCode.value = true
+  try {
+    await sendVerifyEmail({ email: form.email, purpose: 'change_email' })
+    emailCodeSent.value = true
+    ElMessage.success(t('register.codeSent'))
+    startEmailCountdown()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || e.message)
+  } finally {
+    sendingCode.value = false
+  }
+}
+
+const handleVerifyEmail = async () => {
+  if (!emailCode.value) {
+    ElMessage.warning(t('register.codeRequired'))
+    return
+  }
+  verifyingEmail.value = true
+  try {
+    await verifyEmail({ email: form.email, code: emailCode.value, purpose: 'change_email' })
+    emailVerified.value = true
+    ElMessage.success(t('register.verified'))
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || e.message)
+  } finally {
+    verifyingEmail.value = false
   }
 }
 
@@ -463,5 +538,17 @@ const handleDeleteAccount = async () => {
 .avatar-hint {
   color: #909399;
   font-size: 12px;
+}
+.verify-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.verify-row .el-input {
+  flex: 1;
+}
+.verify-row .el-button {
+  flex-shrink: 0;
+  min-width: 120px;
 }
 </style>
