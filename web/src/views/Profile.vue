@@ -84,56 +84,64 @@
 
     <el-card style="margin-top:16px">
       <template #header>
-        <span>{{ $t('profile.grantInvite') }}</span>
+        <span>{{ $t('profile.inviteQuotaManagement') }}</span>
       </template>
-      <el-form :model="grantForm" label-width="80px" style="max-width:480px">
-        <el-form-item :label="$t('profile.targetUser')">
-          <el-select v-model="grantForm.target_user_id" :placeholder="$t('profile.searchUser')" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" style="width:100%">
-            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
-              <div style="display:flex;align-items:center;gap:8px">
-                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
-                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
-                <span>{{ u.nickname || u.username }}</span>
-                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
-              </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="$t('profile.quantity')">
-          <el-input-number v-model="grantForm.amount" :min="1" :max="auth.isSuperAdmin ? undefined : profile.invite_limit - profile.invite_count" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="granting" @click="handleGrantInvite">{{ $t('profile.grant') }}</el-button>
-          <span style="color:#909399;font-size:12px;margin-left:12px">{{ $t('profile.grantHint') }}</span>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card style="margin-top:16px">
-      <template #header>
-        <span>{{ $t('profile.revokeInvite') }}</span>
-      </template>
-      <el-form :model="revokeForm" label-width="80px" style="max-width:480px">
-        <el-form-item :label="$t('profile.targetUser')">
-          <el-select v-model="revokeForm.target_user_id" :placeholder="$t('profile.searchUser')" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" style="width:100%">
-            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
-              <div style="display:flex;align-items:center;gap:8px">
-                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
-                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
-                <span>{{ u.nickname || u.username }}</span>
-                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
-              </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="$t('profile.quantity')">
-          <el-input-number v-model="revokeForm.amount" :min="1" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="danger" :loading="revoking" @click="handleRevokeInvite">{{ $t('profile.revoke') }}</el-button>
-          <span style="color:#909399;font-size:12px;margin-left:12px">{{ $t('profile.revokeHint') }}</span>
-        </el-form-item>
-      </el-form>
+      <el-row :gutter="24">
+        <!-- Grant (left) -->
+        <el-col :xs="24" :sm="12">
+          <div class="invite-sub-card invite-grant-card">
+            <h4 class="invite-sub-title">{{ $t('profile.grantInvite') }}</h4>
+            <el-form :model="grantForm" label-width="80px">
+              <el-form-item :label="$t('profile.targetUser')">
+                <el-select v-model="grantForm.target_user_id" :placeholder="$t('profile.searchUser')" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" style="width:100%">
+                  <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                      <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                      <span>{{ u.nickname || u.username }}</span>
+                      <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
+                    </div>
+                  </el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="$t('profile.quantity')">
+                <el-input-number v-model="grantForm.amount" :min="1" :max="auth.isSuperAdmin ? undefined : profile.invite_limit - profile.invite_count" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="granting" @click="handleGrantInvite">{{ $t('profile.grant') }}</el-button>
+                <span style="color:#909399;font-size:12px;margin-left:12px">{{ $t('profile.grantHint') }}</span>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-col>
+        <!-- Revoke (right) -->
+        <el-col :xs="24" :sm="12">
+          <div class="invite-sub-card invite-revoke-card">
+            <h4 class="invite-sub-title">{{ $t('profile.revokeInvite') }}</h4>
+            <el-form :model="revokeForm" label-width="80px">
+              <el-form-item :label="$t('profile.targetUser')">
+                <el-select v-model="revokeForm.target_user_id" :placeholder="$t('profile.searchUser')" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" style="width:100%">
+                  <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                      <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                      <span>{{ u.nickname || u.username }}</span>
+                      <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
+                    </div>
+                  </el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="$t('profile.quantity')">
+                <el-input-number v-model="revokeForm.amount" :min="1" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="danger" :loading="revoking" @click="handleRevokeInvite">{{ $t('profile.revoke') }}</el-button>
+                <span style="color:#909399;font-size:12px;margin-left:12px">{{ $t('profile.revokeHint') }}</span>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-col>
+      </el-row>
     </el-card>
 
     <el-card style="margin-top:16px">
@@ -564,5 +572,20 @@ const handleDeleteAccount = async () => {
 .verify-row .el-button {
   flex-shrink: 0;
   min-width: 120px;
+}
+.invite-sub-card {
+  padding: 12px;
+  border-radius: 6px;
+}
+.invite-grant-card {
+  background: #f0f9eb;
+}
+.invite-revoke-card {
+  background: #fef0f0;
+}
+.invite-sub-title {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 600;
 }
 </style>
