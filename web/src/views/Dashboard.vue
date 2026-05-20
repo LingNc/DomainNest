@@ -42,29 +42,35 @@
     </el-card>
 
     <el-dialog v-model="showCreateRoot" :title="$t('dashboard.createRootDomain')" width="400px" destroy-on-close>
-      <el-form :model="rootForm">
-        <el-form-item :label="$t('dashboard.host')">
-          <el-input v-model="rootForm.host" :placeholder="$t('dashboard.hostPlaceholder')" />
+      <el-form>
+        <el-form-item :label="$t('admin.selectProvider')">
+          <el-select v-model="selectedProviderId" :placeholder="$t('admin.selectProvider')" style="width:100%">
+            <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
         </el-form-item>
-        <el-form-item :label="$t('dashboard.domainSuffix')">
-          <el-input v-model="rootForm.domain_suffix" :placeholder="$t('dashboard.domainSuffixPlaceholder')" />
+        <el-form-item :label="$t('admin.selectDomain')">
+          <el-select v-model="selectedDomain" :placeholder="$t('admin.selectDomain')" style="width:100%" :loading="loadingDomains" :disabled="!selectedProviderId">
+            <el-option v-for="d in providerDomains" :key="d.domain_name" :label="d.domain_name" :value="d.domain_name" />
+          </el-select>
         </el-form-item>
       </el-form>
+      <el-empty v-if="providers.length === 0" :description="$t('admin.noProvidersHint')" :image-size="60" />
       <template #footer>
         <el-button @click="showCreateRoot = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleCreateRoot">{{ $t('dashboard.create') }}</el-button>
+        <el-button type="primary" :disabled="providers.length === 0" @click="handleCreateRoot">{{ $t('dashboard.create') }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomains } from '../api/domain'
 import { createRootDomain } from '../api/admin'
 import { getMyPermissions } from '../api/permission'
+import { listProviders, listProviderDomains } from '../api/provider'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
@@ -74,7 +80,11 @@ const { t } = useI18n()
 const domains = ref([])
 const permissions = ref([])
 const showCreateRoot = ref(false)
-const rootForm = ref({ host: '', domain_suffix: '' })
+const providers = ref([])
+const providerDomains = ref([])
+const selectedProviderId = ref('')
+const selectedDomain = ref('')
+const loadingDomains = ref(false)
 
 const permMap = computed(() => {
   const map = {}
@@ -99,21 +109,50 @@ const loadPermissions = async () => {
   } catch { /* ignore */ }
 }
 
+const loadProviders = async () => {
+  try {
+    const res = await listProviders()
+    providers.value = res.data || []
+  } catch { /* ignore */ }
+}
+
+watch(selectedProviderId, async (id) => {
+  providerDomains.value = []
+  selectedDomain.value = ''
+  if (!id) return
+  loadingDomains.value = true
+  try {
+    const res = await listProviderDomains(id)
+    providerDomains.value = res.data || []
+  } catch { /* ignore */ } finally {
+    loadingDomains.value = false
+  }
+})
+
 const handleNodeClick = (data) => {
   router.push(`/domains/${data.id}`)
 }
 
 const handleCreateRoot = async () => {
-  await createRootDomain(rootForm.value)
-  ElMessage.success(t('dashboard.createSuccess'))
-  showCreateRoot.value = false
-  rootForm.value = { host: '', domain_suffix: '' }
-  loadDomains()
+  if (providers.value.length === 0) return
+  if (!selectedProviderId.value || !selectedDomain.value) {
+    ElMessage.warning(t('admin.selectProviderAndDomain'))
+    return
+  }
+  try {
+    await createRootDomain({ provider_id: selectedProviderId.value, domain_name: selectedDomain.value })
+    ElMessage.success(t('dashboard.createSuccess'))
+    showCreateRoot.value = false
+    selectedProviderId.value = ''
+    selectedDomain.value = ''
+    loadDomains()
+  } catch { /* error shown by interceptor */ }
 }
 
 onMounted(() => {
   loadDomains()
   loadPermissions()
+  loadProviders()
 })
 </script>
 
