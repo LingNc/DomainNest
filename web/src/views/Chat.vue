@@ -210,7 +210,7 @@ onUnmounted(() => {
 .chat-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 48px);
+  height: 100vh;
   background: #f5f5f5;
   margin: -24px;
 }
@@ -327,7 +327,7 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .chat-page {
-    height: calc(100vh - 60px);
+    height: 100vh;
     margin: -60px -12px -12px;
   }
   .msg-bubble {
