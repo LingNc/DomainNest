@@ -82,7 +82,7 @@
         <!-- 操作日志 -->
         <el-tab-pane :label="$t('admin.operationLogs')" name="logs">
           <div class="filter-bar">
-            <el-select v-model="logFilters.user_id" :placeholder="$t('admin.user')" clearable filterable size="small" style="width:160px">
+            <el-select v-model="logFilters.user_id" :placeholder="$t('admin.user')" clearable filterable size="small" style="width:130px">
               <el-option v-for="u in users" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
                 <div style="display:flex;align-items:center;gap:6px">
                   <el-avatar v-if="u.avatar" :src="u.avatar" :size="20" />
@@ -91,10 +91,10 @@
                 </div>
               </el-option>
             </el-select>
-            <el-input v-model="logFilters.q" :placeholder="$t('myLogs.searchPlaceholder')" clearable size="small" style="width:160px" />
-            <el-input v-model="logFilters.q_exclude" :placeholder="$t('myLogs.excludePlaceholder')" clearable size="small" style="width:140px" />
+            <el-input v-model="logFilters.q" :placeholder="$t('myLogs.searchPlaceholder')" clearable size="small" style="width:120px" />
+            <el-input v-model="logFilters.q_exclude" :placeholder="$t('myLogs.excludePlaceholder')" clearable size="small" style="width:110px" />
             <div class="filter-group">
-              <el-select v-model="logFilters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
+              <el-select v-model="logFilters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:160px">
                 <el-option-group v-for="group in actionGroupsI18n" :key="group.label" :label="group.label">
                   <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
                 </el-option-group>
@@ -106,7 +106,7 @@
               </el-tooltip>
             </div>
             <div class="filter-group">
-              <el-select v-model="logFilters.target_type" :placeholder="$t('myLogs.targetTypePlaceholder')" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
+              <el-select v-model="logFilters.target_type" :placeholder="$t('myLogs.targetTypePlaceholder')" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:160px">
                 <el-option v-for="item in targetTypeOptionsI18n" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
               <el-tooltip :content="targetTypeExcludeMode ? $t('myLogs.excludeMode') : $t('myLogs.includeMode')">
@@ -115,7 +115,7 @@
                 </el-button>
               </el-tooltip>
             </div>
-            <el-date-picker v-model="logFilters.dateRange" type="daterange" :range-separator="$t('myLogs.dateRangeSeparator')" :start-placeholder="$t('myLogs.startDatePlaceholder')" :end-placeholder="$t('myLogs.endDatePlaceholder')" size="small" style="width:260px" value-format="YYYY-MM-DD" />
+            <el-date-picker v-model="logFilters.dateRange" type="daterange" :range-separator="$t('myLogs.dateRangeSeparator')" :start-placeholder="$t('myLogs.startDatePlaceholder')" :end-placeholder="$t('myLogs.endDatePlaceholder')" size="small" style="width:220px" value-format="YYYY-MM-DD" />
             <el-button size="small" type="primary" @click="loadLogs">{{ $t('common.search') }}</el-button>
             <el-button size="small" @click="resetLogFilters">{{ $t('common.reset') }}</el-button>
           </div>
