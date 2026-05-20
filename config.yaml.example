@@ -3,6 +3,11 @@ server:
   port: 8080
   # 仅开发模式 (npm run dev) 使用，生产部署时前端嵌入 Go 二进制，不需要此项
   frontend_port: 3000
+  # 仅开发模式，允许访问的域名列表（解决 Vite "Blocked request" 问题）
+  # 不设置则只允许 localhost，设置 "." 允许所有域名
+  # allowed_hosts:
+  #   - example.com
+  #   - "*.example.com"
   mode: debug
 
 database:
