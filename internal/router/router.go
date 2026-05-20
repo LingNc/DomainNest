@@ -86,7 +86,6 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		authProtected.GET("/users/search", friendHandler.SearchAllUsers)
 		authProtected.GET("/pending-returns", permissionHandler.GetPendingReturns)
 		authProtected.DELETE("/account", authHandler.DeleteAccount)
-		authProtected.POST("/verify-email", authHandler.VerifyEmail)
 	}
 
 	domains := v1.Group("/domains")
