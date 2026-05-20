@@ -190,7 +190,7 @@ onMounted(loadLogs)
 }
 .filter-actions {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   flex-shrink: 0;
 }
 </style>
