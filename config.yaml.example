@@ -1,5 +1,8 @@
 server:
+  # 后端 API 端口 (开发: Vite 代理目标; 生产: 前端+后端统一端口)
   port: 8080
+  # 仅开发模式 (npm run dev) 使用，生产部署时前端嵌入 Go 二进制，不需要此项
+  frontend_port: 3000
   mode: debug
 
 database:
@@ -16,11 +19,3 @@ jwt:
 admin:
   username: admin
   password: "admin123"
-
-smtp:
-  host: smtp.example.com
-  port: 587
-  username: ""
-  password: ""
-  from: noreply@example.com
-  from_name: DomainNest
