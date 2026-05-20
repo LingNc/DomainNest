@@ -91,7 +91,7 @@
       <router-view />
     </main>
   </div>
-  <div v-else>
+  <div v-else style="min-height: 100vh">
     <router-view />
   </div>
   </el-config-provider>
@@ -339,18 +339,24 @@ body {
     inset: 0;
     background: rgba(0,0,0,0.5);
     z-index: 1002;
+    transition: opacity 0.25s ease;
   }
 
   .sidebar {
     position: fixed;
-    left: -220px;
+    left: 0;
     top: 0;
     bottom: 0;
     z-index: 1003;
-    transition: left 0.25s ease;
+    transition: transform 0.25s ease;
+    transform: translateX(-220px);
+    will-change: transform;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
   .sidebar.open {
-    left: 0;
+    transform: translateX(0);
   }
 
   .main-content {

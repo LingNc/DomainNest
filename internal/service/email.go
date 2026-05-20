@@ -122,7 +122,7 @@ var resetEmailTmpl = template.Must(template.New("reset").Parse(`<!DOCTYPE html>
         <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:12px 0 24px;">
           <span style="display:inline-block;background:#f0f7ff;border:1px solid #d9ecff;border-radius:6px;padding:14px 32px;font-size:32px;font-weight:700;color:#409eff;letter-spacing:6px;">{{.Code}}</span>
         </td></tr></table>
-        <p style="margin:0 0 8px;color:#909399;font-size:13px;">验证码 <b>30 分钟</b>内有效，请尽快使用。</p>
+        <p style="margin:0 0 8px;color:#909399;font-size:13px;">验证码 <b>{{.ExpiryMinutes}} 分钟</b>内有效，请尽快使用。</p>
         <p style="margin:0;color:#909399;font-size:13px;">如果这不是您的操作，请忽略此邮件，您的账户不会受到影响。</p>
       </td></tr>
       <!-- Footer -->
@@ -135,7 +135,7 @@ var resetEmailTmpl = template.Must(template.New("reset").Parse(`<!DOCTYPE html>
 </body>
 </html>`))
 
-func (s *EmailService) SendPasswordReset(to, code string) error {
+func (s *EmailService) SendPasswordReset(to, code string, expiryMinutes int) error {
 	cfg := s.getSMTPConfig()
 	if cfg == nil || cfg.Host == "" || cfg.Username == "" {
 		return fmt.Errorf("SMTP未配置")
@@ -144,7 +144,10 @@ func (s *EmailService) SendPasswordReset(to, code string) error {
 	subject := "DomainNest - 密码重置验证码"
 
 	var body bytes.Buffer
-	if err := resetEmailTmpl.Execute(&body, struct{ Code string }{Code: code}); err != nil {
+	if err := resetEmailTmpl.Execute(&body, struct {
+		Code          string
+		ExpiryMinutes int
+	}{Code: code, ExpiryMinutes: expiryMinutes}); err != nil {
 		return fmt.Errorf("模板渲染失败: %w", err)
 	}
 

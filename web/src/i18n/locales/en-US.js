@@ -64,7 +64,7 @@ export default {
     sendCode: 'Send Verification Code',
     successMsgBefore: 'If this email is registered, we have sent a verification code to',
     successMsgAfter: '.',
-    checkSpam: 'Please check your inbox (and spam folder). The code is valid for 30 minutes.',
+    checkSpam: 'Please check your inbox (and spam folder). The code is valid for 5 minutes.',
     goReset: 'Reset Password',
     enterEmail: 'Please enter your email address'
   },
@@ -592,6 +592,12 @@ export default {
     detailKeyTargetUser: 'Target User',
     detailKeyInvitedBy: 'Invited By',
     detailKeyProvider: 'Provider',
+    securityConfig: 'Security Settings',
+    resetTokenExpiry: 'Reset Code Expiry',
+    minPasswordLength: 'Min Password Length',
+    minutes: 'minutes',
+    characters: 'characters',
+    securityConfigSaved: 'Security settings saved',
   },
   chat: {
     loadMore: 'Load More',

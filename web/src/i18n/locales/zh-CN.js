@@ -64,7 +64,7 @@ export default {
     sendCode: '发送验证码',
     successMsgBefore: '如果该邮箱已注册，我们已向',
     successMsgAfter: '发送了验证码。',
-    checkSpam: '请检查收件箱（及垃圾邮件），验证码 30 分钟内有效。',
+    checkSpam: '请检查收件箱（及垃圾邮件），验证码 5 分钟内有效。',
     goReset: '去重置密码',
     enterEmail: '请输入邮箱地址'
   },
@@ -592,6 +592,12 @@ export default {
     detailKeyTargetUser: '目标用户',
     detailKeyInvitedBy: '邀请人',
     detailKeyProvider: '提供商',
+    securityConfig: '安全设置',
+    resetTokenExpiry: '验证码有效期',
+    minPasswordLength: '密码最小长度',
+    minutes: '分钟',
+    characters: '个字符',
+    securityConfigSaved: '安全设置已保存',
   },
   chat: {
     loadMore: '加载更多',

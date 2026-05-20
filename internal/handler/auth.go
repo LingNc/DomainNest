@@ -3,6 +3,8 @@ package handler
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -18,25 +20,56 @@ import (
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/nfnt/resize"
 	"gorm.io/gorm"
 )
 
-type AuthHandler struct {
-	authService *service.AuthService
-	emailSvc    *service.EmailService
-	db          *gorm.DB
-	jwtSecret   string
-	jwtExpire   int
+func friendlyValidationError(err error) string {
+	var ve validator.ValidationErrors
+	if errors.As(err, &ve) {
+		for _, fe := range ve {
+			field := fe.Field()
+			switch fe.Tag() {
+			case "min":
+				if field == "Password" || field == "NewPassword" {
+					return fmt.Sprintf("密码长度不能少于%s个字符", fe.Param())
+				}
+				if field == "Username" {
+					return fmt.Sprintf("用户名长度不能少于%s个字符", fe.Param())
+				}
+				return fmt.Sprintf("%s长度不足，最少需要%s个字符", field, fe.Param())
+			case "required":
+				return fmt.Sprintf("%s不能为空", field)
+			case "max":
+				return fmt.Sprintf("%s长度超出限制，最多%s个字符", field, fe.Param())
+			case "email":
+				return "邮箱格式不正确"
+			case "oneof":
+				return fmt.Sprintf("%s的值无效，可选值：%s", field, fe.Param())
+			}
+		}
+	}
+	return "请求参数无效"
 }
 
-func NewAuthHandler(authService *service.AuthService, emailSvc *service.EmailService, db *gorm.DB, cfg *config.JWTConfig) *AuthHandler {
+type AuthHandler struct {
+	authService     *service.AuthService
+	emailSvc        *service.EmailService
+	settingsService *service.SettingsService
+	db              *gorm.DB
+	jwtSecret       string
+	jwtExpire       int
+}
+
+func NewAuthHandler(authService *service.AuthService, emailSvc *service.EmailService, settingsService *service.SettingsService, db *gorm.DB, cfg *config.JWTConfig) *AuthHandler {
 	return &AuthHandler{
-		authService: authService,
-		emailSvc:    emailSvc,
-		db:          db,
-		jwtSecret:   cfg.Secret,
-		jwtExpire:   cfg.ExpireHours,
+		authService:     authService,
+		emailSvc:        emailSvc,
+		settingsService: settingsService,
+		db:              db,
+		jwtSecret:       cfg.Secret,
+		jwtExpire:       cfg.ExpireHours,
 	}
 }
 
@@ -49,7 +82,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
 		return
 	}
 
@@ -232,7 +265,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
 		return
 	}
 
@@ -269,10 +302,21 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
+	// Get security settings for token expiry
+	expiryMinutes := 5 // default
+	if raw, _ := h.settingsService.Get("security"); raw != "" {
+		var secSettings map[string]interface{}
+		if json.Unmarshal([]byte(raw), &secSettings) == nil {
+			if v, ok := secSettings["reset_token_expiry_minutes"].(float64); ok && v > 0 {
+				expiryMinutes = int(v)
+			}
+		}
+	}
+
 	reset := &model.PasswordReset{
 		UserID:    user.ID,
 		Token:     code,
-		ExpiresAt: time.Now().Add(30 * time.Minute),
+		ExpiresAt: time.Now().Add(time.Duration(expiryMinutes) * time.Minute),
 	}
 	if err := h.db.Create(reset).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建重置验证码失败"})
@@ -280,7 +324,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	}
 
 	go func() {
-		if err := h.emailSvc.SendPasswordReset(user.Email, code); err != nil {
+		if err := h.emailSvc.SendPasswordReset(user.Email, code, expiryMinutes); err != nil {
 			log.Printf("[Auth] Failed to send reset email to %s: %v", user.Email, err)
 		}
 	}()
@@ -295,7 +339,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
 		return
 	}
 

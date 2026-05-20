@@ -190,6 +190,20 @@
               <el-button @click="handleTestSMTP" :loading="testingSMTP" :disabled="!testEmail">{{ $t('admin.sendTestEmail') }}</el-button>
             </el-form-item>
           </el-form>
+          <el-form :model="securityForm" label-width="160px" style="max-width:560px;margin-top:32px">
+            <el-divider content-position="left">{{ $t('admin.securityConfig') }}</el-divider>
+            <el-form-item :label="$t('admin.resetTokenExpiry')">
+              <el-input-number v-model="securityForm.reset_token_expiry_minutes" :min="1" :max="60" />
+              <span style="margin-left:8px;color:#909399;font-size:13px">{{ $t('admin.minutes') }}</span>
+            </el-form-item>
+            <el-form-item :label="$t('admin.minPasswordLength')">
+              <el-input-number v-model="securityForm.min_password_length" :min="4" :max="32" />
+              <span style="margin-left:8px;color:#909399;font-size:13px">{{ $t('admin.characters') }}</span>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleSaveSecurity">{{ $t('admin.saveConfig') }}</el-button>
+            </el-form-item>
+          </el-form>
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -311,6 +325,8 @@ const newPassword = ref('')
 const smtpForm = reactive({ host: '', port: 587, username: '', password: '', from: '', from_name: 'DomainNest', tls_type: 'starttls' })
 const testingSMTP = ref(false)
 const testEmail = ref('')
+
+const securityForm = reactive({ reset_token_expiry_minutes: 5, min_password_length: 6 })
 
 const logFilters = reactive({ user_id: '', action: [], target_type: [], q: '', q_exclude: '', dateRange: null })
 const actionExcludeMode = ref(false)
@@ -451,6 +467,7 @@ const loadData = async () => {
     loading.value = false
   }
   loadSMTP()
+  loadSecurity()
   loadAdminProviders()
 }
 
@@ -540,6 +557,20 @@ const loadSMTP = async () => {
       }
     }
   } catch { /* no settings yet */ }
+}
+
+const loadSecurity = async () => {
+  try {
+    const res = await getSettings('security')
+    if (res.data) {
+      Object.assign(securityForm, res.data)
+    }
+  } catch { /* no settings yet */ }
+}
+
+const handleSaveSecurity = async () => {
+  await updateSettings('security', { ...securityForm })
+  ElMessage.success(t('admin.securityConfigSaved'))
 }
 
 const handleCreateRoot = async () => {

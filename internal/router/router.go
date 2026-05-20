@@ -39,7 +39,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		c.FileFromFS("/", http.FS(staticFS))
 	})
 
-	authHandler := handler.NewAuthHandler(authService, emailService, db, &cfg.JWT)
+	authHandler := handler.NewAuthHandler(authService, emailService, settingsService, db, &cfg.JWT)
 	domainHandler := handler.NewDomainHandler(domainService, db)
 	recordHandler := handler.NewRecordHandler(recordService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
