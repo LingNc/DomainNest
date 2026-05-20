@@ -474,13 +474,8 @@ func (h *AuthHandler) GrantInviteQuota(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, userID, "grant_invite", "user", &req.TargetUserID,
+	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "grant_invite", "user", &req.TargetUserID,
 		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
-
-	// Log for target user
-	targetID := uint64(req.TargetUserID)
-	middleware.LogOperation(h.db, targetID, "invite_granted", "user", &targetID,
-		map[string]interface{}{"by_user": userID, "amount": req.Amount}, c.ClientIP())
 
 	go func() {
 		svc := service.NewMessageService(h.db)
@@ -513,13 +508,8 @@ func (h *AuthHandler) RevokeInviteQuota(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, userID, "revoke_invite", "user", &req.TargetUserID,
+	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "revoke_invite", "user", &req.TargetUserID,
 		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
-
-	// Log for target user
-	targetID := uint64(req.TargetUserID)
-	middleware.LogOperation(h.db, targetID, "invite_revoked", "user", &targetID,
-		map[string]interface{}{"by_user": userID, "amount": req.Amount}, c.ClientIP())
 
 	go func() {
 		svc := service.NewMessageService(h.db)

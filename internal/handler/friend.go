@@ -46,7 +46,7 @@ func (h *FriendHandler) SendRequest(c *gin.Context) {
 		ws.BroadcastToUser(req.ReceiverID, ws.TypeFriendRequest, friendReq)
 	}
 
-	middleware.LogOperation(h.db, userID, "send_friend_request", "user", &req.ReceiverID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, userID, req.ReceiverID, "send_friend_request", "user", &req.ReceiverID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "好友请求已发送"})
 }
@@ -76,7 +76,7 @@ func (h *FriendHandler) AcceptRequest(c *gin.Context) {
 	ws.BroadcastToUser(friendReq.SenderID, ws.TypeNewNotification, gin.H{"type": "friend_accepted", "from_user_id": userID})
 
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	middleware.LogOperation(h.db, userID, "accept_friend", "friend", &friendID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, userID, friendReq.SenderID, "accept_friend", "friend", &friendID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "好友请求已接受"})
 }
@@ -106,7 +106,7 @@ func (h *FriendHandler) RejectRequest(c *gin.Context) {
 	ws.BroadcastToUser(friendReq.SenderID, ws.TypeNewNotification, gin.H{"type": "friend_rejected", "from_user_id": userID})
 
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	middleware.LogOperation(h.db, userID, "reject_friend", "friend", &friendID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, userID, friendReq.SenderID, "reject_friend", "friend", &friendID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "好友请求已拒绝"})
 }
@@ -125,7 +125,18 @@ func (h *FriendHandler) RemoveFriend(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, userID, "remove_friend", "friend", &friendID, nil, c.ClientIP())
+	// Look up the friendship to find the other user for logging
+	var friendship model.Friendship
+	var targetUserID uint64
+	if h.db.Where("id = ?", friendID).First(&friendship).Error == nil {
+		if friendship.UserID == userID {
+			targetUserID = friendship.FriendID
+		} else {
+			targetUserID = friendship.UserID
+		}
+	}
+
+	middleware.LogOperationUser(h.db, userID, targetUserID, "remove_friend", "friend", &friendID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "好友已删除"})
 }

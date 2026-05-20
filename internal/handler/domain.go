@@ -100,8 +100,8 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, userID, "transfer_domain", "domain_node", &nodeID,
-		map[string]interface{}{"target_user_id": req.TargetUserID}, c.ClientIP())
+	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "transfer_domain", "domain_node", &nodeID,
+		map[string]interface{}{}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "转移成功"})
 }

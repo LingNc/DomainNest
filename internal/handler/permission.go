@@ -84,21 +84,17 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, userID, "grant_permission", "domain_node", &nodeID,
-		map[string]interface{}{"target_user": req.TargetUserID, "level": req.Level}, c.ClientIP())
-
-	// Load node for notification and target user log
+	// Load node for notification
 	var node model.DomainNode
 	nodeLoaded := h.db.First(&node, nodeID).Error == nil
 
-	// Log for target user
-	targetID := uint64(req.TargetUserID)
 	domain := ""
 	if nodeLoaded {
 		domain = node.FullDomain
 	}
-	middleware.LogOperation(h.db, targetID, "permission_granted", "domain_node", &nodeID,
-		map[string]interface{}{"by_user": userID, "level": req.Level, "domain": domain}, c.ClientIP())
+
+	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "grant_permission", "domain_node", &nodeID,
+		map[string]interface{}{"level": req.Level, "domain": domain}, c.ClientIP())
 
 	// Notify target user
 	go func() {
@@ -142,12 +138,8 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, userID, "revoke_permission", "domain_node", &nodeID,
-		map[string]interface{}{"target_user": targetUserID}, c.ClientIP())
-
-	// Log for target user
-	middleware.LogOperation(h.db, targetUserID, "permission_revoked", "domain_node", &nodeID,
-		map[string]interface{}{"by_user": userID}, c.ClientIP())
+	middleware.LogOperationUser(h.db, userID, targetUserID, "revoke_permission", "domain_node", &nodeID,
+		map[string]interface{}{}, c.ClientIP())
 
 	go func() {
 		var node model.DomainNode
@@ -202,8 +194,8 @@ func (h *PermissionHandler) RevokeRequest(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, userID, "revoke_request", "domain_node", &nodeID,
-		map[string]interface{}{"target_user": targetUserID}, c.ClientIP())
+	middleware.LogOperationUser(h.db, userID, targetUserID, "revoke_request", "domain_node", &nodeID,
+		map[string]interface{}{}, c.ClientIP())
 
 	go func() {
 		var node model.DomainNode
@@ -259,8 +251,8 @@ func (h *PermissionHandler) AcceptReturn(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, userID, "accept_return", "domain_node", &nodeID,
-		map[string]interface{}{"target_user": targetUserID, "action": req.Action}, c.ClientIP())
+	middleware.LogOperationUser(h.db, userID, targetUserID, "accept_return", "domain_node", &nodeID,
+		map[string]interface{}{"action": req.Action}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限归还已接受"})
 }
@@ -290,8 +282,8 @@ func (h *PermissionHandler) RejectReturn(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, userID, "reject_return", "domain_node", &nodeID,
-		map[string]interface{}{"target_user": targetUserID}, c.ClientIP())
+	middleware.LogOperationUser(h.db, userID, targetUserID, "reject_return", "domain_node", &nodeID,
+		map[string]interface{}{}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "归还请求已拒绝"})
 }

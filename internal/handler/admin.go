@@ -110,7 +110,7 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 	}
 
 	callerID := c.GetUint64("user_id")
-	middleware.LogOperation(h.db, callerID, "assign_domain", "domain_node", &nodeID,
+	middleware.LogOperationUser(h.db, callerID, req.UserID, "assign_domain", "domain_node", &nodeID,
 		map[string]interface{}{"old_owner_id": oldOwnerID, "new_owner_id": req.UserID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "域名分配成功"})
@@ -301,7 +301,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	}
 
 	callerID2 := c.GetUint64("user_id")
-	middleware.LogOperation(h.db, callerID2, "update_user", "user", &userID, updates, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID2, userID, "update_user", "user", &userID, updates, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "用户信息已更新"})
 }
@@ -344,7 +344,7 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, callerID, "admin_reset_password", "user", &userID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, userID, "admin_reset_password", "user", &userID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "密码重置成功"})
 }
@@ -403,7 +403,7 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	tx.Commit()
 
 	callerID := c.GetUint64("user_id")
-	middleware.LogOperation(h.db, callerID, "disable_user", "user", &userID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, userID, "disable_user", "user", &userID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "用户已禁用"})
 }
@@ -439,7 +439,7 @@ func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, callerID, "promote_to_admin", "user", &targetID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, targetID, "promote_to_admin", "user", &targetID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "用户已提升为管理员"})
 }
@@ -479,7 +479,7 @@ func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperation(h.db, callerID, "demote_from_admin", "user", &targetID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, targetID, "demote_from_admin", "user", &targetID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "管理员已降级为普通用户"})
 }
