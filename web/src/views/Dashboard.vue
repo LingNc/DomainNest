@@ -12,7 +12,7 @@
       </el-button>
     </div>
 
-    <el-card v-if="domains.length === 0" class="empty-card">
+    <el-card v-if="!domains?.length" class="empty-card">
       <el-empty :description="$t('dashboard.noDomains')">
         <el-button v-if="auth.isAdmin" type="primary" size="small" @click="showCreateRoot = true">{{ $t('dashboard.createRootDomain') }}</el-button>
       </el-empty>
