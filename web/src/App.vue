@@ -167,20 +167,18 @@ body {
 }
 
 /* Ensure el-dialog is vertically centered on all screen sizes */
-.el-overlay:has(.el-dialog) {
+.el-overlay-dialog {
   display: flex !important;
-  justify-content: center;
-  align-items: center;
 }
-.el-overlay .el-dialog {
-  margin: auto;
+.el-dialog {
+  margin: auto !important;
 }
 
 @media (max-width: 768px) {
   .el-dialog {
     --el-dialog-width: 92vw !important;
     width: 92vw !important;
-    margin: auto;
+    margin: auto !important;
     max-height: calc(100vh - 32px);
   }
   .el-dialog__body {

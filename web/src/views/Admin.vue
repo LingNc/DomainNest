@@ -543,6 +543,7 @@ const loadSMTP = async () => {
 }
 
 const handleCreateRoot = async () => {
+  if (adminProviders.length === 0) return
   if (!selectedProviderId.value || !selectedDomain.value) {
     ElMessage.warning(t('admin.selectProviderAndDomain'))
     return
