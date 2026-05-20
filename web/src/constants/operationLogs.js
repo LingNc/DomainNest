@@ -26,6 +26,8 @@ export const actionGroups = [
     options: [
       { value: 'grant_permission', label: '授权' },
       { value: 'revoke_permission', label: '撤销权限' },
+      { value: 'permission_granted', label: '被授予权限' },
+      { value: 'permission_revoked', label: '权限被回收' },
       { value: 'revoke_request', label: '回收请求' },
       { value: 'accept_return', label: '接受回收' },
       { value: 'reject_return', label: '拒绝回收' },
@@ -55,6 +57,8 @@ export const actionGroups = [
     options: [
       { value: 'grant_invite', label: '分配邀请' },
       { value: 'revoke_invite', label: '收回邀请' },
+      { value: 'invite_granted', label: '获赠邀请额度' },
+      { value: 'invite_revoked', label: '邀请额度被回收' },
       { value: 'admin_grant', label: '管理员分配' },
     ],
   },

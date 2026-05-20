@@ -86,10 +86,22 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "grant_permission", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": req.TargetUserID, "level": req.Level}, c.ClientIP())
 
+	// Load node for notification and target user log
+	var node model.DomainNode
+	nodeLoaded := h.db.First(&node, nodeID).Error == nil
+
+	// Log for target user
+	targetID := uint64(req.TargetUserID)
+	domain := ""
+	if nodeLoaded {
+		domain = node.FullDomain
+	}
+	middleware.LogOperation(h.db, targetID, "permission_granted", "domain_node", &nodeID,
+		map[string]interface{}{"by_user": userID, "level": req.Level, "domain": domain}, c.ClientIP())
+
 	// Notify target user
 	go func() {
-		var node model.DomainNode
-		if h.db.First(&node, nodeID).Error == nil {
+		if nodeLoaded {
 			svc := service.NewMessageService(h.db)
 			svc.SendSystemNotification(req.TargetUserID, "权限授予",
 				fmt.Sprintf("你已被授予 %s 域名的 %s 权限", node.FullDomain, req.Level),
@@ -127,6 +139,10 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "revoke_permission", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": targetUserID}, c.ClientIP())
+
+	// Log for target user
+	middleware.LogOperation(h.db, targetUserID, "permission_revoked", "domain_node", &nodeID,
+		map[string]interface{}{"by_user": userID}, c.ClientIP())
 
 	go func() {
 		var node model.DomainNode

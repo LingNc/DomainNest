@@ -362,9 +362,12 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 
+	// Limit upload size to 5MB
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 5<<20)
+
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请选择文件"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "文件上传失败"})
 		return
 	}
 	defer file.Close()
@@ -471,6 +474,11 @@ func (h *AuthHandler) GrantInviteQuota(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "grant_invite", "user", &req.TargetUserID,
 		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
 
+	// Log for target user
+	targetID := uint64(req.TargetUserID)
+	middleware.LogOperation(h.db, targetID, "invite_granted", "user", &targetID,
+		map[string]interface{}{"by_user": userID, "amount": req.Amount}, c.ClientIP())
+
 	go func() {
 		svc := service.NewMessageService(h.db)
 		svc.SendSystemNotification(req.TargetUserID, "邀请额度变更",
@@ -500,6 +508,11 @@ func (h *AuthHandler) RevokeInviteQuota(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "revoke_invite", "user", &req.TargetUserID,
 		map[string]interface{}{"amount": req.Amount}, c.ClientIP())
+
+	// Log for target user
+	targetID := uint64(req.TargetUserID)
+	middleware.LogOperation(h.db, targetID, "invite_revoked", "user", &targetID,
+		map[string]interface{}{"by_user": userID, "amount": req.Amount}, c.ClientIP())
 
 	go func() {
 		svc := service.NewMessageService(h.db)

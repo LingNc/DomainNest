@@ -204,6 +204,16 @@
               <el-button type="primary" @click="handleSaveSecurity">{{ $t('admin.saveConfig') }}</el-button>
             </el-form-item>
           </el-form>
+          <el-form :model="uploadsForm" label-width="160px" style="max-width:560px;margin-top:32px">
+            <el-divider content-position="left">{{ $t('admin.uploadConfig') }}</el-divider>
+            <el-form-item :label="$t('admin.maxAvatarSize')">
+              <el-input-number v-model="uploadsForm.max_avatar_size_mb" :min="1" :max="20" />
+              <span style="margin-left:8px;color:#909399;font-size:13px">{{ $t('admin.mb') }}</span>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleSaveUploads">{{ $t('admin.saveConfig') }}</el-button>
+            </el-form-item>
+          </el-form>
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -327,6 +337,7 @@ const testingSMTP = ref(false)
 const testEmail = ref('')
 
 const securityForm = reactive({ reset_token_expiry_minutes: 5, min_password_length: 6 })
+const uploadsForm = reactive({ max_avatar_size_mb: 2 })
 
 const logFilters = reactive({ user_id: '', action: [], target_type: [], q: '', q_exclude: '', dateRange: null })
 const actionExcludeMode = ref(false)
@@ -408,6 +419,10 @@ const ACTION_I18N_KEYS = {
   demote_from_admin: 'admin.actionDemoteFromAdmin',
   grant_invite: 'admin.actionGrantInvite',
   revoke_invite: 'admin.actionRevokeInvite',
+  permission_granted: 'admin.actionPermissionGranted',
+  permission_revoked: 'admin.actionPermissionRevoked',
+  invite_granted: 'admin.actionInviteGranted',
+  invite_revoked: 'admin.actionInviteRevoked',
   admin_grant: 'admin.actionAdminGrant',
   send_friend_request: 'admin.actionSendFriendRequest',
   accept_friend: 'admin.actionAcceptFriend',
@@ -468,6 +483,7 @@ const loadData = async () => {
   }
   loadSMTP()
   loadSecurity()
+  loadUploads()
   loadAdminProviders()
 }
 
@@ -571,6 +587,20 @@ const loadSecurity = async () => {
 const handleSaveSecurity = async () => {
   await updateSettings('security', { ...securityForm })
   ElMessage.success(t('admin.securityConfigSaved'))
+}
+
+const loadUploads = async () => {
+  try {
+    const res = await getSettings('uploads')
+    if (res.data) {
+      Object.assign(uploadsForm, res.data)
+    }
+  } catch { /* no settings yet */ }
+}
+
+const handleSaveUploads = async () => {
+  await updateSettings('uploads', { ...uploadsForm })
+  ElMessage.success(t('admin.uploadConfigSaved'))
 }
 
 const handleCreateRoot = async () => {
