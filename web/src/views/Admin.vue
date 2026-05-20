@@ -263,10 +263,7 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('admin.inviteLimit')">
-          <el-input-number v-model="editForm.invite_limit" :min="0" :max="9999" />
-          <div v-if="editInviteWarning" style="color:#e6a23c;font-size:12px;margin-top:4px">
-            {{ editInviteWarning }}
-          </div>
+          <el-input :model-value="editForm.invite_limit" disabled />
         </el-form-item>
         <el-form-item :label="$t('admin.nickname')">
           <el-input v-model="editForm.nickname" />
@@ -466,7 +463,6 @@ const logPage = ref(1)
 const logPageSize = ref(20)
 const logTotal = ref(0)
 
-const editInviteWarning = ref('')
 
 const loadData = async () => {
   loading.value = true
@@ -639,30 +635,13 @@ const openEditUser = (row) => {
   editForm.username = row.username || ''
   editForm.role = row.role
   editForm.status = row.status
-  editForm.invite_limit = row.invite_limit || 5
+  editForm.invite_limit = row.invite_limit ?? 5
   editForm.nickname = row.nickname || ''
   editForm.email = row.email || ''
   editForm.phone = row.phone || ''
-  editInviteWarning.value = ''
   showEditUser.value = true
 }
 
-const checkInviteWarning = () => {
-  const target = editTarget.value
-  if (!target) return
-  const currentAdmin = users.value.find(u => u.id === auth.user?.id)
-  if (currentAdmin && !currentAdmin.is_super_admin) {
-    const additional = editForm.invite_limit - (target.invite_limit || 0)
-    if (additional > 0) {
-      const available = (currentAdmin.invite_limit || 0) - (currentAdmin.invite_count || 0)
-      if (additional > available) {
-        editInviteWarning.value = t('admin.inviteQuotaInsufficient', { available, additional })
-        return
-      }
-    }
-  }
-  editInviteWarning.value = ''
-}
 
 const handleEditUser = async () => {
   const target = editTarget.value
@@ -733,7 +712,6 @@ const handleTestSMTP = async () => {
   }
 }
 
-watch(() => editForm.invite_limit, checkInviteWarning)
 
 onMounted(loadData)
 </script>
