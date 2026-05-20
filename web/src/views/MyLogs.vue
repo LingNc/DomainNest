@@ -7,6 +7,7 @@
     <el-card>
       <div class="filter-bar">
         <el-input v-model="filters.q" :placeholder="$t('myLogs.searchPlaceholder')" clearable size="small" style="width:160px" />
+        <el-input v-model="filters.q_exclude" :placeholder="$t('myLogs.excludePlaceholder')" clearable size="small" style="width:140px" />
         <div class="filter-group">
           <el-select v-model="filters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px" @change="loadLogs">
             <el-option-group v-for="group in actionGroups" :key="group.label" :label="group.label">
@@ -98,7 +99,7 @@ const formatDetailValue = (val) => {
   return String(val)
 }
 
-const filters = reactive({ action: [], target_type: [], q: '', dateRange: null })
+const filters = reactive({ action: [], target_type: [], q: '', q_exclude: '', dateRange: null })
 const actionExcludeMode = ref(false)
 const targetTypeExcludeMode = ref(false)
 
@@ -121,6 +122,7 @@ const loadLogs = async () => {
       }
     }
     if (filters.q) params.q = filters.q
+    if (filters.q_exclude) params.q_exclude = filters.q_exclude
     if (filters.dateRange && filters.dateRange.length === 2) {
       params.start_time = filters.dateRange[0]
       params.end_time = filters.dateRange[1]
@@ -137,6 +139,7 @@ const resetFilters = () => {
   filters.action = []
   filters.target_type = []
   filters.q = ''
+  filters.q_exclude = ''
   filters.dateRange = null
   actionExcludeMode.value = false
   targetTypeExcludeMode.value = false

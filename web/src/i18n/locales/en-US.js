@@ -84,6 +84,7 @@ export default {
     title: 'My Logs',
     subtitle: 'View your operation records',
     searchPlaceholder: 'Search by keyword',
+    excludePlaceholder: 'Exclude keyword',
     actionPlaceholder: 'Action type',
     targetTypePlaceholder: 'Target type',
     dateRangeSeparator: 'to',

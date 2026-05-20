@@ -84,6 +84,7 @@ export default {
     title: '我的日志',
     subtitle: '查看您的操作记录',
     searchPlaceholder: '关键词搜索',
+    excludePlaceholder: '排除关键词',
     actionPlaceholder: '操作类型',
     targetTypePlaceholder: '目标类型',
     dateRangeSeparator: '至',

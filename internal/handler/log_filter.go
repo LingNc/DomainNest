@@ -28,6 +28,10 @@ func applyLogFilters(query *gorm.DB, c *gin.Context) *gorm.DB {
 		like := "%" + q + "%"
 		query = query.Where("(action LIKE ? OR detail LIKE ?)", like, like)
 	}
+	if qExclude := c.Query("q_exclude"); qExclude != "" {
+		notLike := "%" + qExclude + "%"
+		query = query.Where("action NOT LIKE ? AND detail NOT LIKE ?", notLike, notLike)
+	}
 	if startTime := c.Query("start_time"); startTime != "" {
 		query = query.Where("created_at >= ?", startTime)
 	}

@@ -92,6 +92,7 @@
               </el-option>
             </el-select>
             <el-input v-model="logFilters.q" :placeholder="$t('myLogs.searchPlaceholder')" clearable size="small" style="width:160px" />
+            <el-input v-model="logFilters.q_exclude" :placeholder="$t('myLogs.excludePlaceholder')" clearable size="small" style="width:140px" />
             <div class="filter-group">
               <el-select v-model="logFilters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
                 <el-option-group v-for="group in actionGroupsI18n" :key="group.label" :label="group.label">
@@ -308,7 +309,7 @@ const smtpForm = reactive({ host: '', port: 587, username: '', password: '', fro
 const testingSMTP = ref(false)
 const testEmail = ref('')
 
-const logFilters = reactive({ user_id: '', action: [], target_type: [], q: '', dateRange: null })
+const logFilters = reactive({ user_id: '', action: [], target_type: [], q: '', q_exclude: '', dateRange: null })
 const actionExcludeMode = ref(false)
 const targetTypeExcludeMode = ref(false)
 
@@ -490,6 +491,7 @@ const loadLogs = async () => {
     }
   }
   if (logFilters.q) params.q = logFilters.q
+  if (logFilters.q_exclude) params.q_exclude = logFilters.q_exclude
   if (logFilters.dateRange && logFilters.dateRange.length === 2) {
     params.start_time = logFilters.dateRange[0]
     params.end_time = logFilters.dateRange[1]
@@ -504,6 +506,7 @@ const resetLogFilters = () => {
   logFilters.action = []
   logFilters.target_type = []
   logFilters.q = ''
+  logFilters.q_exclude = ''
   logFilters.dateRange = null
   actionExcludeMode.value = false
   targetTypeExcludeMode.value = false
