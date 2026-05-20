@@ -19,3 +19,12 @@ jwt:
 admin:
   username: admin
   password: "admin123"
+
+# 可选，用于密码找回邮件
+# smtp:
+#   host: smtp.example.com
+#   port: 587
+#   username: ""
+#   password: ""
+#   from: noreply@example.com
+#   from_name: DomainNest

@@ -8,8 +8,8 @@
 - 用户管理：个人信息编辑、密码修改、头像上传、DDNS Token 重置
 - 密码找回：通过注册邮箱发送重置链接
 - 域名树管理：创建子域名、转让、删除，无限级细分
-- DNS 记录管理：A/AAAA/CNAME/TXT/MX/SRV/ALIAS，通过用户自定义提供商实时同步
-- DNS 提供商管理：用户添加自己的阿里云 AK/SK，验证后认领域名并管理
+- DNS 记录管理：A/AAAA/CNAME/TXT/MX/SRV/CAA/NS/ALIAS，通过用户自定义提供商实时同步
+- DNS 提供商管理：支持 27+ 提供商（阿里云、腾讯云、华为云、Cloudflare、GoDaddy、Namecheap、Vercel 等），用户添加 AK/SK 后认领域名并管理
 - DDNS 双端点：支持 ddns-go 的 Callback 和 Webhook 两种模式
 - 权限系统：域名读/写/管理员权限授予与回收
 - 好友系统：搜索用户、发送/接受好友请求、好友列表管理
@@ -77,7 +77,7 @@ database:
   dbname: domainnest
 
 jwt:
-  secret: "换成随机字符串"       # openssl rand -hex 32
+  secret: "change-me-to-a-random-secret"  # openssl rand -hex 32
   expire_hours: 24
 
 admin:
@@ -139,8 +139,9 @@ web/                     Vue 3 前端
 
 ## 技术栈
 
-- **后端：** Go + Gin + GORM + MySQL 8.0+
-- **前端：** Vue 3 + Element Plus + Pinia + Vue Router + vue-i18n
+- **后端：** Go 1.25+ + Gin + GORM + MySQL 8.0+
+- **前端：** Vue 3 + Element Plus + Pinia + Vue Router + vue-i18n + Axios
+- **构建：** Vite（前端）、go:embed（前端嵌入二进制）
 - **部署：** 单二进制（前端嵌入），支持 Docker
 
 ## 许可证
