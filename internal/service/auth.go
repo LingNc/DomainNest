@@ -461,19 +461,67 @@ func (s *AuthService) DeleteAccount(userID uint64) error {
 			Amount:    unusedQuota + 1,
 		})
 	} else {
-		// No transfer target — zero out domain ownership
-		if err := tx.Model(&model.DomainNode{}).Where("owner_id = ?", userID).
-			Update("owner_id", 0).Error; err != nil {
-			tx.Rollback()
-			return err
+		// No inviter — find a SuperAdmin to transfer to
+		var superAdmin model.User
+		if err := tx.Where("is_super_admin = ? AND id != ? AND status = 1", true, userID).First(&superAdmin).Error; err == nil {
+			targetID := superAdmin.ID
+			// Transfer owned domains
+			if err := tx.Model(&model.DomainNode{}).Where("owner_id = ?", userID).
+				Update("owner_id", targetID).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+			// Delete permissions where user is grantee
+			if err := tx.Where("user_id = ?", userID).Delete(&model.DomainPermission{}).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+			// Transfer permissions where user is grantor
+			if err := tx.Model(&model.DomainPermission{}).Where("created_by = ?", userID).
+				Update("created_by", targetID).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+			// Re-read user inside transaction for consistent snapshot
+			if err := tx.First(&user, userID).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+			// Reclaim unused quota
+			unusedQuota := user.InviteLimit - user.InviteCount
+			if unusedQuota > 0 {
+				if err := tx.Model(&model.User{}).Where("id = ?", targetID).
+					UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", unusedQuota)).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+			// Free the registration slot
+			if err := tx.Model(&model.User{}).Where("id = ?", targetID).
+				UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+			// Log the reclaim
+			tx.Create(&model.InviteLog{
+				InviterID: targetID,
+				InviteeID: userID,
+				Action:    "revoke",
+				Amount:    unusedQuota + 1,
+			})
+		} else {
+			// No SuperAdmin found — fallback: zero out
+			if err := tx.Model(&model.DomainNode{}).Where("owner_id = ?", userID).
+				Update("owner_id", 0).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+			if err := tx.Where("user_id = ?", userID).Delete(&model.DomainPermission{}).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+			tx.Model(&user).UpdateColumn("invite_limit", 0)
 		}
-		// Delete permissions where user is grantee
-		if err := tx.Where("user_id = ?", userID).Delete(&model.DomainPermission{}).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-		// Zero out invite quota
-		tx.Model(&user).UpdateColumn("invite_limit", 0)
 	}
 
 	// Clean up user's RAM tokens
