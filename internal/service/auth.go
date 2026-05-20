@@ -432,6 +432,11 @@ func (s *AuthService) DeleteAccount(userID uint64) error {
 			return err
 		}
 
+		// Re-read user inside transaction for consistent quota snapshot
+		if err := tx.First(&user, userID).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
 		// 4. Reclaim unused invite quota to target
 		unusedQuota := user.InviteLimit - user.InviteCount
 		if unusedQuota > 0 {
@@ -448,12 +453,12 @@ func (s *AuthService) DeleteAccount(userID uint64) error {
 			return err
 		}
 
-		// 5. Create InviteLog for the reclaim
+		// 5. Create InviteLog for the reclaim (unused quota + registration slot)
 		tx.Create(&model.InviteLog{
 			InviterID: targetID,
 			InviteeID: userID,
 			Action:    "revoke",
-			Amount:    unusedQuota,
+			Amount:    unusedQuota + 1,
 		})
 	} else {
 		// No transfer target — zero out domain ownership

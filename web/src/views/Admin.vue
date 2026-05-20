@@ -551,6 +551,8 @@ const loadData = async () => {
     users.value = usersRes.data
     allDomains.value = domainsRes.data
     await loadLogs()
+  } catch {
+    // silently ignore — shows empty state
   } finally {
     loading.value = false
   }

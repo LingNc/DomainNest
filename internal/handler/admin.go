@@ -391,6 +391,14 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 				return
 			}
 		}
+
+		// Log the reclaim
+		tx.Create(&model.InviteLog{
+			InviterID: *user.InvitedBy,
+			InviteeID: userID,
+			Action:    "revoke",
+			Amount:    unusedQuota + 1,
+		})
 	} else {
 		// No inviter — just zero out the orphaned quota
 		if err := tx.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("invite_limit", 0).Error; err != nil {
