@@ -195,7 +195,7 @@
     </el-card>
 
     <!-- 分配域名对话框 -->
-    <el-dialog v-model="showAssign" :title="$t('admin.assignDomain')" width="420px">
+    <el-dialog v-model="showAssign" :title="$t('admin.assignDomain')" width="420px" destroy-on-close>
       <p class="assign-info">
         {{ $t('admin.assignTo', { domain: assignTarget?.full_domain }) }}
       </p>
@@ -221,7 +221,7 @@
     </el-dialog>
 
     <!-- 编辑用户对话框 -->
-    <el-dialog v-model="showEditUser" :title="$t('admin.editUser')" width="480px">
+    <el-dialog v-model="showEditUser" :title="$t('admin.editUser')" width="480px" destroy-on-close>
       <el-form :model="editForm" label-width="80px">
         <el-form-item :label="$t('common.username')">
           <el-input v-model="editForm.username" />
@@ -261,7 +261,7 @@
     </el-dialog>
 
     <!-- 重置密码对话框 -->
-    <el-dialog v-model="showResetPwd" :title="$t('admin.resetPasswordTitle')" width="400px">
+    <el-dialog v-model="showResetPwd" :title="$t('admin.resetPasswordTitle')" width="400px" destroy-on-close>
       <p style="margin-bottom:12px">{{ $t('admin.setNewPassword', { username: resetPwdTarget?.username }) }}</p>
       <el-input v-model="newPassword" type="password" :placeholder="$t('admin.newPasswordPlaceholder')" show-password />
       <template #footer>
@@ -709,7 +709,7 @@ onMounted(loadData)
 }
 .filter-actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   flex-shrink: 0;
 }
 

@@ -68,7 +68,7 @@
       <!-- Conversations Tab (private messages) -->
       <el-tab-pane :label="$t('messages.privateMessages')" name="conversations">
         <!-- New Message Dialog -->
-        <el-dialog v-model="newMsgVisible" :title="$t('messages.newMessage')" width="480px">
+        <el-dialog v-model="newMsgVisible" :title="$t('messages.newMessage')" width="480px" destroy-on-close>
           <el-form @submit.prevent="handleSearchUser">
             <el-form-item :label="$t('messages.sendTo')">
               <el-input v-model="searchKeyword" :placeholder="$t('messages.searchFriendPlaceholder')" clearable @input="handleSearchDebounced">

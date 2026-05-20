@@ -191,7 +191,7 @@
     </el-row>
 
     <!-- grant permission dialog -->
-    <el-dialog v-model="showGrantPerm" :title="$t('domainDetail.grantUser')" width="520px">
+    <el-dialog v-model="showGrantPerm" :title="$t('domainDetail.grantUser')" width="520px" destroy-on-close>
       <el-form :model="grantForm" label-width="100px">
         <el-form-item :label="$t('domainDetail.user')">
           <el-select v-model="grantForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
@@ -237,7 +237,7 @@
     </el-dialog>
 
     <!-- add record -->
-    <el-dialog v-model="showAddRecord" :title="$t('domainDetail.addDnsRecord')" width="520px">
+    <el-dialog v-model="showAddRecord" :title="$t('domainDetail.addDnsRecord')" width="520px" destroy-on-close>
       <el-form :model="recordForm" label-width="80px">
         <el-form-item :label="$t('domainDetail.host')">
           <el-input v-model="recordForm.host" :placeholder="$t('domainDetail.atRootHint')" />
@@ -304,7 +304,7 @@
     </el-dialog>
 
     <!-- edit record -->
-    <el-dialog v-model="showEditRecord" :title="$t('domainDetail.editDnsRecord')" width="480px">
+    <el-dialog v-model="showEditRecord" :title="$t('domainDetail.editDnsRecord')" width="480px" destroy-on-close>
       <el-form :model="editForm" label-width="80px">
         <el-form-item :label="$t('domainDetail.host')">
           <el-input v-model="editForm.host" disabled />
@@ -337,7 +337,7 @@
     </el-dialog>
 
     <!-- import records -->
-    <el-dialog v-model="showImport" :title="$t('domainDetail.importDnsRecord')" width="480px">
+    <el-dialog v-model="showImport" :title="$t('domainDetail.importDnsRecord')" width="480px" destroy-on-close>
       <el-tabs v-model="importTab">
         <el-tab-pane :label="$t('domainDetail.importJson')" name="json">
           <el-input v-model="importJson" type="textarea" :rows="10" placeholder='[{"host":"@","record_type":"A","value":"1.2.3.4","ttl":600}]' />
@@ -364,7 +364,7 @@
     </el-dialog>
 
     <!-- create subdomain -->
-    <el-dialog v-model="showCreateChild" :title="$t('domainDetail.createSubdomain')" width="400px">
+    <el-dialog v-model="showCreateChild" :title="$t('domainDetail.createSubdomain')" width="400px" destroy-on-close>
       <el-form :model="childForm" label-width="80px">
         <el-form-item :label="$t('domainDetail.subdomain')">
           <el-input v-model="childForm.host" :placeholder="$t('domainDetail.subdomainPlaceholder')" />
@@ -377,7 +377,7 @@
     </el-dialog>
 
     <!-- transfer domain -->
-    <el-dialog v-model="showTransfer" :title="$t('domainDetail.transferDomain')" width="400px">
+    <el-dialog v-model="showTransfer" :title="$t('domainDetail.transferDomain')" width="400px" destroy-on-close>
       <el-alert type="warning" :closable="false" style="margin-bottom:16px">
         {{ $t('domainDetail.transferWarning') }}
       </el-alert>
@@ -402,7 +402,7 @@
     </el-dialog>
 
     <!-- revoke permission - record handling -->
-    <el-dialog v-model="showReturnDialog" :title="$t('domainDetail.returnDialogTitle')" width="480px">
+    <el-dialog v-model="showReturnDialog" :title="$t('domainDetail.returnDialogTitle')" width="480px" destroy-on-close>
       <el-alert type="warning" :closable="false" style="margin-bottom:16px">
         {{ $t('domainDetail.returnWarning') }}
       </el-alert>

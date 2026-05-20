@@ -62,7 +62,7 @@
     </el-card>
 
     <!-- 创建 Token -->
-    <el-dialog v-model="showCreate" :title="$t('ramTokens.createTitle')" width="520px">
+    <el-dialog v-model="showCreate" :title="$t('ramTokens.createTitle')" width="520px" destroy-on-close>
       <el-form :model="form" label-width="80px">
         <el-form-item :label="$t('ramTokens.name')">
           <el-input v-model="form.name" :placeholder="$t('ramTokens.namePlaceholder')" />
@@ -87,7 +87,7 @@
     </el-dialog>
 
     <!-- 编辑 Token -->
-    <el-dialog v-model="showEdit" :title="$t('ramTokens.editTitle')" width="520px">
+    <el-dialog v-model="showEdit" :title="$t('ramTokens.editTitle')" width="520px" destroy-on-close>
       <el-form :model="editForm" label-width="80px">
         <el-form-item :label="$t('ramTokens.name')">
           <el-input v-model="editForm.name" />

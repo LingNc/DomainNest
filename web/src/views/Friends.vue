@@ -6,7 +6,7 @@
     </div>
 
     <!-- Add Friend Dialog -->
-    <el-dialog v-model="addDialogVisible" :title="$t('friends.addFriend')" width="480px">
+    <el-dialog v-model="addDialogVisible" :title="$t('friends.addFriend')" width="480px" destroy-on-close>
       <el-form @submit.prevent="handleSearch">
         <el-form-item>
           <el-input v-model="searchKeyword" :placeholder="$t('friends.searchPlaceholder')" clearable @input="handleSearchDebounced">

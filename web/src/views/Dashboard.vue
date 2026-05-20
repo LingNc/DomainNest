@@ -41,7 +41,7 @@
       </el-tree>
     </el-card>
 
-    <el-dialog v-model="showCreateRoot" :title="$t('dashboard.createRootDomain')" width="400px">
+    <el-dialog v-model="showCreateRoot" :title="$t('dashboard.createRootDomain')" width="400px" destroy-on-close>
       <el-form :model="rootForm">
         <el-form-item :label="$t('dashboard.host')">
           <el-input v-model="rootForm.host" :placeholder="$t('dashboard.hostPlaceholder')" />
