@@ -17,7 +17,7 @@
     <div class="chat-messages" ref="messagesContainer">
       <div class="chat-scroll" ref="scrollContent">
         <div v-if="hasMore" class="load-more">
-          <el-button text size="small" @click="loadMore" :loading="loadingMore">加载更多</el-button>
+          <el-button text size="small" @click="loadMore" :loading="loadingMore">{{ $t('chat.loadMore') }}</el-button>
         </div>
         <div
           v-for="msg in messages"
@@ -39,14 +39,14 @@
             style="visibility:hidden"
           />
         </div>
-        <el-empty v-if="!loading && messages.length === 0" description="暂无消息，发送第一条吧" />
+        <el-empty v-if="!loading && messages.length === 0" :description="$t('chat.emptyMessage')" />
       </div>
     </div>
 
     <div class="chat-input">
       <el-input
         v-model="newMessage"
-        placeholder="输入消息..."
+        :placeholder="$t('chat.inputPlaceholder')"
         :rows="1"
         resize="none"
         type="textarea"
@@ -54,7 +54,7 @@
         :autosize="{ minRows: 1, maxRows: 4 }"
       />
       <el-button type="primary" @click="handleSend" :disabled="!newMessage.trim()" :loading="sending">
-        发送
+        {{ $t('chat.send') }}
       </el-button>
     </div>
   </div>
@@ -63,9 +63,12 @@
 <script setup>
 import { ref, reactive, onMounted, nextTick, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getMessages, sendMessage, markAsRead } from '../api/message'
 import { useAuthStore } from '../stores/auth'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const auth = useAuthStore()

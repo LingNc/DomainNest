@@ -123,13 +123,13 @@ const providerTypeOptions = computed(() =>
 )
 
 const providerTypes = [
-  { value: 'aliyun', label: '阿里云 DNS' },
-  { value: 'aliesa', label: '阿里云 ESA' },
-  { value: 'tencentcloud', label: '腾讯云 DNSPod' },
+  { value: 'aliyun', label: 'Alibaba Cloud DNS' },
+  { value: 'aliesa', label: 'Alibaba Cloud ESA' },
+  { value: 'tencentcloud', label: 'Tencent Cloud DNSPod' },
   { value: 'cloudflare', label: 'Cloudflare' },
-  { value: 'huaweicloud', label: '华为云 DNS' },
-  { value: 'baiducloud', label: '百度云 DNS' },
-  { value: 'trafficroute', label: '火山引擎 DNS' },
+  { value: 'huaweicloud', label: 'Huawei Cloud DNS' },
+  { value: 'baiducloud', label: 'Baidu Cloud DNS' },
+  { value: 'trafficroute', label: 'Volcengine DNS' },
   { value: 'godaddy', label: 'GoDaddy' },
   { value: 'namecheap', label: 'Namecheap' },
   { value: 'namesilo', label: 'NameSilo' },
@@ -144,7 +144,7 @@ const providerTypes = [
   { value: 'dynv6', label: 'dynv6' },
   { value: 'spaceship', label: 'Spaceship' },
   { value: 'edgeone', label: 'EdgeOne' },
-  { value: 'rainyun', label: '雨云' },
+  { value: 'rainyun', label: 'Rain Yun' },
   { value: 'hipmdnsmgr', label: 'HiPM DNS' },
   { value: 'nowcn', label: 'Nowcn' },
   { value: 'eranet', label: 'Eranet' },
@@ -171,26 +171,26 @@ const credentialLabels = {
   aliyun: { id: 'AccessKey ID', secret: 'AccessKey Secret' },
   aliesa: { id: 'AccessKey ID', secret: 'AccessKey Secret' },
   tencentcloud: { id: 'SecretId', secret: 'SecretKey' },
-  cloudflare: { id: 'API Token', secret: '(留空)' },
+  cloudflare: { id: 'API Token', secret: '__OPTIONAL__' },
   huaweicloud: { id: 'Access Key', secret: 'Secret Key' },
   baiducloud: { id: 'Access Key', secret: 'Secret Key' },
   trafficroute: { id: 'Access Key', secret: 'Secret Key' },
   godaddy: { id: 'API Key', secret: 'API Secret' },
   namecheap: { id: 'API User', secret: 'API Key' },
-  namesilo: { id: 'API Key', secret: '(留空)' },
+  namesilo: { id: 'API Key', secret: '__OPTIONAL__' },
   porkbun: { id: 'API Key', secret: 'Secret API Key' },
-  vercel: { id: 'API Token', secret: '(留空)' },
-  gcore: { id: 'API Key', secret: '(留空)' },
-  nsone: { id: 'API Key', secret: '(留空)' },
+  vercel: { id: 'API Token', secret: '__OPTIONAL__' },
+  gcore: { id: 'API Key', secret: '__OPTIONAL__' },
+  nsone: { id: 'API Key', secret: '__OPTIONAL__' },
   name_com: { id: '___USERNAME___', secret: 'API Token' },
   cloudns: { id: 'Auth ID', secret: 'Auth Password' },
   dnsla: { id: '___USERNAME___', secret: '___PASSWORD___' },
-  dynadot: { id: 'API Key', secret: '(留空)' },
-  dynv6: { id: 'API Token', secret: '(留空)' },
+  dynadot: { id: 'API Key', secret: '__OPTIONAL__' },
+  dynv6: { id: 'API Token', secret: '__OPTIONAL__' },
   spaceship: { id: 'API Key', secret: 'API Secret' },
   edgeone: { id: 'SecretId', secret: 'SecretKey' },
-  rainyun: { id: 'API Key', secret: '(留空)' },
-  hipmdnsmgr: { id: 'API Token', secret: '(留空)' },
+  rainyun: { id: 'API Key', secret: '__OPTIONAL__' },
+  hipmdnsmgr: { id: 'API Token', secret: '__OPTIONAL__' },
   nowcn: { id: 'API Key', secret: 'API Secret' },
   eranet: { id: 'API Key', secret: 'API Secret' },
   tnethk: { id: 'API Key', secret: 'API Secret' },
@@ -217,7 +217,7 @@ const credentialLabel = computed(() => ({
 }))
 const credentialPlaceholder = computed(() => ({
   id: t('providers.input', { label: credentialLabel.value.id }),
-  secret: credentialLabels[addForm.provider_type]?.secret === '(留空)' ? t('providers.notRequired') : t('providers.input', { label: credentialLabel.value.secret }),
+  secret: credentialLabels[addForm.provider_type]?.secret === '__OPTIONAL__' ? t('providers.notRequired') : t('providers.input', { label: credentialLabel.value.secret }),
 }))
 const endpointPlaceholder = computed(() => {
   const host = endpointDefaults[addForm.provider_type]
@@ -246,7 +246,7 @@ const openAddDialog = () => {
 }
 
 const handleAdd = async () => {
-  const needsSecret = credentialLabels[addForm.provider_type]?.secret !== '(留空)'
+  const needsSecret = credentialLabels[addForm.provider_type]?.secret !== '__OPTIONAL__'
   if (!addForm.name || !addForm.access_key_id || (needsSecret && !addForm.access_key_secret)) {
     ElMessage.warning(t('providers.pleaseFillFields'))
     return

@@ -4,109 +4,109 @@
     <div class="page-header">
       <div>
         <h2>API Tokens</h2>
-        <p class="subtitle">管理 RAM Token，用于 DDNS 回调和 API 编程访问</p>
+        <p class="subtitle">{{ $t('ramTokens.subtitle') }}</p>
       </div>
       <el-button type="primary" size="small" @click="openCreate">
         <el-icon><component :is="'Plus'" /></el-icon>
-        创建 Token
+        {{ $t('ramTokens.createToken') }}
       </el-button>
     </div>
 
     <el-card>
       <el-table :data="tokens" stripe v-loading="loading" style="width:100%">
-        <el-table-column prop="name" label="名称" min-width="120" />
+        <el-table-column prop="name" :label="$t('ramTokens.name')" min-width="120" />
         <el-table-column label="Token" min-width="220">
           <template #default="{ row }">
             <div class="token-cell">
               <code class="token-masked">{{ maskToken(row.token) }}</code>
-              <el-button link type="primary" size="small" @click="copyToken(row.token)">复制</el-button>
+              <el-button link type="primary" size="small" @click="copyToken(row.token)">{{ $t('common.copy') }}</el-button>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="启用" width="70">
+        <el-table-column :label="$t('ramTokens.enabled')" width="70">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
           </template>
         </el-table-column>
-        <el-table-column label="域名限制" min-width="120">
+        <el-table-column :label="$t('ramTokens.domainRestriction')" min-width="120">
           <template #default="{ row }">
             <span v-if="row.allowed_domains">{{ row.allowed_domains }}</span>
-            <span v-else style="color:#909399">全部</span>
+            <span v-else style="color:#909399">{{ $t('ramTokens.all') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="类型限制" min-width="120">
+        <el-table-column :label="$t('ramTokens.typeRestriction')" min-width="120">
           <template #default="{ row }">
             <span v-if="row.allowed_types">{{ row.allowed_types }}</span>
-            <span v-else style="color:#909399">全部</span>
+            <span v-else style="color:#909399">{{ $t('ramTokens.all') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="IP 限制" min-width="120">
+        <el-table-column :label="$t('ramTokens.ipRestriction')" min-width="120">
           <template #default="{ row }">
             <span v-if="row.allowed_ips">{{ row.allowed_ips }}</span>
-            <span v-else style="color:#909399">不限</span>
+            <span v-else style="color:#909399">{{ $t('ramTokens.unlimited') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="usage_count" label="使用次数" width="90" />
-        <el-table-column prop="last_used_at" label="最后使用" width="170">
+        <el-table-column prop="usage_count" :label="$t('ramTokens.usageCount')" width="90" />
+        <el-table-column prop="last_used_at" :label="$t('ramTokens.lastUsed')" width="170">
           <template #default="{ row }">{{ row.last_used_at || '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column :label="$t('ramTokens.action')" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="warning" size="small" @click="handleReset(row.id)">重置</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
+            <el-button link type="primary" size="small" @click="openEdit(row)">{{ $t('ramTokens.edit') }}</el-button>
+            <el-button link type="warning" size="small" @click="handleReset(row.id)">{{ $t('ramTokens.reset') }}</el-button>
+            <el-button link type="danger" size="small" @click="handleDelete(row.id)">{{ $t('ramTokens.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && tokens.length === 0" description="暂无 API Token" />
+      <el-empty v-if="!loading && tokens.length === 0" :description="$t('ramTokens.noTokens')" />
     </el-card>
 
     <!-- 创建 Token -->
-    <el-dialog v-model="showCreate" title="创建 API Token" width="520px">
+    <el-dialog v-model="showCreate" :title="$t('ramTokens.createTitle')" width="520px">
       <el-form :model="form" label-width="80px">
-        <el-form-item label="名称">
-          <el-input v-model="form.name" placeholder="例如 DDNS-家庭网络" />
+        <el-form-item :label="$t('ramTokens.name')">
+          <el-input v-model="form.name" :placeholder="$t('ramTokens.namePlaceholder')" />
         </el-form-item>
-        <el-form-item label="域名限制">
-          <el-input v-model="form.allowed_domains_text" type="textarea" :rows="2" placeholder="域名节点 ID，每行一个，留空=全部域名" />
+        <el-form-item :label="$t('ramTokens.domainRestriction')">
+          <el-input v-model="form.allowed_domains_text" type="textarea" :rows="2" :placeholder="$t('ramTokens.domainPlaceholder')" />
         </el-form-item>
-        <el-form-item label="类型限制">
+        <el-form-item :label="$t('ramTokens.typeRestriction')">
           <el-checkbox-group v-model="form.allowed_types">
             <el-checkbox v-for="t in recordTypes" :key="t" :label="t">{{ t }}</el-checkbox>
           </el-checkbox-group>
-          <div style="color:#909399;font-size:12px;margin-top:4px">不选 = 允许所有类型</div>
+          <div style="color:#909399;font-size:12px;margin-top:4px">{{ $t('ramTokens.typeHint') }}</div>
         </el-form-item>
-        <el-form-item label="IP 限制">
-          <el-input v-model="form.allowed_ips_text" type="textarea" :rows="2" placeholder="每行一个 CIDR，例如 192.168.1.0/24，留空=不限" />
+        <el-form-item :label="$t('ramTokens.ipRestriction')">
+          <el-input v-model="form.allowed_ips_text" type="textarea" :rows="2" :placeholder="$t('ramTokens.ipPlaceholder')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreate = false">取消</el-button>
-        <el-button type="primary" @click="handleCreate">创建</el-button>
+        <el-button @click="showCreate = false">{{ $t('ramTokens.cancel') }}</el-button>
+        <el-button type="primary" @click="handleCreate">{{ $t('ramTokens.create') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 编辑 Token -->
-    <el-dialog v-model="showEdit" title="编辑 API Token" width="520px">
+    <el-dialog v-model="showEdit" :title="$t('ramTokens.editTitle')" width="520px">
       <el-form :model="editForm" label-width="80px">
-        <el-form-item label="名称">
+        <el-form-item :label="$t('ramTokens.name')">
           <el-input v-model="editForm.name" />
         </el-form-item>
-        <el-form-item label="域名限制">
-          <el-input v-model="editForm.allowed_domains_text" type="textarea" :rows="2" placeholder="域名节点 ID，每行一个，留空=全部域名" />
+        <el-form-item :label="$t('ramTokens.domainRestriction')">
+          <el-input v-model="editForm.allowed_domains_text" type="textarea" :rows="2" :placeholder="$t('ramTokens.domainPlaceholder')" />
         </el-form-item>
-        <el-form-item label="类型限制">
+        <el-form-item :label="$t('ramTokens.typeRestriction')">
           <el-checkbox-group v-model="editForm.allowed_types">
             <el-checkbox v-for="t in recordTypes" :key="t" :label="t">{{ t }}</el-checkbox>
           </el-checkbox-group>
         </el-form-item>
-        <el-form-item label="IP 限制">
-          <el-input v-model="editForm.allowed_ips_text" type="textarea" :rows="2" placeholder="每行一个 CIDR" />
+        <el-form-item :label="$t('ramTokens.ipRestriction')">
+          <el-input v-model="editForm.allowed_ips_text" type="textarea" :rows="2" :placeholder="$t('ramTokens.ipPlaceholder')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEdit = false">取消</el-button>
-        <el-button type="primary" @click="handleUpdate">保存</el-button>
+        <el-button @click="showEdit = false">{{ $t('ramTokens.cancel') }}</el-button>
+        <el-button type="primary" @click="handleUpdate">{{ $t('ramTokens.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -114,8 +114,11 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { listRAMTokens, createRAMToken, updateRAMToken, resetRAMToken, deleteRAMToken } from '../api/ramToken'
 import { ElMessage, ElMessageBox } from 'element-plus'
+
+const { t } = useI18n()
 
 const recordTypes = ['A', 'AAAA', 'CNAME', 'ALIAS', 'MX', 'TXT', 'CAA', 'NS', 'SRV']
 
@@ -128,14 +131,14 @@ const editTargetId = ref(null)
 const form = ref({ name: '', allowed_domains_text: '', allowed_types: [], allowed_ips_text: '' })
 const editForm = ref({ name: '', allowed_domains_text: '', allowed_types: [], allowed_ips_text: '' })
 
-const maskToken = (t) => {
-  if (!t || t.length < 10) return t
-  return t.slice(0, 6) + '****' + t.slice(-4)
+const maskToken = (token) => {
+  if (!token || token.length < 10) return token
+  return token.slice(0, 6) + '****' + token.slice(-4)
 }
 
-const copyToken = (t) => {
-  navigator.clipboard.writeText(t)
-  ElMessage.success('已复制到剪贴板')
+const copyToken = (token) => {
+  navigator.clipboard.writeText(token)
+  ElMessage.success(t('ramTokens.copied'))
 }
 
 const loadTokens = async () => {
@@ -172,7 +175,7 @@ const handleCreate = async () => {
   if (ips.length > 0) data.allowed_ips = ips
 
   await createRAMToken(data)
-  ElMessage.success('Token 创建成功')
+  ElMessage.success(t('ramTokens.createSuccess'))
   showCreate.value = false
   loadTokens()
 }
@@ -197,27 +200,27 @@ const handleUpdate = async () => {
   data.allowed_ips = ips.length > 0 ? ips : []
 
   await updateRAMToken(editTargetId.value, data)
-  ElMessage.success('Token 已更新')
+  ElMessage.success(t('ramTokens.updateSuccess'))
   showEdit.value = false
   loadTokens()
 }
 
 const handleToggle = async (id, enabled) => {
   await updateRAMToken(id, { enabled })
-  ElMessage.success(enabled ? 'Token 已启用' : 'Token 已禁用')
+  ElMessage.success(enabled ? t('ramTokens.enabledSuccess') : t('ramTokens.disabledSuccess'))
 }
 
 const handleReset = async (id) => {
-  await ElMessageBox.confirm('重置后旧 Token 将立即失效，确认继续？', '重置 Token', { type: 'warning' })
+  await ElMessageBox.confirm(t('ramTokens.resetConfirm'), t('ramTokens.resetTitle'), { type: 'warning' })
   await resetRAMToken(id)
-  ElMessage.success('Token 已重置')
+  ElMessage.success(t('ramTokens.resetSuccess'))
   loadTokens()
 }
 
 const handleDelete = async (id) => {
-  await ElMessageBox.confirm('删除后使用此 Token 的所有服务将无法访问，确认删除？', '删除 Token', { type: 'error' })
+  await ElMessageBox.confirm(t('ramTokens.deleteConfirm'), t('ramTokens.deleteTitle'), { type: 'error' })
   await deleteRAMToken(id)
-  ElMessage.success('Token 已删除')
+  ElMessage.success(t('ramTokens.deleteSuccess'))
   loadTokens()
 }
 
