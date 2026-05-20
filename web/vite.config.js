@@ -6,17 +6,19 @@ import path from 'path'
 
 const configPath = path.resolve(__dirname, '../config.yaml')
 let serverPort = 8080
+let frontendPort = 3000
 try {
   const config = yaml.load(fs.readFileSync(configPath, 'utf8'))
   serverPort = config?.server?.port || 8080
+  frontendPort = config?.server?.frontend_port || 3000
 } catch (e) {
-  console.warn('Failed to read config.yaml, using default port 8080')
+  console.warn('Failed to read config.yaml, using default ports')
 }
 
 export default defineConfig({
   plugins: [vue()],
   server: {
-    port: 3000,
+    port: frontendPort,
     proxy: {
       '/api': {
         target: `http://localhost:${serverPort}`,
