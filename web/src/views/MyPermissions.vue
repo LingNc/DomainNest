@@ -80,6 +80,8 @@ const loadData = async () => {
   try {
     const res = await getMyPermissions()
     permissions.value = res.data || []
+  } catch {
+    // silently ignore — shows empty state
   } finally {
     loading.value = false
   }
