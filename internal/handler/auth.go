@@ -432,7 +432,16 @@ func (h *AuthHandler) MyLogs(c *gin.Context) {
 		pageSize = 20
 	}
 
-	query := h.db.Model(&model.OperationLog{}).Where("user_id = ?", userID)
+	query := h.db.Model(&model.OperationLog{})
+	view := c.DefaultQuery("view", "all")
+	switch view {
+	case "actor":
+		query = query.Where("operation_logs.user_id = ?", userID)
+	case "target":
+		query = query.Where("operation_logs.target_user_id = ?", userID)
+	default:
+		query = query.Where("operation_logs.user_id = ? OR operation_logs.target_user_id = ?", userID, userID)
+	}
 
 	query = applyLogFilters(query, c)
 
@@ -440,7 +449,8 @@ func (h *AuthHandler) MyLogs(c *gin.Context) {
 	query.Count(&total)
 
 	var logs []model.OperationLog
-	query.Order("created_at DESC").
+	query.Preload("User").Preload("TargetUser").
+		Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&logs)

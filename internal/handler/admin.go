@@ -157,7 +157,7 @@ func (h *AdminHandler) ListLogs(c *gin.Context) {
 	query.Count(&total)
 
 	var logs []model.OperationLog
-	query.Preload("User").Order("created_at DESC").
+	query.Preload("User").Preload("TargetUser").Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&logs)

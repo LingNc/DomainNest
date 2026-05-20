@@ -38,5 +38,8 @@ func applyLogFilters(query *gorm.DB, c *gin.Context) *gorm.DB {
 	if endTime := c.Query("end_time"); endTime != "" {
 		query = query.Where("created_at <= ?", endTime)
 	}
+	if targetUserID := c.Query("target_user_id"); targetUserID != "" {
+		query = query.Where("target_user_id = ?", targetUserID)
+	}
 	return query
 }
