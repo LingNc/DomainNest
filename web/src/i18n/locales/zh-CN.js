@@ -481,6 +481,7 @@ export default {
     selectProvider: '选择提供商',
     selectDomain: '选择域名',
     createRootDomain: '创建根域名',
+    rootDomainCreated: '根域名创建成功',
     fullDomain: '完整域名',
     currentOwner: '当前所有者',
     assignDomain: '分配域名',

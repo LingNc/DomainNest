@@ -172,6 +172,9 @@ body {
   justify-content: center;
   align-items: center;
 }
+.el-overlay .el-dialog {
+  margin: auto;
+}
 
 @media (max-width: 768px) {
   .el-dialog {

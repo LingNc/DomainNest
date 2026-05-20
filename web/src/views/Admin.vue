@@ -117,8 +117,10 @@
               </el-tooltip>
             </div>
             <el-date-picker v-model="logFilters.dateRange" type="daterange" :range-separator="$t('myLogs.dateRangeSeparator')" :start-placeholder="$t('myLogs.startDatePlaceholder')" :end-placeholder="$t('myLogs.endDatePlaceholder')" size="small" style="width:220px" value-format="YYYY-MM-DD" />
-            <el-button size="small" type="primary" @click="loadLogs">{{ $t('common.search') }}</el-button>
-            <el-button size="small" @click="resetLogFilters">{{ $t('common.reset') }}</el-button>
+            <div class="filter-actions">
+              <el-button size="small" type="primary" @click="loadLogs">{{ $t('common.search') }}</el-button>
+              <el-button size="small" @click="resetLogFilters">{{ $t('common.reset') }}</el-button>
+            </div>
           </div>
           <el-table :data="logs" stripe v-loading="loading" style="width:100%">
             <el-table-column prop="id" :label="$t('admin.id')" width="60" />
@@ -545,10 +547,12 @@ const handleCreateRoot = async () => {
     ElMessage.warning(t('admin.selectProviderAndDomain'))
     return
   }
-  await createRootDomain({ provider_id: selectedProviderId.value, domain_name: selectedDomain.value })
-  ElMessage.success(t('admin.rootDomainCreated'))
-  selectedDomain.value = ''
-  loadData()
+  try {
+    await createRootDomain({ provider_id: selectedProviderId.value, domain_name: selectedDomain.value })
+    ElMessage.success(t('admin.rootDomainCreated'))
+    selectedDomain.value = ''
+    loadData()
+  } catch { /* error shown by interceptor */ }
 }
 
 const openAssign = (row) => {
@@ -699,6 +703,11 @@ onMounted(loadData)
   margin-bottom: 12px;
   flex-wrap: wrap;
   align-items: center;
+}
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .filter-group {
   display: flex;

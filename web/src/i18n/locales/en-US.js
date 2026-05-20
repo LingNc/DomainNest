@@ -481,6 +481,7 @@ export default {
     selectProvider: 'Select Provider',
     selectDomain: 'Select Domain',
     createRootDomain: 'Create Root Domain',
+    rootDomainCreated: 'Root domain created successfully',
     fullDomain: 'Full Domain',
     currentOwner: 'Current Owner',
     assignDomain: 'Assign Domain',
