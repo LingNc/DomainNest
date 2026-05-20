@@ -449,8 +449,11 @@ func (h *AuthHandler) MyLogs(c *gin.Context) {
 	query.Count(&total)
 
 	var logs []model.OperationLog
-	query.Preload("User").Preload("TargetUser").
-		Order("created_at DESC").
+	query.Preload("User", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id", "username", "nickname")
+	}).Preload("TargetUser", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id", "username", "nickname")
+	}).Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&logs)
@@ -551,7 +554,11 @@ func (h *AuthHandler) GetInviteLogs(c *gin.Context) {
 
 	var logs []model.InviteLog
 	h.db.Where("inviter_id = ? OR invitee_id = ?", userID, userID).
-		Preload("Inviter").Preload("Invitee").
+		Preload("Inviter", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "username", "nickname")
+		}).Preload("Invitee", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "username", "nickname")
+		}).
 		Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
