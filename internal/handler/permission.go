@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -85,6 +86,16 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "grant_permission", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": req.TargetUserID, "level": req.Level}, c.ClientIP())
 
+	// Notify target user
+	go func() {
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error == nil {
+			svc := service.NewMessageService(h.db)
+			svc.SendSystemNotification(req.TargetUserID, "权限授予",
+				fmt.Sprintf("你已被授予 %s 域名的 %s 权限", node.FullDomain, req.Level))
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已授予"})
 }
 
@@ -115,6 +126,15 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "revoke_permission", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": targetUserID}, c.ClientIP())
+
+	go func() {
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error == nil {
+			svc := service.NewMessageService(h.db)
+			svc.SendSystemNotification(targetUserID, "权限撤销",
+				fmt.Sprintf("你在 %s 域名的权限已被撤销", node.FullDomain))
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已撤销"})
 }
@@ -158,6 +178,15 @@ func (h *PermissionHandler) RevokeRequest(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "revoke_request", "domain_node", &nodeID,
 		map[string]interface{}{"target_user": targetUserID}, c.ClientIP())
+
+	go func() {
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error == nil {
+			svc := service.NewMessageService(h.db)
+			svc.SendSystemNotification(targetUserID, "权限归还请求",
+				fmt.Sprintf("管理员请求归还你在 %s 域名的权限", node.FullDomain))
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "撤销请求已发送"})
 }

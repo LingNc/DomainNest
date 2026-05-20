@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"domainnest/internal/middleware"
+	"domainnest/internal/model"
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -65,6 +66,20 @@ func (h *SettingsHandler) Set(c *gin.Context) {
 	targetID := uint64(0)
 	middleware.LogOperation(h.db, userID, "update_settings", "setting", &targetID,
 		map[string]interface{}{"category": category}, c.ClientIP())
+
+	if category == "smtp" {
+		go func() {
+			svc := service.NewMessageService(h.db)
+			// Notify all admins
+			var admins []model.User
+			h.db.Where("role = ? OR is_super_admin = ?", "admin", true).Find(&admins)
+			for _, admin := range admins {
+				if admin.ID != userID {
+					svc.SendSystemNotification(admin.ID, "SMTP配置变更", "系统SMTP邮件配置已被修改")
+				}
+			}
+		}()
+	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "设置已保存"})
 }
