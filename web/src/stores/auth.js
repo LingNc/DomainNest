@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useAvatarCache } from './avatarCache'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token') || '')
@@ -17,6 +18,9 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = u
     localStorage.setItem('token', t)
     localStorage.setItem('user', JSON.stringify(u))
+    if (u?.id && u?.avatar) {
+      useAvatarCache().set(u.id, u.avatar)
+    }
   }
 
   function clearAuth() {

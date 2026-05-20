@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import { useAvatarCache } from '../stores/avatarCache'
 
 const request = axios.create({
   baseURL: '/api/v1',
@@ -22,6 +23,7 @@ request.interceptors.response.use(
       ElMessage.error(data.message || '请求失败')
       return Promise.reject(data)
     }
+    useAvatarCache().extractFromResponse(data.data)
     return data
   },
   error => {
