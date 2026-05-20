@@ -56,7 +56,19 @@ export default {
     usernameAvailable: '用户名可用',
     usernameTaken: '用户名已被占用',
     enterInviteCode: '请输入邀请码',
-    registerSuccess: '注册成功，请登录'
+    registerSuccess: '注册成功，请登录',
+    sendCode: '发送验证码',
+    codeSent: '验证码已发送',
+    enterCode: '请输入验证码',
+    verify: '验证',
+    verified: '验证成功',
+    emailVerified: '邮箱已验证',
+    verifyEmailFirst: '请先验证邮箱',
+    codeRequired: '请输入验证码',
+    emailRequired: '请先输入邮箱',
+    codePlaceholder: '请输入 6 位验证码',
+    resendCode: '重新发送',
+    resendCountdown: '{seconds}秒后可重发'
   },
   forgotPassword: {
     title: '找回密码',

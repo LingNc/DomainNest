@@ -56,7 +56,19 @@ export default {
     usernameAvailable: 'Username is available',
     usernameTaken: 'Username is already taken',
     enterInviteCode: 'Please enter the invite code',
-    registerSuccess: 'Registration successful, please login'
+    registerSuccess: 'Registration successful, please login',
+    sendCode: 'Send Code',
+    codeSent: 'Verification code sent',
+    enterCode: 'Enter verification code',
+    verify: 'Verify',
+    verified: 'Verified successfully',
+    emailVerified: 'Email verified',
+    verifyEmailFirst: 'Please verify your email first',
+    codeRequired: 'Please enter the verification code',
+    emailRequired: 'Please enter your email first',
+    codePlaceholder: 'Enter the 6-digit code',
+    resendCode: 'Resend',
+    resendCountdown: 'Resend in {seconds}s'
   },
   forgotPassword: {
     title: 'Forgot Password',

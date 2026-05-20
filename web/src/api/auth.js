@@ -17,3 +17,5 @@ export const getInviteLogs = (params) => request.get('/auth/invite-logs', { para
 export const getPendingReturns = () => request.get('/auth/pending-returns')
 export const searchAllUsers = (q) => request.get('/auth/users/search', { params: { q } })
 export const deleteAccount = () => request.delete('/auth/account')
+export const sendVerifyEmail = (data) => request.post('/auth/send-verify-email', data)
+export const verifyEmail = (data) => request.post('/auth/verify-email', data)
