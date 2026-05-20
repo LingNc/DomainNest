@@ -116,6 +116,7 @@ export default {
     viewAll: '全部',
     viewMyActions: '我的操作',
     viewActionsOnMe: '对我的操作',
+    actorUser: '操作者',
   },
   messages: {
     title: '消息',

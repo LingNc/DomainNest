@@ -44,6 +44,18 @@
         </div>
       </div>
       <el-table :data="logs" stripe v-loading="loading" style="width:100%">
+        <el-table-column :label="$t('myLogs.actorUser')" min-width="120">
+          <template #default="{ row }">
+            <template v-if="viewFilter === 'target' && row.user">
+              <div style="display:flex;align-items:center;gap:6px">
+                <el-avatar v-if="row.user.avatar" :src="row.user.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (row.user.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ row.user.username }}</span>
+              </div>
+            </template>
+            <span v-else style="color:#909399">-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="action" :label="$t('common.action')" min-width="120" />
         <el-table-column prop="target_type" :label="$t('common.targetType')" min-width="100" />
         <el-table-column prop="ip_address" :label="$t('common.ipAddress')" width="130" />

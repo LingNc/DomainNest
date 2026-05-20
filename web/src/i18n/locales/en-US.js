@@ -116,6 +116,7 @@ export default {
     viewAll: 'All',
     viewMyActions: 'My Actions',
     viewActionsOnMe: 'Actions on Me',
+    actorUser: 'Actor',
   },
   messages: {
     title: 'Messages',
