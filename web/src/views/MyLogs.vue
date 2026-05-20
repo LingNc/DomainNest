@@ -5,6 +5,13 @@
       <p class="subtitle">{{ $t('myLogs.subtitle') }}</p>
     </div>
     <el-card>
+      <div class="view-filter">
+        <el-radio-group v-model="viewFilter" size="small" @change="handleViewChange">
+          <el-radio-button value="all">{{ $t('myLogs.viewAll') }}</el-radio-button>
+          <el-radio-button value="actor">{{ $t('myLogs.viewMyActions') }}</el-radio-button>
+          <el-radio-button value="target">{{ $t('myLogs.viewActionsOnMe') }}</el-radio-button>
+        </el-radio-group>
+      </div>
       <div class="filter-bar">
         <el-input v-model="filters.q" :placeholder="$t('myLogs.searchPlaceholder')" clearable size="small" style="width:140px" />
         <el-input v-model="filters.q_exclude" :placeholder="$t('myLogs.excludePlaceholder')" clearable size="small" style="width:120px" />
@@ -40,6 +47,18 @@
         <el-table-column prop="action" :label="$t('common.action')" min-width="120" />
         <el-table-column prop="target_type" :label="$t('common.targetType')" min-width="100" />
         <el-table-column prop="ip_address" :label="$t('common.ipAddress')" width="130" />
+        <el-table-column :label="$t('myLogs.targetUser')" min-width="120">
+          <template #default="{ row }">
+            <template v-if="row.target_user">
+              <div style="display:flex;align-items:center;gap:6px">
+                <el-avatar v-if="row.target_user.avatar" :src="row.target_user.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (row.target_user.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ row.target_user.username }}</span>
+              </div>
+            </template>
+            <span v-else style="color:#909399">-</span>
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('common.detail')" min-width="200">
           <template #default="{ row }">
             <template v-if="row.detail && row.detail !== 'null'">
@@ -104,11 +123,13 @@ const formatDetailValue = (val) => {
 const filters = reactive({ action: [], target_type: [], q: '', q_exclude: '', dateRange: null })
 const actionExcludeMode = ref(false)
 const targetTypeExcludeMode = ref(false)
+const viewFilter = ref('all')
 
 const loadLogs = async () => {
   loading.value = true
   try {
     const params = { page: page.value, page_size: pageSize.value }
+    if (viewFilter.value !== 'all') params.view = viewFilter.value
     if (filters.action.length > 0) {
       if (actionExcludeMode.value) {
         params.action_exclude = filters.action.join(',')
@@ -137,6 +158,11 @@ const loadLogs = async () => {
   }
 }
 
+const handleViewChange = () => {
+  page.value = 1
+  loadLogs()
+}
+
 const resetFilters = () => {
   filters.action = []
   filters.target_type = []
@@ -145,6 +171,7 @@ const resetFilters = () => {
   filters.dateRange = null
   actionExcludeMode.value = false
   targetTypeExcludeMode.value = false
+  viewFilter.value = 'all'
   page.value = 1
   loadLogs()
 }
@@ -192,5 +219,8 @@ onMounted(loadLogs)
   display: flex;
   align-items: center;
   gap: 2px;
+}
+.view-filter {
+  margin-bottom: 12px;
 }
 </style>

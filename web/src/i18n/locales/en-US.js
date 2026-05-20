@@ -113,6 +113,9 @@ export default {
     providerName: 'Provider',
     includeMode: 'Include mode (click to switch to exclude)',
     excludeMode: 'Exclude mode (click to switch to include)',
+    viewAll: 'All',
+    viewMyActions: 'My Actions',
+    viewActionsOnMe: 'Actions on Me',
   },
   messages: {
     title: 'Messages',
@@ -502,6 +505,7 @@ export default {
     confirmAssign: 'Confirm Assignment',
     operationLogs: 'Operation Logs',
     targetTypeLabel: 'Target Type',
+    targetUserLabel: 'Target User',
     systemSettings: 'System Settings',
     smtpConfig: 'SMTP Email Config',
     smtpHost: 'SMTP Server',

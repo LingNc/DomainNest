@@ -113,6 +113,9 @@ export default {
     providerName: '提供商',
     includeMode: '包含模式（点击切换为排除）',
     excludeMode: '排除模式（点击切换为包含）',
+    viewAll: '全部',
+    viewMyActions: '我的操作',
+    viewActionsOnMe: '对我的操作',
   },
   messages: {
     title: '消息',
@@ -502,6 +505,7 @@ export default {
     confirmAssign: '确认分配',
     operationLogs: '操作日志',
     targetTypeLabel: '目标类型',
+    targetUserLabel: '目标用户',
     systemSettings: '系统设置',
     smtpConfig: 'SMTP 邮件配置',
     smtpHost: 'SMTP 服务器',

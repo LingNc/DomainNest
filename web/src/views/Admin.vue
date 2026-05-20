@@ -92,6 +92,15 @@
                 </div>
               </el-option>
             </el-select>
+            <el-select v-model="logFilters.target_user_id" :placeholder="$t('admin.targetUserLabel')" clearable filterable size="small" style="width:130px">
+              <el-option v-for="u in users" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <el-avatar v-if="u.avatar" :src="u.avatar" :size="20" />
+                  <el-avatar v-else :size="20">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                  <span>{{ u.nickname || u.username }}</span>
+                </div>
+              </el-option>
+            </el-select>
             <el-input v-model="logFilters.q" :placeholder="$t('myLogs.searchPlaceholder')" clearable size="small" style="width:120px" />
             <el-input v-model="logFilters.q_exclude" :placeholder="$t('myLogs.excludePlaceholder')" clearable size="small" style="width:110px" />
             <div class="filter-group">
@@ -131,6 +140,18 @@
                   <el-avatar v-else :size="24">{{ (row.user?.username || '?')[0]?.toUpperCase() }}</el-avatar>
                   <span>{{ row.user?.username || 'User #' + row.user_id }}</span>
                 </div>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('admin.targetUserLabel')" min-width="120">
+              <template #default="{ row }">
+                <template v-if="row.target_user">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <el-avatar v-if="row.target_user.avatar" :src="row.target_user.avatar" :size="24" />
+                    <el-avatar v-else :size="24">{{ (row.target_user.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                    <span>{{ row.target_user.username }}</span>
+                  </div>
+                </template>
+                <span v-else style="color:#909399">-</span>
               </template>
             </el-table-column>
             <el-table-column prop="action" :label="$t('common.action')" min-width="120" />
@@ -336,7 +357,7 @@ const testEmail = ref('')
 const securityForm = reactive({ reset_token_expiry_minutes: 5, min_password_length: 6 })
 const uploadsForm = reactive({ max_avatar_size_mb: 2 })
 
-const logFilters = reactive({ user_id: '', action: [], target_type: [], q: '', q_exclude: '', dateRange: null })
+const logFilters = reactive({ user_id: '', target_user_id: '', action: [], target_type: [], q: '', q_exclude: '', dateRange: null })
 const actionExcludeMode = ref(false)
 const targetTypeExcludeMode = ref(false)
 
@@ -508,6 +529,7 @@ watch(selectedProviderId, async (id) => {
 const loadLogs = async () => {
   const params = { page: logPage.value, page_size: logPageSize.value }
   if (logFilters.user_id) params.user_id = logFilters.user_id
+  if (logFilters.target_user_id) params.target_user_id = logFilters.target_user_id
   if (logFilters.action.length > 0) {
     if (actionExcludeMode.value) {
       params.action_exclude = logFilters.action.join(',')
@@ -535,6 +557,7 @@ const loadLogs = async () => {
 
 const resetLogFilters = () => {
   logFilters.user_id = ''
+  logFilters.target_user_id = ''
   logFilters.action = []
   logFilters.target_type = []
   logFilters.q = ''
