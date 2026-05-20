@@ -1,1 +1,0 @@
-import{t as e}from"./request-Bn-wQKra.js";var t=t=>e.post(`/auth/login`,t),n=t=>e.post(`/auth/register`,t),r=()=>e.get(`/auth/profile`),i=()=>e.put(`/auth/token`),a=t=>e.put(`/auth/password`,t);export{i as a,n as i,r as n,t as r,a as t};

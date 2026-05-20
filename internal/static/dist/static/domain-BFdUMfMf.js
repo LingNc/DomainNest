@@ -1,1 +1,0 @@
-import{t as e}from"./request-Bn-wQKra.js";var t=()=>e.get(`/domains`),n=t=>e.post(`/domains`,t),r=t=>e.get(`/domains/${t}`),i=(t,n)=>e.post(`/domains/${t}/transfer`,n),a=t=>e.delete(`/domains/${t}`);export{i as a,t as i,a as n,r,n as t};

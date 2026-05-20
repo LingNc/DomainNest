@@ -53,11 +53,16 @@ cd web && npm install && npm run dev
 ### 生产部署
 
 ```bash
-cd web && npm run build              # 前端编译到 web/dist/
-go build -o domainnest ./cmd/server  # 前端嵌入 Go 二进制
+make build              # 一条命令：编译前端 + 同步 + 构建 Go 二进制
 
-./domainnest                         # 单端口运行，反代 :8080 即可
+# 或手动：
+cd web && npm run build         # 前端编译，postbuild 自动同步到嵌入目录
+go build -o domainnest ./cmd/server
+
+./domainnest                    # 单端口运行，反代 :8080 即可
 ```
+
+> Docker 构建会自动处理同步步骤，无需手动操作。
 
 ## 配置
 

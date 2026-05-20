@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "[ -d ../../internal/static/dist ] && rm -rf ../../internal/static/dist/static/ && cp -r dist/* ../../internal/static/dist/ || true",
     "preview": "vite preview"
   },
   "dependencies": {
