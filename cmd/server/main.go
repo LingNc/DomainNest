@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"os"
 
 	"domainnest/internal/config"
 	"domainnest/internal/model"
@@ -12,6 +14,16 @@ import (
 )
 
 func main() {
+	// Set up log file output (writes to both stderr and logs/server.log)
+	os.MkdirAll("logs", 0o755)
+	logFile, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		log.Printf("Warning: cannot open log file: %v", err)
+	} else {
+		log.SetOutput(io.MultiWriter(os.Stderr, logFile))
+		defer logFile.Close()
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)

@@ -39,6 +39,9 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID uint64) *Client {
 // connection or stops sending pongs.
 func (c *Client) ReadPump() {
 	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WS] ReadPump panic: %v", r)
+		}
 		c.hub.Unregister(c)
 		c.conn.Close()
 	}()
@@ -65,6 +68,9 @@ func (c *Client) ReadPump() {
 func (c *Client) WritePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WS] WritePump panic: %v", r)
+		}
 		ticker.Stop()
 		c.conn.Close()
 	}()

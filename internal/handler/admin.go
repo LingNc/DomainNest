@@ -157,11 +157,7 @@ func (h *AdminHandler) ListLogs(c *gin.Context) {
 	query.Count(&total)
 
 	var logs []model.OperationLog
-	query.Preload("User", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, username, nickname")
-	}).Preload("TargetUser", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, username, nickname")
-	}).Order("created_at DESC").
+	query.Preload("User").Preload("TargetUser").Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&logs)
