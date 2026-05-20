@@ -5,7 +5,9 @@ import (
 	"strconv"
 
 	"domainnest/internal/middleware"
+	"domainnest/internal/model"
 	"domainnest/internal/service"
+	"domainnest/internal/ws"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -37,6 +39,13 @@ func (h *FriendHandler) SendRequest(c *gin.Context) {
 		return
 	}
 
+	// Push friend request to receiver via WebSocket
+	var friendReq model.FriendRequest
+	if err := h.db.Where("sender_id = ? AND receiver_id = ? AND status = ?", userID, req.ReceiverID, "pending").
+		Order("id DESC").First(&friendReq).Error; err == nil {
+		ws.BroadcastToUser(req.ReceiverID, ws.TypeFriendRequest, friendReq)
+	}
+
 	middleware.LogOperation(h.db, userID, "send_friend_request", "user", &req.ReceiverID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "好友请求已发送"})
@@ -51,10 +60,20 @@ func (h *FriendHandler) AcceptRequest(c *gin.Context) {
 		return
 	}
 
+	// Look up request to get senderID for broadcasting
+	var friendReq model.FriendRequest
+	if err := h.db.First(&friendReq, requestID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求不存在"})
+		return
+	}
+
 	if err := h.friendService.AcceptRequest(requestID, userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	// Notify sender that their request was accepted
+	ws.BroadcastToUser(friendReq.SenderID, ws.TypeNewNotification, gin.H{"type": "friend_accepted", "from_user_id": userID})
 
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	middleware.LogOperation(h.db, userID, "accept_friend", "friend", &friendID, nil, c.ClientIP())
@@ -71,10 +90,20 @@ func (h *FriendHandler) RejectRequest(c *gin.Context) {
 		return
 	}
 
+	// Look up request to get senderID for broadcasting
+	var friendReq model.FriendRequest
+	if err := h.db.First(&friendReq, requestID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求不存在"})
+		return
+	}
+
 	if err := h.friendService.RejectRequest(requestID, userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	// Notify sender that their request was rejected
+	ws.BroadcastToUser(friendReq.SenderID, ws.TypeNewNotification, gin.H{"type": "friend_rejected", "from_user_id": userID})
 
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	middleware.LogOperation(h.db, userID, "reject_friend", "friend", &friendID, nil, c.ClientIP())

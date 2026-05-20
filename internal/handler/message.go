@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"domainnest/internal/service"
+	"domainnest/internal/ws"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -37,6 +38,12 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
+	}
+
+	// Push new message to receiver via WebSocket
+	ws.BroadcastToUser(req.ReceiverID, ws.TypeNewMessage, msg)
+	if count, err := h.messageService.UnreadCount(req.ReceiverID); err == nil {
+		ws.BroadcastToUser(req.ReceiverID, ws.TypeUnreadUpdate, gin.H{"count": count})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": msg})
@@ -102,6 +109,11 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 	if err := h.messageService.MarkAsRead(userID, otherID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
+	}
+
+	// Broadcast updated unread count to the current user
+	if count, err := h.messageService.UnreadCount(userID); err == nil {
+		ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "消息已标记为已读"})
@@ -173,6 +185,9 @@ func (h *MessageHandler) MarkAllNotificationsAsRead(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
+
+	ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": 0})
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已全部标记为已读"})
 }
 

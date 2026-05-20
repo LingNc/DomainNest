@@ -18,6 +18,7 @@ import (
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
+	"domainnest/internal/ws"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -56,16 +57,18 @@ func friendlyValidationError(err error) string {
 type AuthHandler struct {
 	authService     *service.AuthService
 	emailSvc        *service.EmailService
+	emailVerifySvc  *service.EmailVerifyService
 	settingsService *service.SettingsService
 	db              *gorm.DB
 	jwtSecret       string
 	jwtExpire       int
 }
 
-func NewAuthHandler(authService *service.AuthService, emailSvc *service.EmailService, settingsService *service.SettingsService, db *gorm.DB, cfg *config.JWTConfig) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, emailSvc *service.EmailService, emailVerifySvc *service.EmailVerifyService, settingsService *service.SettingsService, db *gorm.DB, cfg *config.JWTConfig) *AuthHandler {
 	return &AuthHandler{
 		authService:     authService,
 		emailSvc:        emailSvc,
+		emailVerifySvc:  emailVerifySvc,
 		settingsService: settingsService,
 		db:              db,
 		jwtSecret:       cfg.Secret,
@@ -483,6 +486,10 @@ func (h *AuthHandler) GrantInviteQuota(c *gin.Context) {
 		svc := service.NewMessageService(h.db)
 		svc.SendSystemNotification(req.TargetUserID, "邀请额度变更",
 			fmt.Sprintf("你收到了 %d 个邀请额度", req.Amount), "", "")
+		ws.BroadcastToUser(req.TargetUserID, ws.TypeNewNotification, gin.H{"type": "invite_change", "amount": req.Amount})
+		if count, err := svc.GetNotificationUnreadCount(req.TargetUserID); err == nil {
+			ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
+		}
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邀请额度已分配"})
@@ -518,6 +525,10 @@ func (h *AuthHandler) RevokeInviteQuota(c *gin.Context) {
 		svc := service.NewMessageService(h.db)
 		svc.SendSystemNotification(req.TargetUserID, "邀请额度变更",
 			fmt.Sprintf("你的 %d 个邀请额度已被收回", req.Amount), "", "")
+		ws.BroadcastToUser(req.TargetUserID, ws.TypeNewNotification, gin.H{"type": "invite_change", "amount": -req.Amount})
+		if count, err := svc.GetNotificationUnreadCount(req.TargetUserID); err == nil {
+			ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
+		}
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邀请额度已撤销"})
@@ -567,4 +578,63 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "delete_account", "user", &userID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "账号已注销"})
+}
+
+// SendVerifyEmail sends a verification code to the given email.
+// POST /api/v1/auth/send-verify-email  { "email": "...", "purpose": "register"|"change_email" }
+func (h *AuthHandler) SendVerifyEmail(c *gin.Context) {
+	var req struct {
+		Email   string `json:"email" binding:"required,email"`
+		Purpose string `json:"purpose" binding:"required,oneof=register change_email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
+		return
+	}
+
+	if err := h.emailVerifySvc.SendCode(req.Email, req.Purpose); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "验证码发送失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "验证码已发送"})
+}
+
+// VerifyEmail verifies a code and marks the user's email as verified.
+// POST /api/v1/auth/verify-email  { "email": "...", "code": "...", "purpose": "register"|"change_email" }
+func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+	var req struct {
+		Email   string `json:"email" binding:"required,email"`
+		Code    string `json:"code" binding:"required"`
+		Purpose string `json:"purpose" binding:"required,oneof=register change_email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
+		return
+	}
+
+	if !h.emailVerifySvc.VerifyCode(req.Email, req.Code, req.Purpose) {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "验证码无效或已过期"})
+		return
+	}
+
+	// For change_email, update the authenticated user's email
+	if req.Purpose == "change_email" {
+		userID := c.GetUint64("user_id")
+		if userID == 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "请先登录"})
+			return
+		}
+		if err := h.db.Model(&model.User{}).Where("id = ?", userID).
+			Updates(map[string]interface{}{"email": req.Email, "email_verified": true}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新邮箱失败"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邮箱已验证并更新"})
+		return
+	}
+
+	// For register, mark email as verified for the user with this email
+	h.db.Model(&model.User{}).Where("email = ?", req.Email).Update("email_verified", true)
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邮箱验证成功"})
 }

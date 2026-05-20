@@ -9,6 +9,7 @@ import (
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
+	"domainnest/internal/ws"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -106,6 +107,10 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 			svc.SendSystemNotification(req.TargetUserID, "权限授予",
 				fmt.Sprintf("你已被授予 %s 域名的 %s 权限", node.FullDomain, req.Level),
 				"permission_grant", fmt.Sprintf("{\"domain_node_id\":%d,\"level\":\"%s\"}", nodeID, req.Level))
+			ws.BroadcastToUser(req.TargetUserID, ws.TypeNewNotification, gin.H{"type": "permission_change"})
+			if count, err := svc.GetNotificationUnreadCount(req.TargetUserID); err == nil {
+				ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
 		}
 	}()
 
@@ -150,6 +155,10 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 			svc := service.NewMessageService(h.db)
 			svc.SendSystemNotification(targetUserID, "权限撤销",
 				fmt.Sprintf("你在 %s 域名的权限已被撤销", node.FullDomain), "", "")
+			ws.BroadcastToUser(targetUserID, ws.TypeNewNotification, gin.H{"type": "permission_change"})
+			if count, err := svc.GetNotificationUnreadCount(targetUserID); err == nil {
+				ws.BroadcastToUser(targetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
 		}
 	}()
 
@@ -202,6 +211,10 @@ func (h *PermissionHandler) RevokeRequest(c *gin.Context) {
 			svc := service.NewMessageService(h.db)
 			svc.SendSystemNotification(targetUserID, "权限归还请求",
 				fmt.Sprintf("管理员请求归还你在 %s 域名的权限", node.FullDomain), "", "")
+			ws.BroadcastToUser(targetUserID, ws.TypeNewNotification, gin.H{"type": "permission_change"})
+			if count, err := svc.GetNotificationUnreadCount(targetUserID); err == nil {
+				ws.BroadcastToUser(targetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
 		}
 	}()
 
