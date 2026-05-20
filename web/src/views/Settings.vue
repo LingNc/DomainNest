@@ -12,7 +12,7 @@
           <template #header>
             <div class="card-header">
               <span>{{ $t('settings.ddnsToken') }}</span>
-              <el-button type="warning" size="small" @click="handleResetToken">{{ $t('settings.resetToken') }}</el-button>
+              <el-button type="danger" size="small" @click="handleResetToken">{{ $t('settings.resetToken') }}</el-button>
             </div>
           </template>
           <p class="token-label">{{ $t('settings.yourDdnsToken') }}</p>

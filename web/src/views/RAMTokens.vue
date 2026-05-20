@@ -6,7 +6,7 @@
         <h2>API Tokens</h2>
         <p class="subtitle">管理 RAM Token，用于 DDNS 回调和 API 编程访问</p>
       </div>
-      <el-button type="primary" @click="openCreate">
+      <el-button type="primary" size="small" @click="openCreate">
         <el-icon><component :is="'Plus'" /></el-icon>
         创建 Token
       </el-button>

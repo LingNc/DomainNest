@@ -38,7 +38,7 @@
       <!-- Friends List -->
       <el-tab-pane :label="$t('friends.friendList')" name="friends">
         <div class="toolbar">
-          <el-button type="primary" @click="addDialogVisible = true">{{ $t('friends.addFriend') }}</el-button>
+          <el-button type="primary" size="small" @click="addDialogVisible = true">{{ $t('friends.addFriend') }}</el-button>
         </div>
         <el-card>
           <el-table :data="friends" stripe v-loading="loading" style="width:100%">

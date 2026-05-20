@@ -6,7 +6,7 @@
         <h2>{{ $t('dashboard.title') }}</h2>
         <p class="subtitle">{{ $t('dashboard.subtitle') }}</p>
       </div>
-      <el-button v-if="auth.isAdmin" type="primary" @click="showCreateRoot = true">
+      <el-button v-if="auth.isAdmin" type="primary" size="small" @click="showCreateRoot = true">
         <el-icon><component :is="'Plus'" /></el-icon>
         {{ $t('dashboard.createRootDomain') }}
       </el-button>
@@ -14,7 +14,7 @@
 
     <el-card v-if="domains.length === 0" class="empty-card">
       <el-empty :description="$t('dashboard.noDomains')">
-        <el-button v-if="auth.isAdmin" type="primary" @click="showCreateRoot = true">{{ $t('dashboard.createRootDomain') }}</el-button>
+        <el-button v-if="auth.isAdmin" type="primary" size="small" @click="showCreateRoot = true">{{ $t('dashboard.createRootDomain') }}</el-button>
       </el-empty>
     </el-card>
 

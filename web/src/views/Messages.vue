@@ -32,7 +32,7 @@
     </el-dialog>
 
     <div class="toolbar">
-      <el-button type="primary" @click="newMsgVisible = true">{{ $t('messages.newMessage') }}</el-button>
+      <el-button type="primary" size="small" @click="newMsgVisible = true">{{ $t('messages.newMessage') }}</el-button>
     </div>
 
     <el-card>
