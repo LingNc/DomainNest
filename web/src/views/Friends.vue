@@ -141,11 +141,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { listFriends, sendFriendRequest, removeFriend, listPendingRequests, listSentRequests, acceptRequest, rejectRequest, searchUsers } from '../api/friend'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -257,10 +258,21 @@ const openChat = (friendId) => {
   router.push(`/messages/${friendId}`)
 }
 
+const { on: wsOn, off: wsOff } = useWebSocket()
+
+const handleFriendRequest = () => {
+  loadPending()
+}
+
 onMounted(() => {
   loadFriends()
   loadPending()
   loadSent()
+  wsOn('friend_request', handleFriendRequest)
+})
+
+onUnmounted(() => {
+  wsOff('friend_request', handleFriendRequest)
 })
 </script>
 

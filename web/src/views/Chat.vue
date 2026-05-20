@@ -67,6 +67,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getMessages, sendMessage, markAsRead } from '../api/message'
 import { useAuthStore } from '../stores/auth'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const { t } = useI18n()
 
@@ -182,15 +183,26 @@ const pollNew = async () => {
   } catch { /* ignore */ }
 }
 
+const { on: wsOn, off: wsOff } = useWebSocket()
+
+const handleNewMessage = (payload) => {
+  if (payload.sender_id !== otherId.value && payload.receiver_id !== otherId.value) return
+  if (messages.value.some(m => m.id === payload.id)) return
+  messages.value.push(payload)
+  nextTick(() => scrollToBottom())
+}
+
 onMounted(async () => {
   await loadMessages()
   doMarkAsRead()
-  // Poll every 3 seconds for new messages
-  pollTimer = setInterval(pollNew, 3000)
+  wsOn('new_message', handleNewMessage)
+  // Poll every 30 seconds as fallback
+  pollTimer = setInterval(pollNew, 30000)
 })
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  wsOff('new_message', handleNewMessage)
 })
 </script>
 

@@ -106,6 +106,7 @@ import en from 'element-plus/dist/locale/en.mjs'
 import { useAuthStore } from './stores/auth'
 import { getUnreadCount } from './api/message'
 import { setLang } from './i18n/utils'
+import { useWebSocket, disconnect } from './composables/useWebSocket'
 
 const { locale } = useI18n()
 const elLocaleMap = { 'zh-CN': zhCn, 'en-US': en }
@@ -131,13 +132,21 @@ const loadUnread = async () => {
   } catch { /* ignore */ }
 }
 
+const { connected, on: wsOn, off: wsOff } = useWebSocket()
+
+const handleUnreadUpdate = (payload) => {
+  unreadCount.value = payload.count ?? 0
+}
+
 onMounted(() => {
   loadUnread()
-  unreadTimer = setInterval(loadUnread, 15000)
+  unreadTimer = setInterval(loadUnread, 30000)
+  wsOn('unread_update', handleUnreadUpdate)
 })
 
 onUnmounted(() => {
   if (unreadTimer) clearInterval(unreadTimer)
+  wsOff('unread_update', handleUnreadUpdate)
 })
 
 const activeMenu = computed(() => {
@@ -153,6 +162,7 @@ const activeMenu = computed(() => {
 })
 
 const handleLogout = () => {
+  disconnect()
   auth.clearAuth()
   router.push('/login')
 }

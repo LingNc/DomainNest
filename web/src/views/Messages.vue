@@ -130,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
@@ -138,6 +138,7 @@ import { Bell } from '@element-plus/icons-vue'
 import { getConversations } from '../api/message'
 import { getNotifications, getNotificationUnreadCount, markNotificationAsRead, markAllNotificationsAsRead, handleNotificationAction } from '../api/message'
 import { searchAllUsers } from '../api/auth'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -268,9 +269,27 @@ const handleTabChange = (tab) => {
   }
 }
 
+const { on: wsOn, off: wsOff } = useWebSocket()
+
+const handleNewNotification = (payload) => {
+  notifications.value.unshift(payload)
+  notifUnread.value++
+}
+
+const handleUnreadUpdate = (payload) => {
+  notifUnread.value = payload.count ?? 0
+}
+
 onMounted(() => {
   loadNotifications()
   loadNotifUnreadCount()
+  wsOn('new_notification', handleNewNotification)
+  wsOn('unread_update', handleUnreadUpdate)
+})
+
+onUnmounted(() => {
+  wsOff('new_notification', handleNewNotification)
+  wsOff('unread_update', handleUnreadUpdate)
 })
 </script>
 
