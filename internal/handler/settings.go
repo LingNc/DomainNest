@@ -75,7 +75,7 @@ func (h *SettingsHandler) Set(c *gin.Context) {
 			h.db.Where("role = ? OR is_super_admin = ?", "admin", true).Find(&admins)
 			for _, admin := range admins {
 				if admin.ID != userID {
-					svc.SendSystemNotification(admin.ID, "SMTP配置变更", "系统SMTP邮件配置已被修改")
+					svc.SendSystemNotification(admin.ID, "SMTP配置变更", "系统SMTP邮件配置已被修改", "", "")
 				}
 			}
 		}()

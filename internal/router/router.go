@@ -173,6 +173,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		messages.GET("/notifications", messageHandler.GetNotifications)
 		messages.GET("/notifications/unread-count", messageHandler.NotificationUnreadCount)
 		messages.POST("/notifications/:id/read", messageHandler.MarkNotificationAsRead)
+		messages.POST("/notifications/:id/action", messageHandler.HandleNotificationAction)
 		messages.POST("/notifications/read-all", messageHandler.MarkAllNotificationsAsRead)
 		messages.GET("/:id", messageHandler.GetMessages)
 		messages.POST("/:id/read", messageHandler.MarkAsRead)

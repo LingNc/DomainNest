@@ -114,6 +114,13 @@ export default {
     markRead: '标记已读',
     markedAsRead: '已标记为已读',
     allMarkedAsRead: '已全部标记为已读',
+    accept: '接受',
+    reject: '拒绝',
+    accepted: '已接受',
+    rejected: '已拒绝',
+    actionAccepted: '已接受',
+    actionRejected: '已拒绝',
+    actionFailed: '操作失败',
   },
   friends: {
     title: '好友管理',

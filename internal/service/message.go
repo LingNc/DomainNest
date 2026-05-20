@@ -188,13 +188,36 @@ func (s *MessageService) MarkAllNotificationsAsRead(userID uint64) error {
 }
 
 // SendSystemNotification creates a system notification (sender_id = 0).
-func (s *MessageService) SendSystemNotification(receiverID uint64, title, content string) error {
+func (s *MessageService) SendSystemNotification(receiverID uint64, title, content string, actionType string, actionData string) error {
 	msg := &model.Message{
-		SenderID:   0,
-		ReceiverID: receiverID,
-		Content:    content,
-		Type:       "system",
-		Title:      title,
+		SenderID:     0,
+		ReceiverID:   receiverID,
+		Content:      content,
+		Type:         "system",
+		Title:        title,
+		ActionType:   actionType,
+		ActionStatus: "",
+		ActionData:   actionData,
 	}
 	return s.db.Create(msg).Error
+}
+
+// HandleNotificationAction processes an accept/reject action on a notification.
+func (s *MessageService) HandleNotificationAction(userID, notifID uint64, action string) error {
+	if action != "accepted" && action != "rejected" {
+		return errors.New("无效的操作")
+	}
+
+	var msg model.Message
+	if err := s.db.Where("id = ? AND receiver_id = ? AND type = ?", notifID, userID, "system").First(&msg).Error; err != nil {
+		return errors.New("通知不存在")
+	}
+	if msg.ActionType == "" {
+		return errors.New("该通知不支持操作")
+	}
+	if msg.ActionStatus != "" {
+		return errors.New("该通知已处理")
+	}
+
+	return s.db.Model(&msg).Update("action_status", action).Error
 }

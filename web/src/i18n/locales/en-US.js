@@ -114,6 +114,13 @@ export default {
     markRead: 'Mark as Read',
     markedAsRead: 'Marked as read',
     allMarkedAsRead: 'All marked as read',
+    accept: 'Accept',
+    reject: 'Reject',
+    accepted: 'Accepted',
+    rejected: 'Rejected',
+    actionAccepted: 'Accepted',
+    actionRejected: 'Rejected',
+    actionFailed: 'Action failed',
   },
   friends: {
     title: 'Friends',
