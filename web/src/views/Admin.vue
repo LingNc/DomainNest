@@ -45,8 +45,8 @@
             <el-table-column prop="created_at" :label="$t('admin.registerTime')" width="170" />
             <el-table-column :label="$t('common.action')" width="200" fixed="right">
               <template #default="{ row }">
-                <el-button link type="success" size="small" :disabled="row.is_super_admin" @click="openGrantDialog(row)">{{ $t('admin.grantInviteAction') }}</el-button>
-                <el-button link type="danger" size="small" :disabled="row.is_super_admin" @click="openRevokeDialog(row)">{{ $t('admin.revokeInviteAction') }}</el-button>
+                <el-button link type="success" size="small" :disabled="row.is_super_admin && !auth.isSuperAdmin" @click="openGrantDialog(row)">{{ $t('admin.grantInviteAction') }}</el-button>
+                <el-button link type="danger" size="small" :disabled="row.is_super_admin && !auth.isSuperAdmin" @click="openRevokeDialog(row)">{{ $t('admin.revokeInviteAction') }}</el-button>
                 <el-button link type="primary" size="small" @click="openEditUser(row)">{{ $t('common.edit') }}</el-button>
                 <el-button link type="warning" size="small" :disabled="row.is_super_admin && row.id !== auth.user?.id" @click="openResetPwd(row)">{{ $t('admin.resetPassword') }}</el-button>
                 <el-button v-if="row.status === 1" link type="danger" size="small" :disabled="row.is_super_admin" @click="handleDisable(row)">{{ $t('admin.disable') }}</el-button>
