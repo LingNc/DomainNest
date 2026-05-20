@@ -10,7 +10,13 @@
       <el-tabs v-model="activeTab">
         <!-- 用户管理 -->
         <el-tab-pane :label="$t('admin.userManagement')" name="users">
-          <el-table :data="users" stripe v-loading="loading" style="width:100%">
+          <div v-if="selectedUsers.length > 0" style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+            <el-tag>{{ $t('admin.selectedCount', { count: selectedUsers.length }) }}</el-tag>
+            <el-button type="primary" size="small" @click="openBatchGrant">{{ $t('admin.batchGrantInvite') }}</el-button>
+            <el-button type="danger" size="small" @click="openBatchRevoke">{{ $t('admin.batchRevokeInvite') }}</el-button>
+          </div>
+          <el-table :data="users" stripe v-loading="loading" style="width:100%" @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="40" />
             <el-table-column prop="id" :label="$t('admin.id')" width="60" />
             <el-table-column :label="$t('admin.avatar')" width="60">
               <template #default="{ row }">
@@ -39,6 +45,8 @@
             <el-table-column prop="created_at" :label="$t('admin.registerTime')" width="170" />
             <el-table-column :label="$t('common.action')" width="200" fixed="right">
               <template #default="{ row }">
+                <el-button link type="success" size="small" :disabled="row.is_super_admin" @click="openGrantDialog(row)">{{ $t('admin.grantInviteAction') }}</el-button>
+                <el-button link type="danger" size="small" :disabled="row.is_super_admin" @click="openRevokeDialog(row)">{{ $t('admin.revokeInviteAction') }}</el-button>
                 <el-button link type="primary" size="small" @click="openEditUser(row)">{{ $t('common.edit') }}</el-button>
                 <el-button link type="warning" size="small" :disabled="row.is_super_admin && row.id !== auth.user?.id" @click="openResetPwd(row)">{{ $t('admin.resetPassword') }}</el-button>
                 <el-button v-if="row.status === 1" link type="danger" size="small" :disabled="row.is_super_admin" @click="handleDisable(row)">{{ $t('admin.disable') }}</el-button>
@@ -311,6 +319,40 @@
         <el-button type="warning" @click="handleResetPwd">{{ $t('admin.confirmReset') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- 单用户邀请额度操作对话框 -->
+    <el-dialog v-model="showInviteAction" :title="inviteActionType === 'grant' ? $t('admin.grantInviteTitle') : $t('admin.revokeInviteTitle')" width="400px" destroy-on-close>
+      <p>{{ $t('admin.inviteActionTarget', { username: inviteTarget?.username }) }}</p>
+      <el-form label-width="80px">
+        <el-form-item :label="$t('admin.inviteAmount')">
+          <el-input-number v-model="inviteActionAmount" :min="1" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showInviteAction = false">{{ $t('common.cancel') }}</el-button>
+        <el-button :type="inviteActionType === 'grant' ? 'primary' : 'danger'" :loading="inviteActionLoading" @click="handleInviteAction">
+          {{ $t('common.confirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量邀请额度操作对话框 -->
+    <el-dialog v-model="showBatchInvite" :title="batchInviteType === 'grant' ? $t('admin.batchGrantTitle') : $t('admin.batchRevokeTitle')" width="480px" destroy-on-close>
+      <p style="margin-bottom:12px">{{ $t('admin.selectedCount', { count: selectedUsers.length }) }}: {{ selectedUsers.map(u => u.username).join(', ') }}</p>
+      <p v-if="batchInviteType === 'grant'" style="color:#909399;font-size:13px;margin-bottom:12px">{{ $t('admin.batchGrantHint') }}</p>
+      <p v-else style="color:#909399;font-size:13px;margin-bottom:12px">{{ $t('admin.batchRevokeHint') }}</p>
+      <el-form label-width="80px">
+        <el-form-item :label="$t('admin.inviteAmount')">
+          <el-input-number v-model="batchInviteAmount" :min="1" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showBatchInvite = false">{{ $t('common.cancel') }}</el-button>
+        <el-button :type="batchInviteType === 'grant' ? 'primary' : 'danger'" :loading="batchInviteLoading" @click="handleBatchInvite">
+          {{ $t('common.confirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -319,6 +361,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listUsers, listLogs, listDomains, createRootDomain, assignDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin } from '../api/admin'
 import { listProviders, listProviderDomains } from '../api/provider'
+import { grantInviteQuota, revokeInviteQuota } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { actionGroups, targetTypeOptions } from '../constants/operationLogs'
@@ -351,6 +394,17 @@ const editForm = reactive({ username: '', role: '', status: 1, invite_limit: 5, 
 const showResetPwd = ref(false)
 const resetPwdTarget = ref(null)
 const newPassword = ref('')
+
+const selectedUsers = ref([])
+const showInviteAction = ref(false)
+const inviteActionType = ref('grant')
+const inviteTarget = ref(null)
+const inviteActionAmount = ref(1)
+const inviteActionLoading = ref(false)
+const showBatchInvite = ref(false)
+const batchInviteType = ref('grant')
+const batchInviteAmount = ref(1)
+const batchInviteLoading = ref(false)
 
 const smtpForm = reactive({ host: '', port: 587, username: '', password: '', from: '', from_name: 'DomainNest', tls_type: 'starttls' })
 const testingSMTP = ref(false)
@@ -700,6 +754,63 @@ const handleResetPwd = async () => {
   await adminResetPassword(resetPwdTarget.value.id, { new_password: newPassword.value })
   ElMessage.success(t('admin.passwordReset'))
   showResetPwd.value = false
+}
+
+const handleSelectionChange = (selection) => { selectedUsers.value = selection }
+
+const openGrantDialog = (row) => {
+  inviteTarget.value = row
+  inviteActionType.value = 'grant'
+  inviteActionAmount.value = 1
+  showInviteAction.value = true
+}
+
+const openRevokeDialog = (row) => {
+  inviteTarget.value = row
+  inviteActionType.value = 'revoke'
+  inviteActionAmount.value = 1
+  showInviteAction.value = true
+}
+
+const handleInviteAction = async () => {
+  inviteActionLoading.value = true
+  try {
+    const data = { target_user_id: inviteTarget.value.id, amount: inviteActionAmount.value }
+    if (inviteActionType.value === 'grant') {
+      await grantInviteQuota(data)
+    } else {
+      await revokeInviteQuota(data)
+    }
+    ElMessage.success(inviteActionType.value === 'grant' ? t('profile.grantSuccess') : t('profile.revokeSuccess'))
+    showInviteAction.value = false
+    loadData()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || t('admin.requestFailed'))
+  } finally {
+    inviteActionLoading.value = false
+  }
+}
+
+const openBatchGrant = () => { batchInviteType.value = 'grant'; batchInviteAmount.value = 1; showBatchInvite.value = true }
+const openBatchRevoke = () => { batchInviteType.value = 'revoke'; batchInviteAmount.value = 1; showBatchInvite.value = true }
+
+const handleBatchInvite = async () => {
+  batchInviteLoading.value = true
+  try {
+    const promises = selectedUsers.value.map(u => {
+      const data = { target_user_id: u.id, amount: batchInviteAmount.value }
+      return batchInviteType.value === 'grant' ? grantInviteQuota(data) : revokeInviteQuota(data)
+    })
+    await Promise.all(promises)
+    ElMessage.success(batchInviteType.value === 'grant' ? t('admin.batchGrantSuccess') : t('admin.batchRevokeSuccess'))
+    showBatchInvite.value = false
+    selectedUsers.value = []
+    loadData()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || t('admin.requestFailed'))
+  } finally {
+    batchInviteLoading.value = false
+  }
 }
 
 const handleDisable = async (row) => {
