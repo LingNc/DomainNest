@@ -39,7 +39,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		c.FileFromFS("/", http.FS(staticFS))
 	})
 
-	authHandler := handler.NewAuthHandler(authService, emailService, settingsService, db, &cfg.JWT)
+	emailVerifySvc := service.NewEmailVerifyService(db, emailService)
+	authHandler := handler.NewAuthHandler(authService, emailService, emailVerifySvc, settingsService, db, &cfg.JWT)
 	domainHandler := handler.NewDomainHandler(domainService, db)
 	recordHandler := handler.NewRecordHandler(recordService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
@@ -60,6 +61,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		auth.POST("/forgot-password", authHandler.ForgotPassword)
 		auth.POST("/reset-password", authHandler.ResetPassword)
 		auth.GET("/check-username", authHandler.CheckUsername)
+		auth.POST("/send-verify-email", authHandler.SendVerifyEmail)
+		auth.POST("/verify-email", authHandler.VerifyEmail)
 	}
 
 	authProtected := v1.Group("/auth")
@@ -78,6 +81,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		authProtected.GET("/users/search", friendHandler.SearchAllUsers)
 		authProtected.GET("/pending-returns", permissionHandler.GetPendingReturns)
 		authProtected.DELETE("/account", authHandler.DeleteAccount)
+		authProtected.POST("/verify-email", authHandler.VerifyEmail)
 	}
 
 	domains := v1.Group("/domains")
