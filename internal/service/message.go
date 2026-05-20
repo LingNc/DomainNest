@@ -45,6 +45,7 @@ func (s *MessageService) SendMessage(senderID, receiverID uint64, content string
 		SenderID:   senderID,
 		ReceiverID: receiverID,
 		Content:    content,
+		Type:       "user",
 	}
 	if err := s.db.Create(msg).Error; err != nil {
 		return nil, err
@@ -67,7 +68,7 @@ func (s *MessageService) GetConversations(userID uint64) ([]Conversation, error)
 		SELECT DISTINCT
 			CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END AS partner_id
 		FROM messages
-		WHERE sender_id = ? OR receiver_id = ?
+		WHERE (sender_id = ? OR receiver_id = ?) AND type = 'user'
 	`, userID, userID, userID).Scan(&partnerIDs)
 
 	if len(partnerIDs) == 0 {
@@ -86,13 +87,13 @@ func (s *MessageService) GetConversations(userID uint64) ([]Conversation, error)
 	for _, pid := range partnerIDs {
 		// Get last message
 		var lastMsg model.Message
-		s.db.Where("(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)",
+		s.db.Where("((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) AND type = 'user'",
 			userID, pid, pid, userID).
 			Order("created_at DESC").First(&lastMsg)
 
 		// Count unread messages (sent by partner to me, with read_at IS NULL)
 		var unread int64
-		s.db.Model(&model.Message{}).Where("sender_id = ? AND receiver_id = ? AND read_at IS NULL", pid, userID).Count(&unread)
+		s.db.Model(&model.Message{}).Where("sender_id = ? AND receiver_id = ? AND read_at IS NULL AND type = 'user'", pid, userID).Count(&unread)
 
 		user := userMap[pid]
 		// Clear sensitive fields
@@ -155,4 +156,45 @@ func (s *MessageService) UnreadCount(userID uint64) (int64, error) {
 	var count int64
 	err := s.db.Model(&model.Message{}).Where("receiver_id = ? AND read_at IS NULL", userID).Count(&count).Error
 	return count, err
+}
+
+// GetNotifications returns system notifications for a user with pagination.
+func (s *MessageService) GetNotifications(userID uint64, page, pageSize int) ([]model.Message, int64, error) {
+	query := s.db.Model(&model.Message{}).Where("receiver_id = ? AND type = ?", userID, "system")
+	var total int64
+	query.Count(&total)
+	var messages []model.Message
+	err := query.Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&messages).Error
+	return messages, total, err
+}
+
+// GetNotificationUnreadCount returns unread system notification count.
+func (s *MessageService) GetNotificationUnreadCount(userID uint64) (int64, error) {
+	var count int64
+	err := s.db.Model(&model.Message{}).Where("receiver_id = ? AND type = ? AND read_at IS NULL", userID, "system").Count(&count).Error
+	return count, err
+}
+
+// MarkNotificationAsRead marks a specific notification as read.
+func (s *MessageService) MarkNotificationAsRead(userID, notifID uint64) error {
+	now := time.Now()
+	return s.db.Model(&model.Message{}).Where("id = ? AND receiver_id = ? AND type = ?", notifID, userID, "system").Update("read_at", now).Error
+}
+
+// MarkAllNotificationsAsRead marks all notifications as read for a user.
+func (s *MessageService) MarkAllNotificationsAsRead(userID uint64) error {
+	now := time.Now()
+	return s.db.Model(&model.Message{}).Where("receiver_id = ? AND type = ? AND read_at IS NULL", userID, "system").Update("read_at", now).Error
+}
+
+// SendSystemNotification creates a system notification (sender_id = 0).
+func (s *MessageService) SendSystemNotification(receiverID uint64, title, content string) error {
+	msg := &model.Message{
+		SenderID:   0,
+		ReceiverID: receiverID,
+		Content:    content,
+		Type:       "system",
+		Title:      title,
+	}
+	return s.db.Create(msg).Error
 }

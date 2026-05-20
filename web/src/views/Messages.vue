@@ -5,76 +5,131 @@
       <p class="subtitle">{{ $t('messages.subtitle') }}</p>
     </div>
 
-    <!-- New Message Dialog -->
-    <el-dialog v-model="newMsgVisible" :title="$t('messages.newMessage')" width="480px">
-      <el-form @submit.prevent="handleSearchUser">
-        <el-form-item :label="$t('messages.sendTo')">
-          <el-input v-model="searchKeyword" :placeholder="$t('messages.searchFriendPlaceholder')" clearable @input="handleSearchDebounced">
-            <template #append>
-              <el-button @click="handleSearchUser">{{ $t('common.search') }}</el-button>
-            </template>
-          </el-input>
-        </el-form-item>
-      </el-form>
-      <div v-if="searchResults.length > 0" class="search-results">
-        <div v-for="u in searchResults" :key="u.id" class="search-item" @click="openChat(u.id)">
-          <div style="display:flex;align-items:center;gap:10px">
-            <el-avatar v-if="u.avatar" :src="u.avatar" :size="32" />
-            <el-avatar v-else :size="32">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
-            <div>
-              <div class="username">{{ u.nickname || u.username }}</div>
-              <div class="user-handle">@{{ u.username }}</div>
+    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+      <!-- Notifications Tab -->
+      <el-tab-pane name="notifications">
+        <template #label>
+          <el-badge :value="notifUnread" :hidden="notifUnread === 0" :max="99">
+            <span>{{ $t('messages.notifications') }}</span>
+          </el-badge>
+        </template>
+        <div class="toolbar" v-if="notifications.length > 0">
+          <el-button size="small" @click="handleMarkAllRead">{{ $t('messages.markAllRead') }}</el-button>
+        </div>
+        <el-card>
+          <div v-loading="loadingNotifs">
+            <div
+              v-for="notif in notifications"
+              :key="notif.id"
+              class="notif-item"
+              :class="{ unread: !notif.read_at }"
+              @click="handleNotifClick(notif)"
+            >
+              <div class="notif-icon">
+                <el-icon :size="20" color="#409eff"><Bell /></el-icon>
+              </div>
+              <div class="notif-body">
+                <div class="notif-top">
+                  <span class="notif-title">{{ notif.title || $t('messages.systemNotification') }}</span>
+                  <span class="notif-time">{{ formatTime(notif.created_at) }}</span>
+                </div>
+                <div class="notif-content">{{ notif.content }}</div>
+              </div>
+              <div v-if="!notif.read_at" class="notif-dot"></div>
+            </div>
+            <el-empty v-if="!loadingNotifs && notifications.length === 0" :description="$t('messages.noNotifications')" />
+          </div>
+          <el-pagination
+            v-if="notifTotal > 20"
+            v-model:current-page="notifPage"
+            :page-size="20"
+            :total="notifTotal"
+            layout="total, prev, pager, next"
+            @current-change="loadNotifications"
+            style="margin-top: 12px"
+          />
+        </el-card>
+      </el-tab-pane>
+
+      <!-- Conversations Tab (private messages) -->
+      <el-tab-pane :label="$t('messages.privateMessages')" name="conversations">
+        <!-- New Message Dialog -->
+        <el-dialog v-model="newMsgVisible" :title="$t('messages.newMessage')" width="480px">
+          <el-form @submit.prevent="handleSearchUser">
+            <el-form-item :label="$t('messages.sendTo')">
+              <el-input v-model="searchKeyword" :placeholder="$t('messages.searchFriendPlaceholder')" clearable @input="handleSearchDebounced">
+                <template #append>
+                  <el-button @click="handleSearchUser">{{ $t('common.search') }}</el-button>
+                </template>
+              </el-input>
+            </el-form-item>
+          </el-form>
+          <div v-if="searchResults.length > 0" class="search-results">
+            <div v-for="u in searchResults" :key="u.id" class="search-item" @click="openChat(u.id)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <el-avatar v-if="u.avatar" :src="u.avatar" :size="32" />
+                <el-avatar v-else :size="32">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <div>
+                  <div class="username">{{ u.nickname || u.username }}</div>
+                  <div class="user-handle">@{{ u.username }}</div>
+                </div>
+              </div>
             </div>
           </div>
+          <el-empty v-else-if="searched && searchResults.length === 0" :description="$t('common.userNotFound')" />
+        </el-dialog>
+
+        <div class="toolbar">
+          <el-button type="primary" size="small" @click="newMsgVisible = true">{{ $t('messages.newMessage') }}</el-button>
         </div>
-      </div>
-      <el-empty v-else-if="searched && searchResults.length === 0" :description="$t('common.userNotFound')" />
-    </el-dialog>
 
-    <div class="toolbar">
-      <el-button type="primary" size="small" @click="newMsgVisible = true">{{ $t('messages.newMessage') }}</el-button>
-    </div>
-
-    <el-card>
-      <div v-loading="loading">
-        <div
-          v-for="conv in conversations"
-          :key="conv.user.id"
-          class="conv-item"
-          @click="openChat(conv.user.id)"
-        >
-          <div class="conv-left">
-            <el-badge :value="conv.unread_count" :hidden="conv.unread_count === 0" :max="99">
-              <el-avatar v-if="conv.user.avatar" :src="conv.user.avatar" :size="44" />
-              <el-avatar v-else :size="44">{{ (conv.user.username || '?')[0]?.toUpperCase() }}</el-avatar>
-            </el-badge>
-          </div>
-          <div class="conv-body">
-            <div class="conv-top">
-              <span class="conv-name">{{ conv.user.nickname || conv.user.username }}</span>
-              <span class="conv-time">{{ formatTime(conv.last_msg_time) }}</span>
+        <el-card>
+          <div v-loading="loading">
+            <div
+              v-for="conv in conversations"
+              :key="conv.user.id"
+              class="conv-item"
+              @click="openChat(conv.user.id)"
+            >
+              <div class="conv-left">
+                <el-badge :value="conv.unread_count" :hidden="conv.unread_count === 0" :max="99">
+                  <el-avatar v-if="conv.user.avatar" :src="conv.user.avatar" :size="44" />
+                  <el-avatar v-else :size="44">{{ (conv.user.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                </el-badge>
+              </div>
+              <div class="conv-body">
+                <div class="conv-top">
+                  <span class="conv-name">{{ conv.user.nickname || conv.user.username }}</span>
+                  <span class="conv-time">{{ formatTime(conv.last_msg_time) }}</span>
+                </div>
+                <div class="conv-preview">{{ conv.last_message }}</div>
+              </div>
             </div>
-            <div class="conv-preview">{{ conv.last_message }}</div>
+            <el-empty v-if="!loading && conversations.length === 0" :description="$t('messages.noMessages')">
+              <el-button type="primary" @click="newMsgVisible = true">{{ $t('messages.sendFirstMessage') }}</el-button>
+            </el-empty>
           </div>
-        </div>
-        <el-empty v-if="!loading && conversations.length === 0" :description="$t('messages.noMessages')">
-          <el-button type="primary" @click="newMsgVisible = true">{{ $t('messages.sendFirstMessage') }}</el-button>
-        </el-empty>
-      </div>
-    </el-card>
+        </el-card>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Bell } from '@element-plus/icons-vue'
 import { getConversations } from '../api/message'
+import { getNotifications, getNotificationUnreadCount, markNotificationAsRead, markAllNotificationsAsRead } from '../api/message'
 import { searchAllUsers } from '../api/auth'
 
 const router = useRouter()
+
+const activeTab = ref('notifications')
+
+// --- Conversations ---
 const conversations = ref([])
 const loading = ref(false)
-
 const newMsgVisible = ref(false)
 const searchKeyword = ref('')
 const searchResults = ref([])
@@ -91,6 +146,51 @@ const loadConversations = async () => {
   }
 }
 
+// --- Notifications ---
+const notifications = ref([])
+const loadingNotifs = ref(false)
+const notifUnread = ref(0)
+const notifPage = ref(1)
+const notifTotal = ref(0)
+
+const loadNotifications = async (page = 1) => {
+  loadingNotifs.value = true
+  notifPage.value = page
+  try {
+    const res = await getNotifications({ page, page_size: 20 })
+    notifications.value = res.data.items || []
+    notifTotal.value = res.data.total || 0
+  } finally {
+    loadingNotifs.value = false
+  }
+}
+
+const loadNotifUnreadCount = async () => {
+  try {
+    const res = await getNotificationUnreadCount()
+    notifUnread.value = res.data?.count || 0
+  } catch { /* ignore */ }
+}
+
+const handleNotifClick = async (notif) => {
+  if (!notif.read_at) {
+    try {
+      await markNotificationAsRead(notif.id)
+      notif.read_at = new Date().toISOString()
+      notifUnread.value = Math.max(0, notifUnread.value - 1)
+    } catch { /* ignore */ }
+  }
+}
+
+const handleMarkAllRead = async () => {
+  try {
+    await markAllNotificationsAsRead()
+    notifications.value.forEach(n => { n.read_at = new Date().toISOString() })
+    notifUnread.value = 0
+  } catch { /* ignore */ }
+}
+
+// --- Shared ---
 const formatTime = (t) => {
   if (!t) return ''
   const d = new Date(t)
@@ -128,7 +228,16 @@ const openChat = (userId) => {
   router.push(`/messages/${userId}`)
 }
 
-onMounted(loadConversations)
+const handleTabChange = (tab) => {
+  if (tab === 'conversations') {
+    loadConversations()
+  }
+}
+
+onMounted(() => {
+  loadNotifications()
+  loadNotifUnreadCount()
+})
 </script>
 
 <style scoped>
@@ -147,6 +256,8 @@ onMounted(loadConversations)
 .toolbar {
   margin-bottom: 16px;
 }
+
+/* Conversations */
 .conv-item {
   display: flex;
   align-items: center;
@@ -190,6 +301,8 @@ onMounted(loadConversations)
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Search */
 .search-results {
   max-height: 320px;
   overflow-y: auto;
@@ -215,5 +328,67 @@ onMounted(loadConversations)
 .user-handle {
   font-size: 12px;
   color: #909399;
+}
+
+/* Notifications */
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+.notif-item:hover {
+  background: #f5f7fa;
+  margin: 0 -20px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+.notif-item:last-child {
+  border-bottom: none;
+}
+.notif-item.unread {
+  background: #f0f7ff;
+}
+.notif-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ecf5ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.notif-body {
+  flex: 1;
+  min-width: 0;
+}
+.notif-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.notif-title {
+  font-weight: 500;
+  font-size: 14px;
+}
+.notif-content {
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.notif-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #409eff;
+  margin-top: 6px;
 }
 </style>

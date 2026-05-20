@@ -100,12 +100,20 @@ export default {
   },
   messages: {
     title: '消息',
-    subtitle: '与好友的聊天记录',
+    subtitle: '通知与私信',
     newMessage: '新消息',
     sendTo: '发送给',
     searchFriendPlaceholder: '搜索好友用户名',
     noMessages: '暂无消息',
-    sendFirstMessage: '发送第一条消息'
+    sendFirstMessage: '发送第一条消息',
+    notifications: '通知',
+    privateMessages: '私信',
+    systemNotification: '系统通知',
+    noNotifications: '暂无通知',
+    markAllRead: '全部已读',
+    markRead: '标记已读',
+    markedAsRead: '已标记为已读',
+    allMarkedAsRead: '已全部标记为已读',
   },
   friends: {
     title: '好友管理',

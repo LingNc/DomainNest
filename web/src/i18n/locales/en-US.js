@@ -100,12 +100,20 @@ export default {
   },
   messages: {
     title: 'Messages',
-    subtitle: 'Chat history with friends',
+    subtitle: 'Notifications & private chats',
     newMessage: 'New Message',
     sendTo: 'Send to',
     searchFriendPlaceholder: 'Search friend username',
     noMessages: 'No messages',
-    sendFirstMessage: 'Send your first message'
+    sendFirstMessage: 'Send your first message',
+    notifications: 'Notifications',
+    privateMessages: 'Private Messages',
+    systemNotification: 'System Notification',
+    noNotifications: 'No notifications',
+    markAllRead: 'Mark All Read',
+    markRead: 'Mark as Read',
+    markedAsRead: 'Marked as read',
+    allMarkedAsRead: 'All marked as read',
   },
   friends: {
     title: 'Friends',

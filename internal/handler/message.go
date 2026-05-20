@@ -119,3 +119,59 @@ func (h *MessageHandler) UnreadCount(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"count": count}})
 }
+
+// GetNotifications returns system notifications for the current user.
+func (h *MessageHandler) GetNotifications(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	notifications, total, err := h.messageService.GetNotifications(userID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"items": notifications, "total": total, "page": page, "page_size": pageSize}})
+}
+
+// NotificationUnreadCount returns unread notification count.
+func (h *MessageHandler) NotificationUnreadCount(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	count, err := h.messageService.GetNotificationUnreadCount(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"count": count}})
+}
+
+// MarkNotificationAsRead marks a notification as read.
+func (h *MessageHandler) MarkNotificationAsRead(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	notifID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的通知ID"})
+		return
+	}
+	if err := h.messageService.MarkNotificationAsRead(userID, notifID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已标记为已读"})
+}
+
+// MarkAllNotificationsAsRead marks all notifications as read.
+func (h *MessageHandler) MarkAllNotificationsAsRead(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	if err := h.messageService.MarkAllNotificationsAsRead(userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已全部标记为已读"})
+}
