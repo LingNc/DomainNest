@@ -97,7 +97,9 @@ export default {
     recordId: 'Record ID',
     targetUser: 'Target User',
     inviter: 'Inviter',
-    providerName: 'Provider'
+    providerName: 'Provider',
+    includeMode: 'Include mode (click to switch to exclude)',
+    excludeMode: 'Exclude mode (click to switch to include)',
   },
   messages: {
     title: 'Messages',

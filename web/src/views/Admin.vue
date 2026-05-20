@@ -92,14 +92,28 @@
               </el-option>
             </el-select>
             <el-input v-model="logFilters.q" :placeholder="$t('myLogs.searchPlaceholder')" clearable size="small" style="width:160px" />
-            <el-select v-model="logFilters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
-              <el-option-group v-for="group in actionGroupsI18n" :key="group.label" :label="group.label">
-                <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-              </el-option-group>
-            </el-select>
-            <el-select v-model="logFilters.target_type" :placeholder="$t('myLogs.targetTypePlaceholder')" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
-              <el-option v-for="item in targetTypeOptionsI18n" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
+            <div class="filter-group">
+              <el-select v-model="logFilters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
+                <el-option-group v-for="group in actionGroupsI18n" :key="group.label" :label="group.label">
+                  <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+                </el-option-group>
+              </el-select>
+              <el-tooltip :content="actionExcludeMode ? $t('myLogs.excludeMode') : $t('myLogs.includeMode')">
+                <el-button size="small" :type="actionExcludeMode ? 'danger' : ''" @click="actionExcludeMode = !actionExcludeMode; loadLogs()" style="padding: 5px">
+                  <el-icon :size="14"><component :is="actionExcludeMode ? 'CircleClose' : 'CircleCheck'" /></el-icon>
+                </el-button>
+              </el-tooltip>
+            </div>
+            <div class="filter-group">
+              <el-select v-model="logFilters.target_type" :placeholder="$t('myLogs.targetTypePlaceholder')" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
+                <el-option v-for="item in targetTypeOptionsI18n" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+              <el-tooltip :content="targetTypeExcludeMode ? $t('myLogs.excludeMode') : $t('myLogs.includeMode')">
+                <el-button size="small" :type="targetTypeExcludeMode ? 'danger' : ''" @click="targetTypeExcludeMode = !targetTypeExcludeMode; loadLogs()" style="padding: 5px">
+                  <el-icon :size="14"><component :is="targetTypeExcludeMode ? 'CircleClose' : 'CircleCheck'" /></el-icon>
+                </el-button>
+              </el-tooltip>
+            </div>
             <el-date-picker v-model="logFilters.dateRange" type="daterange" :range-separator="$t('myLogs.dateRangeSeparator')" :start-placeholder="$t('myLogs.startDatePlaceholder')" :end-placeholder="$t('myLogs.endDatePlaceholder')" size="small" style="width:260px" value-format="YYYY-MM-DD" />
             <el-button size="small" type="primary" @click="loadLogs">{{ $t('common.search') }}</el-button>
             <el-button size="small" @click="resetLogFilters">{{ $t('common.reset') }}</el-button>
@@ -295,6 +309,8 @@ const testingSMTP = ref(false)
 const testEmail = ref('')
 
 const logFilters = reactive({ user_id: '', action: [], target_type: [], q: '', dateRange: null })
+const actionExcludeMode = ref(false)
+const targetTypeExcludeMode = ref(false)
 
 const DETAIL_KEY_I18N = {
   username: 'common.username',
@@ -459,8 +475,20 @@ watch(selectedProviderId, async (id) => {
 const loadLogs = async () => {
   const params = { page: logPage.value, page_size: logPageSize.value }
   if (logFilters.user_id) params.user_id = logFilters.user_id
-  if (logFilters.action.length > 0) params.action = logFilters.action.join(',')
-  if (logFilters.target_type.length > 0) params.target_type = logFilters.target_type.join(',')
+  if (logFilters.action.length > 0) {
+    if (actionExcludeMode.value) {
+      params.action_exclude = logFilters.action.join(',')
+    } else {
+      params.action = logFilters.action.join(',')
+    }
+  }
+  if (logFilters.target_type.length > 0) {
+    if (targetTypeExcludeMode.value) {
+      params.target_type_exclude = logFilters.target_type.join(',')
+    } else {
+      params.target_type = logFilters.target_type.join(',')
+    }
+  }
   if (logFilters.q) params.q = logFilters.q
   if (logFilters.dateRange && logFilters.dateRange.length === 2) {
     params.start_time = logFilters.dateRange[0]
@@ -477,6 +505,8 @@ const resetLogFilters = () => {
   logFilters.target_type = []
   logFilters.q = ''
   logFilters.dateRange = null
+  actionExcludeMode.value = false
+  targetTypeExcludeMode.value = false
   logPage.value = 1
   loadLogs()
 }
@@ -665,6 +695,11 @@ onMounted(loadData)
   margin-bottom: 12px;
   flex-wrap: wrap;
   align-items: center;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 @media (max-width: 768px) {

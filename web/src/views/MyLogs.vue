@@ -7,14 +7,28 @@
     <el-card>
       <div class="filter-bar">
         <el-input v-model="filters.q" :placeholder="$t('myLogs.searchPlaceholder')" clearable size="small" style="width:160px" />
-        <el-select v-model="filters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px" @change="loadLogs">
-          <el-option-group v-for="group in actionGroups" :key="group.label" :label="group.label">
-            <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-          </el-option-group>
-        </el-select>
-        <el-select v-model="filters.target_type" :placeholder="$t('myLogs.targetTypePlaceholder')" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px" @change="loadLogs">
-          <el-option v-for="item in targetTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
+        <div class="filter-group">
+          <el-select v-model="filters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px" @change="loadLogs">
+            <el-option-group v-for="group in actionGroups" :key="group.label" :label="group.label">
+              <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+            </el-option-group>
+          </el-select>
+          <el-tooltip :content="actionExcludeMode ? $t('myLogs.excludeMode') : $t('myLogs.includeMode')">
+            <el-button size="small" :type="actionExcludeMode ? 'danger' : ''" @click="actionExcludeMode = !actionExcludeMode; loadLogs()" style="padding: 5px">
+              <el-icon :size="14"><component :is="actionExcludeMode ? 'CircleClose' : 'CircleCheck'" /></el-icon>
+            </el-button>
+          </el-tooltip>
+        </div>
+        <div class="filter-group">
+          <el-select v-model="filters.target_type" :placeholder="$t('myLogs.targetTypePlaceholder')" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px" @change="loadLogs">
+            <el-option v-for="item in targetTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+          <el-tooltip :content="targetTypeExcludeMode ? $t('myLogs.excludeMode') : $t('myLogs.includeMode')">
+            <el-button size="small" :type="targetTypeExcludeMode ? 'danger' : ''" @click="targetTypeExcludeMode = !targetTypeExcludeMode; loadLogs()" style="padding: 5px">
+              <el-icon :size="14"><component :is="targetTypeExcludeMode ? 'CircleClose' : 'CircleCheck'" /></el-icon>
+            </el-button>
+          </el-tooltip>
+        </div>
         <el-date-picker v-model="filters.dateRange" type="daterange" :range-separator="$t('myLogs.dateRangeSeparator')" :start-placeholder="$t('myLogs.startDatePlaceholder')" :end-placeholder="$t('myLogs.endDatePlaceholder')" size="small" style="width:260px" value-format="YYYY-MM-DD" />
         <el-button size="small" type="primary" @click="loadLogs">{{ $t('common.search') }}</el-button>
         <el-button size="small" @click="resetFilters">{{ $t('common.reset') }}</el-button>
@@ -85,13 +99,27 @@ const formatDetailValue = (val) => {
 }
 
 const filters = reactive({ action: [], target_type: [], q: '', dateRange: null })
+const actionExcludeMode = ref(false)
+const targetTypeExcludeMode = ref(false)
 
 const loadLogs = async () => {
   loading.value = true
   try {
     const params = { page: page.value, page_size: pageSize.value }
-    if (filters.action.length > 0) params.action = filters.action.join(',')
-    if (filters.target_type.length > 0) params.target_type = filters.target_type.join(',')
+    if (filters.action.length > 0) {
+      if (actionExcludeMode.value) {
+        params.action_exclude = filters.action.join(',')
+      } else {
+        params.action = filters.action.join(',')
+      }
+    }
+    if (filters.target_type.length > 0) {
+      if (targetTypeExcludeMode.value) {
+        params.target_type_exclude = filters.target_type.join(',')
+      } else {
+        params.target_type = filters.target_type.join(',')
+      }
+    }
     if (filters.q) params.q = filters.q
     if (filters.dateRange && filters.dateRange.length === 2) {
       params.start_time = filters.dateRange[0]
@@ -110,6 +138,8 @@ const resetFilters = () => {
   filters.target_type = []
   filters.q = ''
   filters.dateRange = null
+  actionExcludeMode.value = false
+  targetTypeExcludeMode.value = false
   page.value = 1
   loadLogs()
 }
@@ -147,5 +177,10 @@ onMounted(loadLogs)
   margin-bottom: 12px;
   flex-wrap: wrap;
   align-items: center;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 </style>

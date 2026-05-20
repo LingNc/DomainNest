@@ -12,9 +12,17 @@ func applyLogFilters(query *gorm.DB, c *gin.Context) *gorm.DB {
 		actionList := strings.Split(actions, ",")
 		query = query.Where("action IN ?", actionList)
 	}
+	if actionExclude := c.Query("action_exclude"); actionExclude != "" {
+		excludeList := strings.Split(actionExclude, ",")
+		query = query.Where("action NOT IN ?", excludeList)
+	}
 	if targetTypes := c.Query("target_type"); targetTypes != "" {
 		types := strings.Split(targetTypes, ",")
 		query = query.Where("target_type IN ?", types)
+	}
+	if targetTypeExclude := c.Query("target_type_exclude"); targetTypeExclude != "" {
+		excludeList := strings.Split(targetTypeExclude, ",")
+		query = query.Where("target_type NOT IN ?", excludeList)
 	}
 	if q := c.Query("q"); q != "" {
 		like := "%" + q + "%"

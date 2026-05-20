@@ -97,7 +97,9 @@ export default {
     recordId: '记录ID',
     targetUser: '目标用户',
     inviter: '邀请人',
-    providerName: '提供商'
+    providerName: '提供商',
+    includeMode: '包含模式（点击切换为排除）',
+    excludeMode: '排除模式（点击切换为包含）',
   },
   messages: {
     title: '消息',
