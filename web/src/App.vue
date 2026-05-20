@@ -28,46 +28,46 @@
       >
         <el-menu-item index="/dashboard">
           <el-icon><component :is="'HomeFilled'" /></el-icon>
-          <span>域名管理</span>
+          <span>{{ $t('sidebar.domainManagement') }}</span>
         </el-menu-item>
         <el-menu-item index="/friends">
           <el-icon><component :is="'Avatar'" /></el-icon>
-          <span>好友</span>
+          <span>{{ $t('sidebar.friends') }}</span>
         </el-menu-item>
         <el-menu-item index="/messages">
           <el-icon><component :is="'ChatDotRound'" /></el-icon>
           <template #title>
-            <span>消息</span>
+            <span>{{ $t('sidebar.messages') }}</span>
             <el-badge v-if="unreadCount > 0" :value="unreadCount" :max="99" :offset="[10, 0]" />
           </template>
         </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><component :is="'Tools'" /></el-icon>
-          <span>系统设置</span>
+          <span>{{ $t('sidebar.settings') }}</span>
         </el-menu-item>
         <el-menu-item index="/providers">
           <el-icon><component :is="'Connection'" /></el-icon>
-          <span>DNS 提供商</span>
+          <span>{{ $t('sidebar.providers') }}</span>
         </el-menu-item>
         <el-menu-item index="/profile">
           <el-icon><component :is="'User'" /></el-icon>
-          <span>个人信息</span>
+          <span>{{ $t('sidebar.profile') }}</span>
         </el-menu-item>
         <el-menu-item index="/permissions">
           <el-icon><component :is="'Key'" /></el-icon>
-          <span>我的权限</span>
+          <span>{{ $t('sidebar.permissions') }}</span>
         </el-menu-item>
         <el-menu-item index="/my-logs">
           <el-icon><component :is="'Document'" /></el-icon>
-          <span>操作日志</span>
+          <span>{{ $t('sidebar.logs') }}</span>
         </el-menu-item>
         <el-menu-item index="/ram-tokens">
           <el-icon><component :is="'Tickets'" /></el-icon>
-          <span>API Tokens</span>
+          <span>{{ $t('sidebar.apiTokens') }}</span>
         </el-menu-item>
         <el-menu-item v-if="auth.isAdmin" index="/admin">
           <el-icon><component :is="'UserFilled'" /></el-icon>
-          <span>管理后台</span>
+          <span>{{ $t('sidebar.admin') }}</span>
         </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">
@@ -76,11 +76,14 @@
           <el-icon v-else><component :is="'User'" /></el-icon>
           <span>{{ auth.nickname }}</span>
         </div>
-        <div style="padding: 8px 20px; display: flex; gap: 4px;">
-          <el-button :type="locale === 'zh-CN' ? 'primary' : 'default'" size="small" plain @click="switchLang('zh-CN')">中</el-button>
-          <el-button :type="locale === 'en-US' ? 'primary' : 'default'" size="small" plain @click="switchLang('en-US')">En</el-button>
+        <div class="footer-actions">
+          <div class="lang-switch">
+            <span :class="{ active: locale === 'zh-CN' }" @click="switchLang('zh-CN')">中</span>
+            <span class="divider">/</span>
+            <span :class="{ active: locale === 'en-US' }" @click="switchLang('en-US')">En</span>
+          </div>
+          <el-button text size="small" @click="handleLogout" class="logout-btn">{{ $t('common.logout') }}</el-button>
         </div>
-        <el-button text size="small" @click="handleLogout" class="logout-btn">退出登录</el-button>
       </div>
     </aside>
 
@@ -255,7 +258,40 @@ body {
 }
 .logout-btn {
   color: #f56c6c !important;
-  width: 100%;
+}
+.footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  color: #6c6e7e;
+}
+.lang-switch span {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+.lang-switch span:hover {
+  color: #a3a6b4;
+}
+.lang-switch span.active {
+  color: #409eff;
+  font-weight: 500;
+}
+.lang-switch .divider {
+  color: #4a4b5a;
+  cursor: default;
+  padding: 0;
+}
+.lang-switch .divider:hover {
+  color: #4a4b5a;
 }
 
 .main-content {
