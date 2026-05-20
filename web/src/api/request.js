@@ -25,6 +25,9 @@ request.interceptors.response.use(
     return data
   },
   error => {
+    if (error.config?.skipErrorToast) {
+      return Promise.reject(error)
+    }
     if (error.response?.status === 401) {
       const auth = useAuthStore()
       auth.clearAuth()
