@@ -41,5 +41,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&Friendship{},
 		&Message{},
 		&InviteLog{},
+		&EmailVerification{},
 	)
 }
