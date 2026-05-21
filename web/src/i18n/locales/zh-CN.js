@@ -460,6 +460,10 @@ export default {
     sourcePlatform: '平台',
     syncNow: '立即同步',
     syncNowSuccess: '同步请求已发送',
+    adopt: '接管',
+    adoptConfirm: '确定接管此记录？接管后可编辑和删除。',
+    adoptSuccess: '接管成功',
+    adoptFailed: '接管失败',
   },
   settings: {
     title: '系统设置',

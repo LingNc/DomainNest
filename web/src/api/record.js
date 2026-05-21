@@ -23,3 +23,4 @@ export const checkRecordConflict = (nodeId, data) =>
 export const batchTagRecords = (data) => request.put('/records/batch-tag', data)
 
 export const syncRecord = (id) => request.post(`/records/${id}/sync`)
+export const adoptRecord = (id) => request.put(`/records/${id}/adopt`)

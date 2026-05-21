@@ -131,6 +131,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	records := v1.Group("/records")
 	records.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
 	{
+		records.PUT("/:id/adopt", recordHandler.AdoptRecord)
 		records.PUT("/:id", recordHandler.Update)
 		records.DELETE("/:id", recordHandler.Delete)
 		records.PUT("/:id/toggle", recordHandler.Toggle)

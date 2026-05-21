@@ -460,6 +460,10 @@ export default {
     sourcePlatform: 'Platform',
     syncNow: 'Sync Now',
     syncNowSuccess: 'Sync request sent',
+    adopt: 'Adopt',
+    adoptConfirm: 'Adopt this record? You can edit and delete it after adoption.',
+    adoptSuccess: 'Record adopted',
+    adoptFailed: 'Adopt failed',
   },
   settings: {
     title: 'System Settings',

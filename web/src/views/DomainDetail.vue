@@ -105,13 +105,19 @@
             <el-table-column type="selection" width="40" :selectable="(row) => !row.virtual" />
             <el-table-column prop="host" :label="$t('domainDetail.host')" width="180">
               <template #default="{ row }">
-                <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.host }}</span>
-                <template v-if="!row.virtual && row.own_node_id">
-                  <el-tag type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
-                  <el-button link type="warning" size="small" @click="handleCancelIndependence(row)" style="margin-left:4px">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                <template v-if="row.isGroup">
+                  <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
+                  <strong>{{ row.host }}</strong>
                 </template>
-                <template v-else-if="!row.virtual && row.host !== '@'">
-                  <el-button link type="primary" size="small" @click="handleMakeIndependent(row)" style="margin-left:4px">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                <template v-else>
+                  <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.host }}</span>
+                  <template v-if="!row.virtual && row.own_node_id">
+                    <el-tag type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
+                    <el-button link type="warning" size="small" @click="handleCancelIndependence(row)" style="margin-left:4px">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                  </template>
+                  <template v-else-if="!row.virtual && row.host !== '@'">
+                    <el-button link type="primary" size="small" @click="handleMakeIndependent(row)" style="margin-left:4px">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                  </template>
                 </template>
               </template>
             </el-table-column>
@@ -136,7 +142,10 @@
             </el-table-column>
             <el-table-column :label="$t('common.enabled')" width="70">
               <template #default="{ row }">
-                <el-switch v-if="!row.virtual" v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
+                <el-switch v-if="!row.virtual && row.source !== 'provider'" v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
+                <template v-else-if="!row.virtual">
+                  <el-tag :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? $t('common.enabled') : $t('common.disabled') }}</el-tag>
+                </template>
               </template>
             </el-table-column>
             <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="90">
@@ -163,13 +172,21 @@
               <template #default="{ row }">
                 <template v-if="!row.virtual">
                   <el-tag v-if="row.group_tag" size="small" closable @close="clearGroupTag(row)">{{ row.group_tag }}</el-tag>
-                  <el-button v-else link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
+                  <template v-else-if="row.source !== 'provider'">
+                    <el-button link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
+                  </template>
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('common.actions')" min-width="150" fixed="right">
+            <el-table-column :label="$t('common.actions')" min-width="200" fixed="right">
               <template #default="{ row }">
-                <template v-if="!row.virtual">
+                <template v-if="row.isGroup" />
+                <template v-else-if="row.virtual" />
+                <template v-else-if="row.source === 'provider'">
+                  <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
+                  <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
+                </template>
+                <template v-else>
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                   <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
@@ -205,7 +222,8 @@
             </el-table-column>
             <el-table-column :label="$t('common.enabled')" width="70">
               <template #default="{ row }">
-                <el-switch v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
+                <el-switch v-if="row.source !== 'provider'" v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
+                <el-tag v-else :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? $t('common.enabled') : $t('common.disabled') }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="90">
@@ -227,15 +245,23 @@
             <el-table-column :label="$t('domainDetail.groupTag')" width="120">
               <template #default="{ row }">
                 <el-tag v-if="row.group_tag" size="small" closable @close="clearGroupTag(row)">{{ row.group_tag }}</el-tag>
-                <el-button v-else link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
+                <template v-else-if="row.source !== 'provider'">
+                  <el-button link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
+                </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('common.actions')" min-width="150" fixed="right">
+            <el-table-column :label="$t('common.actions')" min-width="200" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
-                <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
-                <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
-                <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
+                <template v-if="row.source === 'provider'">
+                  <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
+                  <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
+                </template>
+                <template v-else>
+                  <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
+                  <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
+                  <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
+                  <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
+                </template>
               </template>
             </el-table-column>
           </el-table>
@@ -643,7 +669,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
-import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord } from '../api/record'
+import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord } from '../api/record'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
@@ -721,7 +747,7 @@ const archiveInfo = ref(null)
 const isProviderOwner = computed(() => archiveInfo.value?.is_provider_owner || false)
 
 // Tree view & group tag state
-const recordViewMode = ref('tree')
+const recordViewMode = ref('flat')
 const showTagDialog = ref(false)
 const tagForm = ref({ record_ids: [], group_tag: '' })
 
@@ -736,88 +762,112 @@ const valuePlaceholder = computed(() => {
 const treeRecords = computed(() => {
   if (recordViewMode.value !== 'tree') return records.value
 
-  // Group records by host
-  const hostMap = new Map()
+  // Separate grouped and ungrouped records
+  const grouped = new Map()
+  const ungrouped = []
   for (const rec of records.value) {
-    if (!hostMap.has(rec.host)) {
-      hostMap.set(rec.host, { host: rec.host, records: [], children: [], virtual: false })
-    }
-    hostMap.get(rec.host).records.push(rec)
-  }
-
-  // Helper: get parent host
-  const getParent = (host) => {
-    if (host === '@') return null
-    const parts = host.split('.')
-    return parts.length > 1 ? parts.slice(0, -1).join('.') : '@'
-  }
-
-  // Ensure a node exists for a given host
-  const ensureNode = (host) => {
-    if (!hostMap.has(host)) {
-      const node = { host, records: [], children: [], virtual: true }
-      hostMap.set(host, node)
-    }
-    return hostMap.get(host)
-  }
-
-  // Build tree: for each host, link it to its parent chain
-  const linked = new Set()
-  const linkToParent = (host) => {
-    if (linked.has(host)) return
-    linked.add(host)
-
-    const node = hostMap.get(host)
-    const parentHost = getParent(host)
-
-    if (parentHost === null) return // @ is a root
-
-    const parent = ensureNode(parentHost)
-    parent.children.push(node)
-    linkToParent(parentHost)
-  }
-
-  for (const host of hostMap.keys()) {
-    linkToParent(host)
-  }
-
-  // Find roots
-  const roots = []
-  for (const [host, node] of hostMap) {
-    if (getParent(host) === null) {
-      roots.push(node)
+    if (rec.group_tag) {
+      if (!grouped.has(rec.group_tag)) grouped.set(rec.group_tag, [])
+      grouped.get(rec.group_tag).push(rec)
+    } else {
+      ungrouped.push(rec)
     }
   }
 
-  // Flatten to table rows
-  const flatten = (nodes) => {
-    const rows = []
-    for (const node of nodes) {
-      if (node.records.length > 0) {
-        const parentRow = { ...node.records[0], treeId: `${node.host}:${node.records[0].id}`, children: [] }
-        for (let i = 1; i < node.records.length; i++) {
-          parentRow.children.push({ ...node.records[i], treeId: `${node.host}:${node.records[i].id}` })
-        }
-        if (node.children.length > 0) {
-          parentRow.children.push(...flatten(node.children))
-        }
-        rows.push(parentRow)
-      } else if (node.virtual && node.children.length > 0) {
-        const childRows = flatten(node.children)
-        rows.push({
-          treeId: `virtual:${node.host}`,
-          host: node.host,
-          record_type: '—',
-          value: `${childRows.length} records`,
-          virtual: true,
-          children: childRows,
-        })
+  // Build subdomain tree from a list of records
+  const buildSubdomainTree = (recs) => {
+    const hostMap = new Map()
+    for (const rec of recs) {
+      if (!hostMap.has(rec.host)) {
+        hostMap.set(rec.host, { host: rec.host, records: [], children: [] })
       }
+      hostMap.get(rec.host).records.push(rec)
     }
-    return rows
+
+    const getParent = (host) => {
+      if (host === '@') return null
+      const parts = host.split('.')
+      return parts.length > 1 ? parts.slice(0, -1).join('.') : '@'
+    }
+
+    const ensureNode = (host) => {
+      if (!hostMap.has(host)) {
+        hostMap.set(host, { host, records: [], children: [], virtual: true })
+      }
+      return hostMap.get(host)
+    }
+
+    const linked = new Set()
+    const linkToParent = (host) => {
+      if (linked.has(host)) return
+      linked.add(host)
+      const node = hostMap.get(host)
+      const parentHost = getParent(host)
+      if (parentHost === null) return
+      const parent = ensureNode(parentHost)
+      parent.children.push(node)
+      linkToParent(parentHost)
+    }
+
+    for (const host of hostMap.keys()) {
+      linkToParent(host)
+    }
+
+    const roots = []
+    for (const [host, node] of hostMap) {
+      if (getParent(host) === null) roots.push(node)
+    }
+
+    const flatten = (nodes) => {
+      const rows = []
+      for (const node of nodes) {
+        if (node.records.length > 0) {
+          const parentRow = { ...node.records[0], treeId: `${node.host}:${node.records[0].id}`, children: [] }
+          for (let i = 1; i < node.records.length; i++) {
+            parentRow.children.push({ ...node.records[i], treeId: `${node.host}:${node.records[i].id}` })
+          }
+          if (node.children.length > 0) {
+            parentRow.children.push(...flatten(node.children))
+          }
+          rows.push(parentRow)
+        } else if (node.virtual && node.children.length > 0) {
+          const childRows = flatten(node.children)
+          rows.push({
+            treeId: `virtual:${node.host}`,
+            host: node.host,
+            record_type: '—',
+            value: `${childRows.length} records`,
+            virtual: true,
+            children: childRows,
+          })
+        }
+      }
+      return rows
+    }
+
+    return flatten(roots)
   }
 
-  return flatten(roots)
+  const result = []
+
+  // Grouped records first (as group nodes with children)
+  for (const [tag, recs] of grouped) {
+    const children = buildSubdomainTree(recs)
+    result.push({
+      treeId: `group:${tag}`,
+      host: tag,
+      record_type: '—',
+      value: `${recs.length} records`,
+      virtual: true,
+      isGroup: true,
+      children,
+    })
+  }
+
+  // Ungrouped records as subdomain tree
+  result.push(...buildSubdomainTree(ungrouped))
+
+  return result
 })
 
 const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
@@ -1068,6 +1118,18 @@ const handleSyncNow = async (id) => {
   await syncRecord(id)
   ElMessage.success(t('domainDetail.syncNowSuccess'))
   loadRecords()
+}
+
+const handleAdopt = async (id) => {
+  try {
+    await ElMessageBox.confirm(t('domainDetail.adoptConfirm'), t('common.confirm'), { type: 'warning' })
+    await adoptRecord(id)
+    ElMessage.success(t('domainDetail.adoptSuccess'))
+    await loadRecords()
+  } catch (e) {
+    if (e === 'cancel') return
+    showError(e.response?.data?.message || t('domainDetail.adoptFailed'))
+  }
 }
 
 const handleTransfer = async () => {

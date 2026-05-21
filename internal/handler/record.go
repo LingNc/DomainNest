@@ -502,6 +502,39 @@ func mapProviderRRToHost(rr, domainName string) string {
 	return rr
 }
 
+func (h *RecordHandler) AdoptRecord(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		return
+	}
+
+	var record model.DNSRecord
+	if err := h.db.First(&record, recordID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在"})
+		return
+	}
+
+	// Verify ownership through node
+	var node model.DomainNode
+	if err := h.db.First(&node, record.NodeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "域名不存在"})
+		return
+	}
+	if node.OwnerID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "无权操作"})
+		return
+	}
+
+	if err := h.db.Model(&record).Update("source", "platform").Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "接管失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "接管成功"})
+}
+
 func (h *RecordHandler) SyncNow(c *gin.Context) {
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
