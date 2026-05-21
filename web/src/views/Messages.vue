@@ -142,7 +142,7 @@ import { useWebSocket } from '../composables/useWebSocket'
 import { useError } from '../composables/useError'
 
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { showError } = useError()
 
 const activeTab = ref('notifications')
@@ -234,10 +234,10 @@ const formatTime = (t) => {
   const now = new Date()
   const isToday = d.toDateString() === now.toDateString()
   if (isToday) {
-    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' })
   }
-  return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' +
-    d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString(locale.value, { month: '2-digit', day: '2-digit' }) + ' ' +
+    d.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' })
 }
 
 const handleSearchDebounced = () => {

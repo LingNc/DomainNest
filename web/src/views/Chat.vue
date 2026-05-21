@@ -69,7 +69,7 @@ import { getMessages, sendMessage, markAsRead } from '../api/message'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocket } from '../composables/useWebSocket'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -95,7 +95,7 @@ let pollTimer = null
 const formatTime = (t) => {
   if (!t) return ''
   const d = new Date(t)
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' })
 }
 
 const loadMessages = async (reset = true) => {

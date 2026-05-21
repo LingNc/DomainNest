@@ -79,7 +79,7 @@
             <span class="group-grantor">
               {{ $t('dashboard.grantedBy') }}:
               <el-avatar v-if="group.grantor?.avatar" :src="group.grantor.avatar" :size="20" style="vertical-align:middle;margin:0 4px" />
-              {{ group.grantor?.username || 'Unknown' }}
+              {{ group.grantor?.username || $t('common.unknown') }}
             </span>
             <el-tag size="small" type="info" style="margin-left:8px">{{ group.entries.length }} {{ $t('dashboard.permissions') }}</el-tag>
           </div>

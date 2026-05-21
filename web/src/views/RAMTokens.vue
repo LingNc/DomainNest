@@ -3,7 +3,7 @@
   <div>
     <div class="page-header">
       <div>
-        <h2>API Tokens</h2>
+        <h2>{{ $t('sidebar.apiTokens') }}</h2>
         <p class="subtitle">{{ $t('ramTokens.subtitle') }}</p>
       </div>
       <el-button type="primary" size="small" @click="openCreate">

@@ -93,7 +93,7 @@
             </el-table-column>
             <el-table-column prop="ttl" :label="$t('domainDetail.ttl')" width="70" />
             <el-table-column prop="line" :label="$t('domainDetail.line')" width="80">
-              <template #default="{ row }">{{ row.line || 'default' }}</template>
+              <template #default="{ row }">{{ row.line || $t('common.default') }}</template>
             </el-table-column>
             <el-table-column :label="$t('common.enabled')" width="70">
               <template #default="{ row }">
@@ -461,7 +461,7 @@
         <el-descriptions-item :label="$t('domainDetail.type')">{{ conflictRecord.type }}</el-descriptions-item>
         <el-descriptions-item :label="$t('domainDetail.value')" :span="2">{{ conflictRecord.value }}</el-descriptions-item>
         <el-descriptions-item :label="$t('domainDetail.ttl')">{{ conflictRecord.ttl }}</el-descriptions-item>
-        <el-descriptions-item :label="$t('domainDetail.line')">{{ conflictRecord.line || 'default' }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('domainDetail.line')">{{ conflictRecord.line || $t('common.default') }}</el-descriptions-item>
       </el-descriptions>
       <template #footer>
         <el-button @click="showConflictDialog = false">{{ $t('domainDetail.conflictCancel') }}</el-button>

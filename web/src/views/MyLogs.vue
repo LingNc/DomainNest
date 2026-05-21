@@ -17,7 +17,7 @@
         <el-input v-model="filters.q_exclude" :placeholder="$t('myLogs.excludePlaceholder')" clearable size="small" style="width:120px" />
         <div class="filter-group">
           <el-select v-model="filters.action" :placeholder="$t('myLogs.actionPlaceholder')" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:170px" @change="loadLogs">
-            <el-option-group v-for="group in actionGroups" :key="group.label" :label="group.label">
+            <el-option-group v-for="group in actionGroupsI18n" :key="group.label" :label="group.label">
               <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
             </el-option-group>
           </el-select>
@@ -29,7 +29,7 @@
         </div>
         <div class="filter-group">
           <el-select v-model="filters.target_type" :placeholder="$t('myLogs.targetTypePlaceholder')" clearable multiple collapse-tags collapse-tags-tooltip size="small" style="width:170px" @change="loadLogs">
-            <el-option v-for="item in targetTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+            <el-option v-for="item in targetTypeOptionsI18n" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
           <el-tooltip :content="targetTypeExcludeMode ? $t('myLogs.excludeMode') : $t('myLogs.includeMode')">
             <el-button size="small" :type="targetTypeExcludeMode ? 'danger' : ''" @click="targetTypeExcludeMode = !targetTypeExcludeMode; loadLogs()" style="padding: 5px">
@@ -118,6 +118,97 @@ const { t } = useI18n()
 const { getSrc, firstLetter } = useAvatar()
 const authStore = useAuthStore()
 const currentUserId = computed(() => authStore.user?.id)
+
+const GROUP_I18N_KEYS = {
+  '域名': 'admin.actionGroupDomain',
+  '记录': 'admin.actionGroupRecord',
+  '权限': 'admin.actionGroupPermission',
+  '用户': 'admin.actionGroupUser',
+  '邀请': 'admin.actionGroupInvite',
+  '好友': 'admin.actionGroupFriend',
+  '提供商': 'admin.actionGroupProvider',
+  '设置': 'admin.actionGroupSetting',
+}
+
+const ACTION_I18N_KEYS = {
+  create_domain: 'admin.actionCreateDomain',
+  transfer_domain: 'admin.actionTransferDomain',
+  delete_domain: 'admin.actionDeleteDomain',
+  create_root_domain: 'admin.actionCreateRootDomain',
+  assign_domain: 'admin.actionAssignDomain',
+  convert_to_node: 'admin.actionConvertToNode',
+  demote_node: 'admin.actionDemoteNode',
+  create_record: 'admin.actionCreateRecord',
+  update_record: 'admin.actionUpdateRecord',
+  delete_record: 'admin.actionDeleteRecord',
+  toggle_record: 'admin.actionToggleRecord',
+  batch_delete: 'admin.actionBatchDelete',
+  batch_toggle: 'admin.actionBatchToggle',
+  import: 'admin.actionImport',
+  grant_permission: 'admin.actionGrantPermission',
+  revoke_permission: 'admin.actionRevokePermission',
+  revoke_request: 'admin.actionRevokeRequest',
+  accept_return: 'admin.actionAcceptReturn',
+  reject_return: 'admin.actionRejectReturn',
+  assign_pending_records: 'admin.actionAssignPendingRecords',
+  delete_pending_records: 'admin.actionDeletePendingRecords',
+  register: 'admin.actionRegister',
+  login: 'admin.actionLogin',
+  update_profile: 'admin.actionUpdateProfile',
+  change_password: 'admin.actionChangePassword',
+  reset_token: 'admin.actionResetToken',
+  upload_avatar: 'admin.actionUploadAvatar',
+  delete_account: 'admin.actionDeleteAccount',
+  update_user: 'admin.actionUpdateUser',
+  admin_reset_password: 'admin.actionAdminResetPassword',
+  disable_user: 'admin.actionDisableUser',
+  promote_to_admin: 'admin.actionPromoteToAdmin',
+  demote_from_admin: 'admin.actionDemoteFromAdmin',
+  grant_invite: 'admin.actionGrantInvite',
+  revoke_invite: 'admin.actionRevokeInvite',
+  permission_granted: 'admin.actionPermissionGranted',
+  permission_revoked: 'admin.actionPermissionRevoked',
+  invite_granted: 'admin.actionInviteGranted',
+  invite_revoked: 'admin.actionInviteRevoked',
+  admin_grant: 'admin.actionAdminGrant',
+  send_friend_request: 'admin.actionSendFriendRequest',
+  accept_friend: 'admin.actionAcceptFriend',
+  reject_friend: 'admin.actionRejectFriend',
+  remove_friend: 'admin.actionRemoveFriend',
+  create_provider: 'admin.actionCreateProvider',
+  update_provider: 'admin.actionUpdateProvider',
+  delete_provider: 'admin.actionDeleteProvider',
+  claim_domain: 'admin.actionClaimDomain',
+  update_settings: 'admin.actionUpdateSettings',
+  smtp_test: 'admin.actionSmtpTest',
+}
+
+const TARGET_I18N_KEYS = {
+  domain_node: 'admin.targetDomainNode',
+  dns_record: 'admin.targetDnsRecord',
+  user: 'admin.targetUser',
+  setting: 'admin.targetSetting',
+  provider: 'admin.targetProvider',
+  friend: 'admin.targetFriend',
+}
+
+const actionGroupsI18n = computed(() => {
+  return actionGroups.map(group => ({
+    ...group,
+    label: t(GROUP_I18N_KEYS[group.label] || group.label),
+    options: group.options.map(opt => ({
+      ...opt,
+      label: t(ACTION_I18N_KEYS[opt.value] || opt.label)
+    }))
+  }))
+})
+
+const targetTypeOptionsI18n = computed(() => {
+  return targetTypeOptions.map(opt => ({
+    ...opt,
+    label: t(TARGET_I18N_KEYS[opt.value] || opt.label)
+  }))
+})
 
 const getRelatedUser = (row) => {
   if (row.user_id === currentUserId.value) {

@@ -159,7 +159,7 @@
         <el-table-column :label="$t('profile.direction')" min-width="180">
           <template #default="{ row }">
             <template v-if="row.inviter_id === profile.id">
-              <span style="color:#409eff;font-weight:500">我</span>
+              <span style="color:#409eff;font-weight:500">{{ $t('profile.directionMe') }}</span>
               <span v-if="row.action === 'revoke'" style="margin:0 4px">←</span>
               <span v-else style="margin:0 4px">→</span>
               <span>{{ row.invitee?.nickname || row.invitee?.username || '#' + row.invitee_id }}</span>
@@ -168,7 +168,7 @@
               <span>{{ row.inviter?.nickname || row.inviter?.username || '#' + row.inviter_id }}</span>
               <span v-if="row.action === 'revoke'" style="margin:0 4px">←</span>
               <span v-else style="margin:0 4px">→</span>
-              <span style="color:#409eff;font-weight:500">我</span>
+              <span style="color:#409eff;font-weight:500">{{ $t('profile.directionMe') }}</span>
             </template>
           </template>
         </el-table-column>
