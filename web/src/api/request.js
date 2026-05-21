@@ -18,6 +18,10 @@ request.interceptors.request.use(config => {
 
 request.interceptors.response.use(
   response => {
+    // Blob responses (file downloads) bypass the code check
+    if (response.config.responseType === 'blob') {
+      return response
+    }
     const { data } = response
     if (data.code !== 0) {
       if (!response.config?.skipErrorToast) {
