@@ -99,6 +99,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.POST("/:parentId/nodes/convert", domainHandler.ConvertToNode)
 		domains.POST("/:nodeId/nodes/demote", domainHandler.DemoteNode)
 		domains.GET("/:nodeId/nodes/conversion-logs", domainHandler.GetConversionLogs)
+		domains.POST("/:parentId/records/transfer", recordHandler.TransferByHost)
 		domains.GET("/:id/records", recordHandler.List)
 		domains.POST("/:id/records", recordHandler.Create)
 		domains.GET("/:id/records/export", recordHandler.Export)

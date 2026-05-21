@@ -46,7 +46,7 @@ func main() {
 	authService := service.NewAuthService(db)
 	permissionService := service.NewPermissionService(db)
 	domainService := service.NewDomainService(db, permissionService)
-	recordService := service.NewRecordService(db, permissionService)
+	recordService := service.NewRecordService(db, permissionService, domainService)
 	providerService := service.NewProviderService(db)
 	ddnsService := service.NewDDNSService(db, domainService, recordService, providerService)
 	settingsService := service.NewSettingsService(db)

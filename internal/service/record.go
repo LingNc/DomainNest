@@ -21,12 +21,13 @@ func IsValidRecordType(t string) bool {
 }
 
 type RecordService struct {
-	db  *gorm.DB
+	db   *gorm.DB
 	perm *PermissionService
+	dom  *DomainService
 }
 
-func NewRecordService(db *gorm.DB, perm *PermissionService) *RecordService {
-	return &RecordService{db: db, perm: perm}
+func NewRecordService(db *gorm.DB, perm *PermissionService, dom *DomainService) *RecordService {
+	return &RecordService{db: db, perm: perm, dom: dom}
 }
 
 type RecordQuery struct {
@@ -381,6 +382,107 @@ func (s *RecordService) ImportRecords(nodeID, userID uint64, records []ExportRec
 		}
 	}
 	return result, nil
+}
+
+// TransferResult represents the outcome of transferring a single host's subdomain.
+type TransferResult struct {
+	Host        string `json:"host"`
+	Status      string `json:"status"`                 // "transferred" | "error"
+	NodeID      uint64 `json:"node_id,omitempty"`
+	FullDomain  string `json:"full_domain,omitempty"`
+	Action      string `json:"action,omitempty"`       // "materialized_and_transferred" | "transferred"
+	RecordCount int    `json:"record_count,omitempty"`
+	Error       string `json:"error,omitempty"`
+}
+
+// TransferRecordsByHost materializes implicit subdomains (if needed) and transfers
+// ownership to targetUserID for each given host under the parent node.
+func (s *RecordService) TransferRecordsByHost(parentID, currentUserID, targetUserID uint64, hosts []string) []TransferResult {
+	results := make([]TransferResult, 0, len(hosts))
+
+	// Validate parent node ownership (level 4)
+	var parent model.DomainNode
+	if err := s.db.First(&parent, parentID).Error; err != nil {
+		for _, host := range hosts {
+			results = append(results, TransferResult{Host: host, Status: "error", Error: "父节点不存在"})
+		}
+		return results
+	}
+	if err := s.perm.RequireLevel(currentUserID, parentID, 4); err != nil {
+		for _, host := range hosts {
+			results = append(results, TransferResult{Host: host, Status: "error", Error: err.Error()})
+		}
+		return results
+	}
+
+	// Validate target user exists
+	var targetUser model.User
+	if err := s.db.First(&targetUser, targetUserID).Error; err != nil {
+		for _, host := range hosts {
+			results = append(results, TransferResult{Host: host, Status: "error", Error: "目标用户不存在"})
+		}
+		return results
+	}
+
+	for _, host := range hosts {
+		r := s.transferSingleHost(parent, currentUserID, targetUserID, host)
+		results = append(results, r)
+	}
+
+	return results
+}
+
+func (s *RecordService) transferSingleHost(parent model.DomainNode, currentUserID, targetUserID uint64, host string) TransferResult {
+	fullDomain := host + "." + parent.FullDomain
+
+	// Skip root host
+	if host == "@" {
+		return TransferResult{Host: host, Status: "error", Error: "无法转让根记录，请使用「转让域名」功能"}
+	}
+
+	// Count records for this host
+	var recordCount int64
+	s.db.Model(&model.DNSRecord{}).Where("node_id = ? AND host = ? AND deleted_at IS NULL", parent.ID, host).Count(&recordCount)
+
+	// Look up existing materialized node
+	var node model.DomainNode
+	err := s.db.Where("full_domain = ?", fullDomain).First(&node).Error
+
+	action := "transferred"
+	if err != nil {
+		// Node does not exist - materialize first
+		if recordCount == 0 {
+			return TransferResult{Host: host, Status: "error", Error: "该主机名下没有DNS记录，无法转换为节点"}
+		}
+		newNode, matErr := s.dom.MaterializeNode(parent.ID, host, currentUserID)
+		if matErr != nil {
+			return TransferResult{Host: host, Status: "error", Error: matErr.Error()}
+		}
+		node = *newNode
+		action = "materialized_and_transferred"
+	} else {
+		// Node exists - check ownership
+		if node.OwnerID == targetUserID {
+			return TransferResult{Host: host, Status: "error", Error: "目标用户已拥有该子域名", NodeID: node.ID}
+		}
+		if node.OwnerID != currentUserID {
+			return TransferResult{Host: host, Status: "error", Error: "您不拥有该子域名", NodeID: node.ID}
+		}
+	}
+
+	// Transfer
+	if transErr := s.dom.TransferNode(node.ID, currentUserID, targetUserID); transErr != nil {
+		return TransferResult{Host: host, Status: "error", Error: transErr.Error(), NodeID: node.ID}
+	}
+
+	return TransferResult{
+		Host:        host,
+		Status:      "transferred",
+		NodeID:      node.ID,
+		FullDomain:  fullDomain,
+		Action:      action,
+		RecordCount: int(recordCount),
+	}
 }
 
 func validateRecordValue(recordType, value string, priority *int) error {
