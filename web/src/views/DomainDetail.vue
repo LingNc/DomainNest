@@ -25,10 +25,6 @@
                   <el-icon><component :is="'Plus'" /></el-icon>
                   {{ $t('domainDetail.addRecord') }}
                 </el-button>
-                <el-button v-if="domain?.is_materialized" size="small" text type="warning" @click="handleDemoteNode">{{ $t('domainDetail.demoteNode') }}</el-button>
-                <el-button size="small" text @click="loadConversionLogs">{{ $t('domainDetail.conversionHistory') }}</el-button>
-                <el-button size="small" text type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
-                <el-button size="small" text type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
               </div>
             </div>
           </template>
@@ -132,6 +128,11 @@
             <el-descriptions-item :label="$t('domainDetail.domainId')">{{ domain.id }}</el-descriptions-item>
             <el-descriptions-item :label="$t('common.createdAt')">{{ domain.created_at }}</el-descriptions-item>
           </el-descriptions>
+          <div class="domain-actions">
+            <el-button size="small" type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
+            <el-button size="small" type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
+            <el-button v-if="domain.is_materialized" size="small" type="warning" plain @click="handleDemoteNode">{{ $t('domainDetail.demoteNode') }}</el-button>
+          </div>
         </el-card>
 
         <el-card style="margin-top:16px">
@@ -406,22 +407,6 @@
       </template>
     </el-dialog>
 
-    <!-- conversion history dialog -->
-    <el-dialog v-model="showConversionLogs" :title="$t('domainDetail.conversionHistory')" width="600px" destroy-on-close>
-      <el-table :data="conversionLogs" stripe v-loading="loadingConversionLogs" empty-text="—">
-        <el-table-column prop="action" :label="$t('common.action')" width="120">
-          <template #default="{ row }">
-            <el-tag :type="row.action === 'materialize' ? 'success' : 'warning'" size="small">{{ row.action }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="trigger.username" :label="$t('domainDetail.triggerUser')" width="120">
-          <template #default="{ row }">{{ row.trigger?.username || row.triggered_by }}</template>
-        </el-table-column>
-        <el-table-column prop="detail" :label="$t('common.detail')" show-overflow-tooltip />
-        <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
-      </el-table>
-    </el-dialog>
-
     <!-- batch transfer dialog -->
     <el-dialog v-model="showBatchTransfer" :title="$t('domainDetail.transferSubdomain')" width="560px" destroy-on-close>
       <el-alert type="warning" :closable="false" style="margin-bottom:16px">
@@ -531,7 +516,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, getConversionLogs, transferRecordsByHost } from '../api/domain'
+import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
@@ -595,10 +580,6 @@ const selectedPendingIds = ref([])
 const showReturnDialog = ref(false)
 const returnForm = ref({ action: 'keep', target_user_id: null })
 const returnTargetUserId = ref(null)
-
-const showConversionLogs = ref(false)
-const conversionLogs = ref([])
-const loadingConversionLogs = ref(false)
 
 const showBatchTransfer = ref(false)
 const batchTransferForm = ref({ target_user_id: null })
@@ -983,19 +964,6 @@ const handleDemoteNode = async () => {
   }
 }
 
-const loadConversionLogs = async () => {
-  loadingConversionLogs.value = true
-  showConversionLogs.value = true
-  try {
-    const res = await getConversionLogs(domainId)
-    conversionLogs.value = res.data || []
-  } catch {
-    conversionLogs.value = []
-  } finally {
-    loadingConversionLogs.value = false
-  }
-}
-
 const searchUsersRemote = async (query) => {
   if (!query) { selectableUsers.value = []; return }
   searchingUsers.value = true
@@ -1204,5 +1172,15 @@ onMounted(() => {
   background: #f5f7fa;
   border-radius: 4px;
   margin-bottom: 6px;
+}
+.domain-actions {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fafafa;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 </style>
