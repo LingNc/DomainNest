@@ -107,7 +107,7 @@
               <el-form-item :label="$t('profile.quantity')">
                 <el-input-number v-model="grantForm.amount" :min="1" :max="auth.isSuperAdmin ? undefined : profile.invite_limit - profile.invite_count" />
               </el-form-item>
-              <el-form-item>
+              <el-form-item class="quota-btn-row">
                 <el-button type="primary" :loading="granting" @click="handleGrantInvite">{{ $t('profile.grant') }}</el-button>
                 <span style="color:#909399;font-size:12px;margin-left:12px">{{ $t('profile.grantHint') }}</span>
               </el-form-item>
@@ -134,7 +134,7 @@
               <el-form-item :label="$t('profile.quantity')">
                 <el-input-number v-model="revokeForm.amount" :min="1" />
               </el-form-item>
-              <el-form-item>
+              <el-form-item class="quota-btn-row">
                 <el-button type="danger" :loading="revoking" @click="handleRevokeInvite">{{ $t('profile.revoke') }}</el-button>
                 <span style="color:#909399;font-size:12px;margin-left:12px">{{ $t('profile.revokeHint') }}</span>
               </el-form-item>
@@ -589,5 +589,9 @@ const handleDeleteAccount = async () => {
   margin: 0 0 12px 0;
   font-size: 15px;
   font-weight: 600;
+}
+.quota-btn-row :deep(.el-form-item__content) {
+  display: flex;
+  align-items: center;
 }
 </style>
