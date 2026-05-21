@@ -680,7 +680,7 @@ const searchingUsers = ref(false)
 const filters = reactive({ host: '', record_type: '', value: '', enabled: undefined, sync_status: '' })
 const pagination = reactive({ page: 1, pageSize: 20 })
 
-const recordForm = ref({ host: '@', record_type: 'A', value: '', ttl: 600, priority: null, line: 'default' })
+const recordForm = ref({ host: '', record_type: 'A', value: '', ttl: 600, priority: null, line: 'default' })
 const editForm = ref({ id: null, host: '', record_type: '', value: '', ttl: 600, priority: null })
 const srvForm = ref({ priority: 0, weight: 0, port: 0, target: '' })
 const caaForm = ref({ flag: 0, tag: 'issue', value: '' })
@@ -886,7 +886,7 @@ const buildRecordValue = () => {
 }
 
 const openAddRecord = () => {
-  recordForm.value = { host: '@', record_type: 'A', value: '', ttl: 600, priority: null, line: 'default' }
+  recordForm.value = { host: '', record_type: 'A', value: '', ttl: 600, priority: null, line: 'default' }
   srvForm.value = { priority: 0, weight: 0, port: 0, target: '' }
   caaForm.value = { flag: 0, tag: 'issue', value: '' }
   showAddRecord.value = true
@@ -1465,5 +1465,22 @@ onMounted(() => {
 }
 :deep(.virtual-row) {
   opacity: 0.6;
+}
+@media (max-width: 768px) {
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+    overflow: visible;
+  }
+  .header-actions .el-button {
+    flex-shrink: 0;
+  }
 }
 </style>
