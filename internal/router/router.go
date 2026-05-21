@@ -102,6 +102,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.POST("/:id/records/import", recordHandler.Import)
 		domains.GET("/:id/permissions", permissionHandler.List)
 		domains.POST("/:id/permissions", permissionHandler.Grant)
+		domains.POST("/:id/permissions/batch", permissionHandler.BatchGrant)
 		domains.DELETE("/:id/permissions/:userId", permissionHandler.Revoke)
 		domains.POST("/:id/permissions/:userId/revoke-request", permissionHandler.RevokeRequest)
 		domains.POST("/:id/permissions/:userId/accept-return", permissionHandler.AcceptReturn)

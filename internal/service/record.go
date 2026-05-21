@@ -101,7 +101,7 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		return nil, err
 	}
 
-	if err := s.perm.ValidateHostPrefix(userID, nodeID, host); err != nil {
+	if err := s.perm.ValidateHostRules(userID, nodeID, host); err != nil {
 		return nil, err
 	}
 

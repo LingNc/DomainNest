@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"regexp"
 	"strings"
 	"time"
 
@@ -142,9 +143,14 @@ func (s *PermissionService) ValidateIPValue(userID, domainNodeID uint64, recordT
 }
 
 // ValidateHostPrefix checks if the given host matches the required prefix restriction.
-// If prefix is empty, all hosts are allowed.
-// e.g. prefix="test-" allows "test-app", "test-web" but not "prod-app".
+// Deprecated: use ValidateHostRules instead.
 func (s *PermissionService) ValidateHostPrefix(userID, domainNodeID uint64, host string) error {
+	return s.ValidateHostRules(userID, domainNodeID, host)
+}
+
+// ValidateHostRules checks if the given host matches any of the configured rules.
+// If no rules are set, all hosts are allowed (same behavior as empty host_prefix).
+func (s *PermissionService) ValidateHostRules(userID, domainNodeID uint64, host string) error {
 	level, _ := s.AccessLevel(userID, domainNodeID)
 	if level >= 4 { // owner or super_admin
 		return nil
@@ -155,12 +161,50 @@ func (s *PermissionService) ValidateHostPrefix(userID, domainNodeID uint64, host
 		return nil
 	}
 
-	if perm.HostPrefix == "" {
-		return nil
+	rules := parseHostRules(&perm)
+	if len(rules) == 0 {
+		return nil // no restriction
 	}
 
-	if !strings.HasPrefix(host, perm.HostPrefix) {
-		return fmt.Errorf("主机名必须以 '%s' 开头", perm.HostPrefix)
+	for _, rule := range rules {
+		if matchHost(host, rule) {
+			return nil // matched
+		}
+	}
+
+	return fmt.Errorf("主机名 '%s' 不符合限制规则", host)
+}
+
+// matchHost checks if a host matches a single rule.
+func matchHost(host string, rule model.HostRule) bool {
+	switch rule.Type {
+	case model.HostRuleExact:
+		return host == rule.Value
+	case model.HostRulePrefix:
+		return strings.HasPrefix(host, rule.Value)
+	case model.HostRuleSuffix:
+		return strings.HasSuffix(host, rule.Value)
+	case model.HostRuleContains:
+		return strings.Contains(host, rule.Value)
+	case model.HostRuleRegex:
+		matched, err := regexp.MatchString(rule.Value, host)
+		return err == nil && matched
+	default:
+		return false
+	}
+}
+
+// parseHostRules returns rules from host_rules JSON, or synthesizes from host_prefix.
+func parseHostRules(perm *model.DomainPermission) []model.HostRule {
+	if perm.HostRules != "" {
+		var rules []model.HostRule
+		if err := json.Unmarshal([]byte(perm.HostRules), &rules); err == nil && len(rules) > 0 {
+			return rules
+		}
+	}
+	// Backward compat: synthesize from host_prefix
+	if perm.HostPrefix != "" {
+		return []model.HostRule{{Type: model.HostRulePrefix, Value: perm.HostPrefix}}
 	}
 	return nil
 }
@@ -196,7 +240,7 @@ func (s *PermissionService) ValidateDepth(userID, domainNodeID uint64, host stri
 }
 
 // Grant creates or updates a permission entry.
-func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTypes, allowedIPs, hostPrefix string, maxDepth *int, createdBy uint64) error {
+func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTypes, allowedIPs, hostPrefix string, hostRules []model.HostRule, maxDepth *int, createdBy uint64) error {
 	if PermLevelValue(level) == 0 && level != "read" {
 		return fmt.Errorf("无效的权限级别: %s", level)
 	}
@@ -207,6 +251,33 @@ func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTyp
 		return errors.New("不能授予等于或高于自己级别的权限")
 	}
 
+	// Serialize host_rules
+	hostRulesJSON := ""
+	if len(hostRules) > 0 {
+		// Validate regex patterns compile
+		for _, r := range hostRules {
+			if r.Type == model.HostRuleRegex {
+				if _, err := regexp.Compile(r.Value); err != nil {
+					return fmt.Errorf("无效的正则表达式 '%s': %v", r.Value, err)
+				}
+			}
+		}
+		b, _ := json.Marshal(hostRules)
+		hostRulesJSON = string(b)
+	}
+
+	// Sync host_prefix for backward compat
+	compatPrefix := ""
+	for _, r := range hostRules {
+		if r.Type == model.HostRulePrefix {
+			compatPrefix = r.Value
+			break
+		}
+	}
+	if hostPrefix != "" {
+		compatPrefix = hostPrefix
+	}
+
 	var existing model.DomainPermission
 	err := s.db.Where("user_id = ? AND domain_node_id = ?", userID, domainNodeID).First(&existing).Error
 	if err == nil {
@@ -214,7 +285,8 @@ func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTyp
 			"permission_level": level,
 			"allowed_types":    allowedTypes,
 			"allowed_ips":      allowedIPs,
-			"host_prefix":      hostPrefix,
+			"host_prefix":      compatPrefix,
+			"host_rules":       hostRulesJSON,
 			"max_depth":        maxDepth,
 		}).Error
 	}
@@ -225,7 +297,8 @@ func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTyp
 		PermissionLevel: level,
 		AllowedTypes:    allowedTypes,
 		AllowedIPs:      allowedIPs,
-		HostPrefix:      hostPrefix,
+		HostPrefix:      compatPrefix,
+		HostRules:       hostRulesJSON,
 		MaxDepth:        maxDepth,
 		CreatedBy:       createdBy,
 	}

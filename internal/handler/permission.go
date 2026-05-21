@@ -57,12 +57,13 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 	}
 
 	var req struct {
-		TargetUserID uint64   `json:"target_user_id" binding:"required"`
-		Level        string   `json:"level" binding:"required"`
-		AllowedTypes []string `json:"allowed_types"`
-		AllowedIPs   []string `json:"allowed_ips"`
-		HostPrefix   string   `json:"host_prefix"`
-		MaxDepth     *int     `json:"max_depth"`
+		TargetUserID uint64           `json:"target_user_id" binding:"required"`
+		Level        string           `json:"level" binding:"required"`
+		AllowedTypes []string         `json:"allowed_types"`
+		AllowedIPs   []string         `json:"allowed_ips"`
+		HostPrefix   string           `json:"host_prefix"`
+		HostRules    []model.HostRule `json:"host_rules"`
+		MaxDepth     *int             `json:"max_depth"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -80,7 +81,7 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		allowedIPsJSON = string(b)
 	}
 
-	if err := h.permissionService.Grant(req.TargetUserID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.MaxDepth, userID); err != nil {
+	if err := h.permissionService.Grant(req.TargetUserID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.HostRules, req.MaxDepth, userID); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
 		return
 	}
@@ -113,6 +114,102 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已授予"})
+}
+
+// BatchGrantResult is the per-user result of a batch grant operation.
+type BatchGrantResult struct {
+	UserID  uint64 `json:"user_id"`
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+func (h *PermissionHandler) BatchGrant(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	var req struct {
+		TargetUserIDs []uint64         `json:"target_user_ids" binding:"required,min=1,max=50"`
+		Level         string           `json:"level" binding:"required"`
+		AllowedTypes  []string         `json:"allowed_types"`
+		AllowedIPs    []string         `json:"allowed_ips"`
+		HostPrefix    string           `json:"host_prefix"`
+		HostRules     []model.HostRule `json:"host_rules"`
+		MaxDepth      *int             `json:"max_depth"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	// Deduplicate user IDs
+	seen := make(map[uint64]bool)
+	uniqueIDs := make([]uint64, 0, len(req.TargetUserIDs))
+	for _, id := range req.TargetUserIDs {
+		if !seen[id] {
+			seen[id] = true
+			uniqueIDs = append(uniqueIDs, id)
+		}
+	}
+
+	allowedTypesJSON := ""
+	if len(req.AllowedTypes) > 0 {
+		b, _ := json.Marshal(req.AllowedTypes)
+		allowedTypesJSON = string(b)
+	}
+	allowedIPsJSON := ""
+	if len(req.AllowedIPs) > 0 {
+		b, _ := json.Marshal(req.AllowedIPs)
+		allowedIPsJSON = string(b)
+	}
+
+	// Load node for notifications
+	var node model.DomainNode
+	nodeLoaded := h.db.First(&node, nodeID).Error == nil
+	domain := ""
+	if nodeLoaded {
+		domain = node.FullDomain
+	}
+
+	results := make([]BatchGrantResult, len(uniqueIDs))
+	for i, targetID := range uniqueIDs {
+		// Skip self-authorization
+		if targetID == userID {
+			results[i] = BatchGrantResult{UserID: targetID, Success: false, Error: "不能给自己授权"}
+			continue
+		}
+
+		err := h.permissionService.Grant(targetID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.HostRules, req.MaxDepth, userID)
+		if err != nil {
+			results[i] = BatchGrantResult{UserID: targetID, Success: false, Error: err.Error()}
+			continue
+		}
+
+		results[i] = BatchGrantResult{UserID: targetID, Success: true}
+
+		middleware.LogOperationUser(h.db, userID, targetID, "grant_permission", "domain_node", &nodeID,
+			map[string]interface{}{"level": req.Level, "domain": domain, "batch": true}, c.ClientIP())
+
+		// Notify target user
+		if nodeLoaded {
+			go func(uid uint64) {
+				defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+				svc := service.NewMessageService(h.db)
+				svc.SendSystemNotification(uid, "权限授予",
+					fmt.Sprintf("你已被授予 %s 域名的 %s 权限", node.FullDomain, req.Level),
+					"permission_grant", fmt.Sprintf("{\"domain_node_id\":%d,\"level\":\"%s\"}", nodeID, req.Level))
+				ws.BroadcastToUser(uid, ws.TypeNewNotification, gin.H{"type": "permission_change"})
+				if count, err := svc.GetNotificationUnreadCount(uid); err == nil {
+					ws.BroadcastToUser(uid, ws.TypeUnreadUpdate, gin.H{"count": count})
+				}
+			}(targetID)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": results})
 }
 
 func (h *PermissionHandler) Revoke(c *gin.Context) {
