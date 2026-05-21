@@ -25,6 +25,9 @@
                   <el-icon><component :is="'Plus'" /></el-icon>
                   {{ $t('domainDetail.addRecord') }}
                 </el-button>
+                <el-button size="small" text type="primary" @click="showCreateChild = true">{{ $t('domainDetail.createSubdomain') }}</el-button>
+                <el-button size="small" text type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
+                <el-button size="small" text type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
               </div>
             </div>
           </template>
@@ -110,20 +113,7 @@
       </el-col>
 
       <el-col :xs="24" :lg="7" class="right-col">
-        <el-card>
-          <template #header>{{ $t('common.actions') }}</template>
-          <el-button type="primary" @click="showCreateChild = true" style="width:100%;margin-bottom:12px">
-            {{ $t('domainDetail.createSubdomain') }}
-          </el-button>
-          <el-button type="warning" @click="showTransfer = true" style="width:100%;margin-bottom:12px">
-            {{ $t('domainDetail.transferDomain') }}
-          </el-button>
-          <el-button type="danger" @click="handleDeleteDomain" style="width:100%">
-            {{ $t('domainDetail.deleteDomain') }}
-          </el-button>
-        </el-card>
-
-        <el-card style="margin-top:16px" v-if="domain">
+        <el-card v-if="domain">
           <template #header>{{ $t('domainDetail.domainInfo') }}</template>
           <el-descriptions :column="1" size="small">
             <el-descriptions-item :label="$t('domainDetail.fullDomain')">{{ domain.full_domain }}</el-descriptions-item>
