@@ -29,12 +29,17 @@ func NewEmailServiceWithSettings(cfg *config.SMTPConfig, settings *SettingsServi
 }
 
 func (s *EmailService) getSMTPConfig() *config.SMTPConfig {
+	var cfg *config.SMTPConfig
 	if s.settings != nil {
-		if cfg := s.settings.GetSMTPConfig(); cfg != nil {
-			return cfg
-		}
+		cfg = s.settings.GetSMTPConfig()
 	}
-	return s.cfg
+	if cfg == nil {
+		cfg = s.cfg
+	}
+	if cfg != nil && cfg.From == "" {
+		cfg.From = cfg.Username
+	}
+	return cfg
 }
 
 // hostname extracts just the hostname from a host or host:port string.
