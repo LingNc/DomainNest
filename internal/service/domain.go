@@ -43,6 +43,7 @@ func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64)
 		OwnerID:    ownerID,
 	}
 
+	s.db.Unscoped().Where("full_domain = ?", node.FullDomain).Delete(&model.DomainNode{})
 	if err := s.db.Create(node).Error; err != nil {
 		return nil, err
 	}
@@ -228,6 +229,7 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 	}
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
+		tx.Unscoped().Where("full_domain = ?", fullDomain).Delete(&model.DomainNode{})
 		if err := tx.Create(node).Error; err != nil {
 			return err
 		}

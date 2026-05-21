@@ -124,6 +124,7 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 		OwnerID:    userID,
 		ProviderID: &providerID,
 	}
+	s.db.Unscoped().Where("full_domain = ?", domainName).Delete(&model.DomainNode{})
 	if err := s.db.Create(node).Error; err != nil {
 		return nil, err
 	}

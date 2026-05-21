@@ -173,6 +173,8 @@ export default {
   dashboard: {
     title: 'Domain Management',
     subtitle: 'Manage your domain nodes and subdomains',
+    tabMyDomains: 'My Domains',
+    tabManaged: 'Managed',
     createRootDomain: 'Create Root Domain',
     noDomains: 'No domains yet',
     recordsCount: '{count} records',

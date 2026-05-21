@@ -173,6 +173,8 @@ export default {
   dashboard: {
     title: '域名管理',
     subtitle: '管理您的域名节点和子域名',
+    tabMyDomains: '我的域名',
+    tabManaged: '管理的域名',
     createRootDomain: '创建根域名',
     noDomains: '暂无域名',
     recordsCount: '{count} 条记录',
