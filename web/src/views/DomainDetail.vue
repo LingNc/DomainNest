@@ -149,8 +149,9 @@
               <el-tag v-if="p.status === 'pending_return'" type="warning" size="small" style="margin-left:4px">{{ $t('domainDetail.pendingReturn') }}</el-tag>
               <el-tag v-if="p.status === 'returned'" type="info" size="small" style="margin-left:4px">{{ $t('domainDetail.returned') }}</el-tag>
             </div>
-            <div class="perm-detail" v-if="p.allowed_types || p.allowed_ips || p.host_prefix || p.max_depth">
-              <span v-if="p.host_prefix" class="perm-restrict">{{ $t('domainDetail.prefixLabel') }} {{ p.host_prefix }}</span>
+            <div class="perm-detail" v-if="p.allowed_types || p.allowed_ips || p.host_prefix || p.host_rules || p.max_depth">
+              <span v-if="hostRulesSummary(p)" class="perm-restrict">{{ hostRulesSummary(p) }}</span>
+              <span v-else-if="p.host_prefix" class="perm-restrict">{{ $t('domainDetail.prefixLabel') }} {{ p.host_prefix }}</span>
               <span v-if="p.max_depth" class="perm-restrict">{{ $t('domainDetail.depthLabel') }} {{ p.max_depth }}</span>
               <span v-if="p.allowed_types" class="perm-restrict">{{ $t('domainDetail.typesLabel') }} {{ p.allowed_types }}</span>
               <span v-if="p.allowed_ips" class="perm-restrict">{{ $t('domainDetail.ipsLabel') }} {{ p.allowed_ips }}</span>
@@ -193,8 +194,8 @@
     <!-- grant permission dialog -->
     <el-dialog v-model="showGrantPerm" :title="$t('domainDetail.grantUser')" width="520px" destroy-on-close>
       <el-form :model="grantForm" label-width="100px">
-        <el-form-item :label="$t('domainDetail.user')">
-          <el-select v-model="grantForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
+        <el-form-item :label="$t('domainDetail.users')">
+          <el-select v-model="grantForm.target_user_ids" multiple filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUsers')" style="width:100%" collapse-tags collapse-tags-tooltip>
             <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -212,9 +213,24 @@
             <el-option :label="$t('domainDetail.adminOption')" value="admin" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="$t('domainDetail.hostPrefix')">
-          <el-input v-model="grantForm.host_prefix" :placeholder="$t('domainDetail.hostPrefixPlaceholder')" />
-          <div style="color:#909399;font-size:12px;margin-top:4px">{{ $t('domainDetail.hostPrefixDesc') }}</div>
+        <el-form-item :label="$t('domainDetail.hostRestrictions')">
+          <div class="host-rules">
+            <div v-for="(rule, idx) in grantForm.host_rules" :key="idx" class="host-rule-row">
+              <el-select v-model="rule.type" style="width:110px">
+                <el-option :label="$t('domainDetail.ruleExact')" value="exact" />
+                <el-option :label="$t('domainDetail.rulePrefix')" value="prefix" />
+                <el-option :label="$t('domainDetail.ruleSuffix')" value="suffix" />
+                <el-option :label="$t('domainDetail.ruleContains')" value="contains" />
+                <el-option :label="$t('domainDetail.ruleRegex')" value="regex" />
+              </el-select>
+              <el-input v-model="rule.value" placeholder="e.g. www" style="width:200px" />
+              <el-button @click="removeHostRule(idx)" :icon="'Delete'" circle size="small" />
+            </div>
+            <el-button size="small" @click="addHostRule">{{ $t('domainDetail.addRule') }}</el-button>
+          </div>
+          <div style="color:#909399;font-size:12px;margin-top:4px">
+            {{ $t('domainDetail.hostRulesDesc') }}
+          </div>
         </el-form-item>
         <el-form-item :label="$t('domainDetail.maxDepth')">
           <el-input-number v-model="grantForm.max_depth" :min="1" :max="10" :placeholder="$t('domainDetail.maxDepthPlaceholder')" />
@@ -442,7 +458,7 @@ import { useI18n } from 'vue-i18n'
 import { getDomain, createDomain, transferDomain, deleteDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
 import { retrySync } from '../api/admin'
-import { getPermissions, grantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
+import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
 import { searchAllUsers } from '../api/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -485,7 +501,7 @@ const csvFileList = ref([])
 
 const permissions = ref([])
 const showGrantPerm = ref(false)
-const grantForm = ref({ target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '', host_prefix: '', max_depth: null })
+const grantForm = ref({ target_user_ids: [], level: 'read', allowed_types: [], allowed_ips_text: '', host_rules: [], host_prefix: '', max_depth: null })
 const selectableUsers = ref([])
 const searchingUsers = ref(false)
 
@@ -721,7 +737,7 @@ const permLabel = (level) => ({ read: t('common.read'), write: t('common.write')
 
 const handleGrantPerm = async () => {
   const data = {
-    target_user_id: grantForm.value.target_user_id,
+    target_user_ids: grantForm.value.target_user_ids,
     level: grantForm.value.level,
   }
   if (grantForm.value.allowed_types.length > 0) {
@@ -730,17 +746,41 @@ const handleGrantPerm = async () => {
   if (grantForm.value.allowed_ips_text.trim()) {
     data.allowed_ips = grantForm.value.allowed_ips_text.trim().split('\n').map(s => s.trim()).filter(Boolean)
   }
-  if (grantForm.value.host_prefix) {
-    data.host_prefix = grantForm.value.host_prefix
+  const filteredRules = grantForm.value.host_rules.filter(r => r.value.trim())
+  if (filteredRules.length > 0) {
+    data.host_rules = filteredRules
+    const firstPrefix = filteredRules.find(r => r.type === 'prefix')
+    if (firstPrefix) data.host_prefix = firstPrefix.value
   }
   if (grantForm.value.max_depth != null && grantForm.value.max_depth > 0) {
     data.max_depth = grantForm.value.max_depth
   }
-  await grantPermission(domainId, data)
+  await batchGrantPermission(domainId, data)
   ElMessage.success(t('domainDetail.grantSuccess'))
   showGrantPerm.value = false
-  grantForm.value = { target_user_id: null, level: 'read', allowed_types: [], allowed_ips_text: '', host_prefix: '', max_depth: null }
+  grantForm.value = { target_user_ids: [], level: 'read', allowed_types: [], allowed_ips_text: '', host_rules: [], host_prefix: '', max_depth: null }
   loadPermissions()
+}
+
+const addHostRule = () => {
+  grantForm.value.host_rules.push({ type: 'prefix', value: '' })
+}
+const removeHostRule = (idx) => {
+  grantForm.value.host_rules.splice(idx, 1)
+}
+const hostRulesSummary = (p) => {
+  let rules = null
+  if (p.host_rules) {
+    try { rules = typeof p.host_rules === 'string' ? JSON.parse(p.host_rules) : p.host_rules } catch { rules = null }
+  }
+  if (!rules || !Array.isArray(rules) || rules.length === 0) return ''
+  const valid = rules.filter(r => r.value)
+  if (valid.length === 0) return ''
+  if (valid.length === 1) {
+    const typeMap = { exact: t('domainDetail.ruleExact'), prefix: t('domainDetail.rulePrefix'), suffix: t('domainDetail.ruleSuffix'), contains: t('domainDetail.ruleContains'), regex: t('domainDetail.ruleRegex') }
+    return (typeMap[valid[0].type] || valid[0].type) + ': ' + valid[0].value
+  }
+  return t('domainDetail.hostRestrictions') + ': ' + valid.length + ' ' + t('domainDetail.addRule').toLowerCase()
 }
 
 const handleRevokePerm = async (userId) => {
@@ -915,5 +955,14 @@ onMounted(() => {
   background: #f5f5f5;
   padding: 1px 6px;
   border-radius: 3px;
+}
+.host-rules {
+  width: 100%;
+}
+.host-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 </style>
