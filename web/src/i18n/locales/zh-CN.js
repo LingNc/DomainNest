@@ -188,7 +188,8 @@ export default {
     confirmTransfer: '确认转让',
     confirmTransferMsg: '确定将 {domain} 及其所有子域名转让给目标用户？此操作不可撤销。',
     transferSuccess: '域名已转让',
-    confirmDeleteDomain: '确定删除 {domain}？仅当无子域名和记录时可删除。',
+    transferWarning: '转让后您将失去该域名及其所有子域名的所有权，此操作不可撤销。',
+    confirmDeleteDomain: '确定删除 {domain}？该节点下的所有 DNS 记录和权限将被一并删除。',
     deleteDomainSuccess: '域名已删除',
   },
   domainDetail: {

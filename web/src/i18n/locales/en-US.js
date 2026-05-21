@@ -188,7 +188,8 @@ export default {
     confirmTransfer: 'Confirm Transfer',
     confirmTransferMsg: 'Transfer {domain} and all its subdomains to the target user? This cannot be undone.',
     transferSuccess: 'Domain transferred',
-    confirmDeleteDomain: 'Delete {domain}? It can only be deleted when it has no subdomains or records.',
+    transferWarning: 'You will lose ownership of this domain and all its subdomains. This cannot be undone.',
+    confirmDeleteDomain: 'Delete {domain}? All DNS records and permissions under this node will be deleted.',
     deleteDomainSuccess: 'Domain deleted',
   },
   domainDetail: {

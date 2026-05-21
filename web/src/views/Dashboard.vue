@@ -64,6 +64,30 @@
         <el-button type="primary" :disabled="providers.length === 0" @click="handleCreateRoot">{{ $t('dashboard.create') }}</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showTransferDialog" :title="$t('dashboard.transferDomain')" width="420px" destroy-on-close>
+      <el-alert type="warning" :closable="false" style="margin-bottom:16px">
+        {{ $t('dashboard.transferWarning') }}
+      </el-alert>
+      <el-form label-width="80px">
+        <el-form-item :label="$t('domainDetail.targetUser')">
+          <el-select v-model="transferTargetUserId" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
+            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+              <div style="display:flex;align-items:center;gap:8px">
+                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ u.nickname || u.username }}</span>
+                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showTransferDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="warning" @click="handleTransferConfirm">{{ $t('dashboard.confirmTransfer') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -75,6 +99,7 @@ import { getDomains, transferDomain, deleteDomain } from '../api/domain'
 import { createRootDomain } from '../api/admin'
 import { getMyPermissions } from '../api/permission'
 import { listProviders, listProviderDomains } from '../api/provider'
+import { searchAllUsers } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -89,6 +114,11 @@ const providerDomains = ref([])
 const selectedProviderId = ref('')
 const selectedDomain = ref('')
 const loadingDomains = ref(false)
+const showTransferDialog = ref(false)
+const transferDomainId = ref(null)
+const transferTargetUserId = ref(null)
+const selectableUsers = ref([])
+const searchingUsers = ref(false)
 
 const permMap = computed(() => {
   const map = {}
@@ -153,25 +183,36 @@ const handleCreateRoot = async () => {
   } catch { /* error shown by interceptor */ }
 }
 
-const handleTransferDomain = async (data) => {
-  const { value: targetUserId } = await ElMessageBox.prompt(
-    t('dashboard.transferPrompt'),
-    t('dashboard.transferDomain'),
-    {
-      inputPattern: /^\d+$/,
-      inputErrorMessage: t('dashboard.transferInputError'),
-      confirmButtonText: t('dashboard.confirmTransfer'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning',
-    }
-  )
+const searchUsersRemote = async (query) => {
+  if (!query) { selectableUsers.value = []; return }
+  searchingUsers.value = true
+  try {
+    const res = await searchAllUsers(query)
+    selectableUsers.value = (res.data || []).filter(u => u.id !== auth.user?.id)
+  } catch { /* ignore */ }
+  searchingUsers.value = false
+}
+
+const handleTransferDomain = (data) => {
+  transferDomainId.value = data.id
+  transferTargetUserId.value = null
+  selectableUsers.value = []
+  showTransferDialog.value = true
+}
+
+const handleTransferConfirm = async () => {
+  if (!transferTargetUserId.value) {
+    ElMessage.warning(t('domainDetail.searchUser'))
+    return
+  }
   await ElMessageBox.confirm(
-    t('dashboard.confirmTransferMsg', { domain: data.full_domain }),
+    t('dashboard.confirmTransferMsg', { domain: domains.value.find(d => d.id === transferDomainId.value)?.full_domain || '' }),
     t('dashboard.transferDomain'),
     { type: 'warning', confirmButtonText: t('dashboard.confirmTransfer') }
   )
-  await transferDomain(data.id, { target_user_id: parseInt(targetUserId) })
+  await transferDomain(transferDomainId.value, { target_user_id: transferTargetUserId.value })
   ElMessage.success(t('dashboard.transferSuccess'))
+  showTransferDialog.value = false
   loadDomains()
 }
 
