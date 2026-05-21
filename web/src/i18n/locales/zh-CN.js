@@ -200,6 +200,10 @@ export default {
     noTransferredAway: '暂无已转让的域名',
     transferredTo: '转让给',
     transferredAt: '转让时间',
+    batchDelete: '批量删除',
+    batchDeleteConfirmText: '确定要删除选中的 {count} 个域名吗？含有子域名或DNS记录的域名将被跳过。',
+    batchDeleteSuccess: '批量删除成功',
+    batchDeleteFailed: '批量删除失败',
   },
   domainDetail: {
     back: '返回',

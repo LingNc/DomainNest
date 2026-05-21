@@ -28,6 +28,7 @@
             <el-button size="small" type="warning" @click="openBatchTransfer">{{ $t('domainDetail.batchTransfer') }}</el-button>
             <el-button size="small" type="primary" @click="openBatchAuthorize">{{ $t('domainDetail.batchAuthorize') }}</el-button>
             <el-button size="small" type="danger" @click="handleBatchCancelIndependence" v-if="hasMaterializedSelected">{{ $t('domainDetail.batchCancelIndependence') }}</el-button>
+            <el-button size="small" type="danger" @click="handleBatchDelete">{{ $t('dashboard.batchDelete') }}</el-button>
           </div>
 
           <el-card>
@@ -225,7 +226,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomains, transferDomain, deleteDomain, demoteNode, getTransferredAway } from '../api/domain'
+import { getDomains, transferDomain, deleteDomain, demoteNode, getTransferredAway, batchDeleteDomains } from '../api/domain'
 import { createRootDomain } from '../api/admin'
 import { getMyPermissions, batchGrantPermissions } from '../api/permission'
 import { listProviders, listProviderDomains } from '../api/provider'
@@ -576,6 +577,41 @@ const handleBatchCancelIndependence = async () => {
     }
   }
   ElMessage.success(t('domainDetail.batchCancelResult', { success, fail: failed }))
+  checkedKeys.value = []
+  if (treeRef.value) treeRef.value.setCheckedKeys([])
+  loadDomains()
+}
+
+const handleBatchDelete = async () => {
+  const owned = checkedNodes.value.filter(n => n.owner_id === auth.user?.id)
+  if (owned.length === 0) {
+    ElMessage.warning(t('domainDetail.noOwnedDomainsSelected'))
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('dashboard.batchDeleteConfirmText', { count: owned.length }),
+      t('common.confirmDelete'),
+      { type: 'warning' }
+    )
+  } catch {
+    return
+  }
+
+  const ids = owned.map(n => n.id)
+  try {
+    const res = await batchDeleteDomains({ node_ids: ids })
+    const data = res.data || {}
+    let msg = t('dashboard.batchDeleteSuccess')
+    if (data.skipped > 0) {
+      msg += `（${data.skipped} 个跳过）`
+    }
+    ElMessage.success(msg)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || t('dashboard.batchDeleteFailed'))
+  }
+
   checkedKeys.value = []
   if (treeRef.value) treeRef.value.setCheckedKeys([])
   loadDomains()

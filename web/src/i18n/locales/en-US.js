@@ -200,6 +200,10 @@ export default {
     noTransferredAway: 'No transferred domains',
     transferredTo: 'Transferred To',
     transferredAt: 'Transfer Date',
+    batchDelete: 'Batch Delete',
+    batchDeleteConfirmText: 'Delete {count} selected domains? Domains with subdomains or DNS records will be skipped.',
+    batchDeleteSuccess: 'Batch delete successful',
+    batchDeleteFailed: 'Batch delete failed',
   },
   domainDetail: {
     back: 'Back',

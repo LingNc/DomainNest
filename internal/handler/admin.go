@@ -139,7 +139,7 @@ func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
 		return
 	}
 
-	deleted, err := h.domainService.AdminBatchDeleteNodes(req.NodeIDs)
+	deleted, skipped, err := h.domainService.AdminBatchDeleteNodes(req.NodeIDs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
@@ -147,9 +147,13 @@ func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
 
 	callerID := c.GetUint64("user_id")
 	middleware.LogOperation(h.db, callerID, "batch_delete_domains", "domain_node", nil,
-		map[string]interface{}{"node_ids": req.NodeIDs, "deleted": deleted}, c.ClientIP())
+		map[string]interface{}{"node_ids": req.NodeIDs, "deleted": deleted, "skipped": skipped}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": fmt.Sprintf("成功删除 %d 个域名", deleted), "data": gin.H{"deleted": deleted}})
+	msg := fmt.Sprintf("成功删除 %d 个域名", deleted)
+	if skipped > 0 {
+		msg += fmt.Sprintf("，%d 个跳过（有子域名或DNS记录）", skipped)
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": msg, "data": gin.H{"deleted": deleted, "skipped": skipped}})
 }
 
 func (h *AdminHandler) ListDomains(c *gin.Context) {

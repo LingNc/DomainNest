@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -140,6 +141,32 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
+}
+
+func (h *DomainHandler) BatchDelete(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	var req struct {
+		NodeIDs []uint64 `json:"node_ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	deleted, skipped, err := h.domainService.BatchDeleteNodes(req.NodeIDs, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "batch_delete_domains", "domain_node", nil,
+		map[string]interface{}{"node_ids": req.NodeIDs, "deleted": deleted, "skipped": skipped}, c.ClientIP())
+
+	msg := fmt.Sprintf("成功删除 %d 个域名", deleted)
+	if skipped > 0 {
+		msg += fmt.Sprintf("，%d 个跳过（有子域名或DNS记录）", skipped)
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": msg, "data": gin.H{"deleted": deleted, "skipped": skipped}})
 }
 
 func (h *DomainHandler) GetTransferredAway(c *gin.Context) {
