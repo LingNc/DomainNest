@@ -208,7 +208,8 @@
             <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="180">
               <template #default="{ row }">
                 <template v-if="row.isGroupHeader">
-                  <div class="group-header-content">
+                  <div class="group-header-content" @click="toggleGroup(row.groupKey)">
+                    <el-icon class="group-chevron"><component :is="isGroupCollapsed(row.groupKey) ? 'ArrowRight' : 'ArrowDown'" /></el-icon>
                     <strong>{{ row.groupLabel }}</strong>
                     <el-tag size="small" type="info" style="margin-left:8px">{{ row.count }}</el-tag>
                   </div>
@@ -311,7 +312,7 @@
           <el-empty v-if="!loading && records.length === 0" :description="$t('domainDetail.noRecords')" />
 
           <!-- pagination -->
-          <div class="pagination-bar" v-if="recordViewMode === 'flat' && total > 0">
+          <div class="pagination-bar" v-if="false && total > 0">
             <el-pagination
               v-model:current-page="pagination.page"
               v-model:page-size="pagination.pageSize"
@@ -808,6 +809,15 @@ const isProviderOwner = computed(() => archiveInfo.value?.is_provider_owner || f
 
 // Tree view & group tag state
 const recordViewMode = ref('flat')
+const collapsedGroups = reactive(new Set())
+const toggleGroup = (groupKey) => {
+  if (collapsedGroups.has(groupKey)) {
+    collapsedGroups.delete(groupKey)
+  } else {
+    collapsedGroups.add(groupKey)
+  }
+}
+const isGroupCollapsed = (groupKey) => collapsedGroups.has(groupKey)
 const showTagDialog = ref(false)
 const tagForm = ref({ record_ids: [], group_tag: '' })
 
@@ -990,7 +1000,9 @@ const groupedFlatRecords = computed(() => {
       })
       lastGroup = currentGroup
     }
-    result.push(rec)
+    if (!collapsedGroups.has(currentGroup)) {
+      result.push(rec)
+    }
   }
 
   return result
@@ -1012,6 +1024,7 @@ const flatRowClass = ({ row }) => {
 
 const loadRecords = async () => {
   loading.value = true
+  collapsedGroups.clear()
   try {
     const params = {}
     if (filters.host) params.host = filters.host
@@ -1020,14 +1033,8 @@ const loadRecords = async () => {
     if (filters.enabled !== undefined && filters.enabled !== '') params.enabled = filters.enabled
     if (filters.sync_status) params.sync_status = filters.sync_status
 
-    if (recordViewMode.value === 'tree') {
-      // Tree view: load all records, no pagination
-      params.page_size = 9999
-    } else {
-      // Flat view: paginated
-      params.page = pagination.page
-      params.page_size = pagination.pageSize
-    }
+    // Both views load all records (group collapsing needs all records client-side)
+    params.page_size = 9999
 
     const res = await getRecords(domainId, params)
     records.value = res.data.items
@@ -1742,14 +1749,26 @@ onMounted(() => {
 }
 :deep(.group-header-row) {
   background-color: #f0f9eb !important;
+  cursor: pointer;
 }
 :deep(.group-header-row td) {
   background-color: #f0f9eb !important;
   font-weight: bold;
 }
+:deep(.group-header-row:hover td) {
+  background-color: #e8f5d6 !important;
+}
 .group-header-content {
   display: flex;
   align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+.group-header-content:hover {
+  opacity: 0.85;
+}
+.group-chevron {
+  margin-right: 6px;
 }
 .clickable-tag {
   cursor: pointer;
