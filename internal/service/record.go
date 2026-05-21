@@ -80,7 +80,7 @@ func (s *RecordService) ListRecords(nodeID, userID uint64, q RecordQuery) (*Reco
 	if q.Page < 1 {
 		q.Page = 1
 	}
-	if q.PageSize < 1 || q.PageSize > 100 {
+	if q.PageSize < 1 || q.PageSize > 10000 {
 		q.PageSize = 20
 	}
 
