@@ -20,3 +20,7 @@ export const getAdminDomainDetail = (id) => request.get(`/admin/domains/${id}/de
 export const adminChangeOwner = (id, userId) => request.post(`/admin/domains/${id}/change-owner`, { user_id: userId })
 export const adminRevokePermission = (id, userId) => request.delete(`/admin/domains/${id}/permissions/${userId}`)
 export const adminBatchDeleteDomains = (data) => request.post('/admin/domains/batch-delete', data)
+
+export const getAdminDomainRecords = (id, params) => request.get(`/admin/domains/${id}/records`, { params })
+export const adminDeleteRecord = (domainId, recordId) => request.delete(`/admin/domains/${domainId}/records/${recordId}`)
+export const adminToggleRecord = (domainId, recordId, data) => request.post(`/admin/domains/${domainId}/records/${recordId}/toggle`, data)

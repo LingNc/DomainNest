@@ -628,6 +628,126 @@ func (h *AdminHandler) GetDomainDetail(c *gin.Context) {
 	})
 }
 
+// ListDomainRecords admin views all DNS records for a domain (no ownership check)
+func (h *AdminHandler) ListDomainRecords(c *gin.Context) {
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	// Verify domain exists
+	var node model.DomainNode
+	if err := h.db.First(&node, nodeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "域名节点不存在"})
+		return
+	}
+
+	includeTrashed := c.Query("include_trashed") == "true"
+
+	query := h.db.Where("node_id = ?", nodeID)
+	if !includeTrashed {
+		query = query.Where("trashed_at IS NULL")
+	}
+
+	var records []model.DNSRecord
+	if err := query.Order("id ASC").Find(&records).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	// Compute stats
+	var totalEnabled, totalDisabled, platformCount, providerCount int
+	for _, r := range records {
+		if r.Enabled {
+			totalEnabled++
+		} else {
+			totalDisabled++
+		}
+		if r.Source == "provider" {
+			providerCount++
+		} else {
+			platformCount++
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"records": records,
+			"stats": gin.H{
+				"total":          len(records),
+				"enabled":        totalEnabled,
+				"disabled":       totalDisabled,
+				"platform_count": platformCount,
+				"provider_count": providerCount,
+			},
+		},
+	})
+}
+
+// AdminDeleteRecord permanently deletes a DNS record (admin, no ownership check)
+func (h *AdminHandler) AdminDeleteRecord(c *gin.Context) {
+	recordID, err := strconv.ParseUint(c.Param("rid"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		return
+	}
+
+	result := h.db.Unscoped().Where("id = ?", recordID).Delete(&model.DNSRecord{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在"})
+		return
+	}
+
+	callerID := c.GetUint64("user_id")
+	middleware.LogOperation(h.db, callerID, "admin_delete_record", "dns_record", &recordID,
+		nil, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "记录已永久删除"})
+}
+
+// AdminToggleRecord admin toggles a DNS record enabled/disabled (no ownership check)
+func (h *AdminHandler) AdminToggleRecord(c *gin.Context) {
+	recordID, err := strconv.ParseUint(c.Param("rid"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	result := h.db.Model(&model.DNSRecord{}).Where("id = ?", recordID).Update("enabled", req.Enabled)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在"})
+		return
+	}
+
+	action := "admin_enable_record"
+	if !req.Enabled {
+		action = "admin_disable_record"
+	}
+	callerID := c.GetUint64("user_id")
+	middleware.LogOperation(h.db, callerID, action, "dns_record", &recordID,
+		map[string]interface{}{"enabled": req.Enabled}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "状态已更新"})
+}
+
 func (h *AdminHandler) RevokePermission(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
