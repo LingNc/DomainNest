@@ -32,8 +32,8 @@ func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64)
 	fullDomain := host + "." + parent.FullDomain
 
 	var existing model.DomainNode
-	if err := s.db.Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
-		return nil, errors.New("域名已存在")
+	if err := s.db.Preload("Owner").Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
+		return nil, fmt.Errorf("域名 %s 已存在，当前归属于用户 %s", existing.FullDomain, existing.Owner.Username)
 	}
 
 	node := &model.DomainNode{
@@ -159,6 +159,15 @@ func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) error
 
 		if err := tx.Model(&model.DomainNode{}).Where("id IN ?", nodeIDs).Update("owner_id", targetUserID).Error; err != nil {
 			return fmt.Errorf("failed to transfer nodes: %w", err)
+		}
+
+		// Log transfers
+		for _, nid := range nodeIDs {
+			tx.Create(&model.DomainTransferLog{
+				NodeID:     nid,
+				FromUserID: node.OwnerID,
+				ToUserID:   targetUserID,
+			})
 		}
 
 		return nil
@@ -472,6 +481,28 @@ func (s *DomainService) GetConversionLogs(nodeID uint64) ([]model.NodeConversion
 	err := s.db.Where("domain_node_id = ?", nodeID).
 		Preload("Trigger").
 		Order("id DESC").
+		Find(&logs).Error
+	return logs, err
+}
+
+func (s *DomainService) GetTransferredAwayNodes(userID uint64) ([]model.DomainTransferLog, error) {
+	var logs []model.DomainTransferLog
+	err := s.db.
+		Where("from_user_id = ?", userID).
+		Preload("Node").
+		Preload("ToUser", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).
+		Order("created_at DESC").
+		Find(&logs).Error
+	return logs, err
+}
+
+func (s *DomainService) GetTransferHistory(nodeID uint64) ([]model.DomainTransferLog, error) {
+	var logs []model.DomainTransferLog
+	err := s.db.
+		Where("node_id = ?", nodeID).
+		Preload("FromUser", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).
+		Preload("ToUser", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).
+		Order("created_at ASC").
 		Find(&logs).Error
 	return logs, err
 }
