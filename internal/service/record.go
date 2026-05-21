@@ -113,6 +113,15 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		return nil, err
 	}
 
+	// Host collision check: reject if host matches a materialized child node
+	if host != "@" {
+		var childNode model.DomainNode
+		if err := s.db.Where("parent_id = ? AND host = ? AND deleted_at IS NULL", nodeID, host).
+			First(&childNode).Error; err == nil {
+			return nil, fmt.Errorf("主机名 '%s' 已被子节点 %s 占用，请在该节点下创建记录", host, childNode.FullDomain)
+		}
+	}
+
 	if ttl == 0 {
 		ttl = 600
 	}
