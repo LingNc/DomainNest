@@ -228,9 +228,11 @@ import { useI18n } from 'vue-i18n'
 import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs, searchAllUsers, deleteAccount, sendVerifyEmail, verifyEmail } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useError } from '../composables/useError'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const { showError } = useError()
 
 const roleLabel = (p) => {
   if (p.is_super_admin) return t('profile.superAdmin')
@@ -359,7 +361,7 @@ const handleSendEmailCode = async () => {
     ElMessage.success(t('register.codeSent'))
     startEmailCountdown()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || e.message)
+    showError(e.response?.data?.message || e.message)
   } finally {
     sendingCode.value = false
   }
@@ -376,7 +378,7 @@ const handleVerifyEmail = async () => {
     emailVerified.value = true
     ElMessage.success(t('register.verified'))
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || e.message)
+    showError(e.response?.data?.message || e.message)
   } finally {
     verifyingEmail.value = false
   }
@@ -451,7 +453,7 @@ const handleGrantInvite = async () => {
     await loadProfile()
     await loadInviteLogs()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('profile.grantFailed'))
+    showError(e.response?.data?.message || t('profile.grantFailed'))
   } finally {
     granting.value = false
   }
@@ -471,7 +473,7 @@ const handleRevokeInvite = async () => {
     await loadProfile()
     await loadInviteLogs()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('profile.revokeFailed'))
+    showError(e.response?.data?.message || t('profile.revokeFailed'))
   } finally {
     revoking.value = false
   }
@@ -499,7 +501,7 @@ const handleAvatarUpload = async ({ file }) => {
     auth.setAuth(auth.token, { ...auth.user, avatar: res.data.avatar })
     ElMessage.success(t('profile.avatarUploadSuccess'))
   } catch (e) {
-    ElMessage.error(t('profile.uploadFailed') + ': ' + (e.response?.data?.message || e.message))
+    showError(t('profile.uploadFailed') + ': ' + (e.response?.data?.message || e.message))
   }
 }
 
@@ -518,7 +520,7 @@ const handleDeleteAccount = async () => {
     auth.clearAuth()
     router.push('/login')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('profile.deleteFailed'))
+    showError(e.response?.data?.message || t('profile.deleteFailed'))
   } finally {
     deleting.value = false
   }

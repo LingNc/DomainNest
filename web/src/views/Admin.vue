@@ -366,10 +366,12 @@ import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { actionGroups, targetTypeOptions } from '../constants/operationLogs'
 import { useAvatar } from '../composables/useAvatar'
+import { useError } from '../composables/useError'
 
 const auth = useAuthStore()
 const { t } = useI18n()
 const { getSrc, firstLetter } = useAvatar()
+const { showError } = useError()
 
 const activeTab = ref('users')
 const users = ref([])
@@ -578,7 +580,7 @@ watch(selectedProviderId, async (id) => {
     const res = await listProviderDomains(id, { skipErrorToast: true })
     adminDomains.value = res.data || []
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('admin.fetchDomainsFailed'))
+    showError(e.response?.data?.message || t('admin.fetchDomainsFailed'))
   } finally {
     loadingAdminDomains.value = false
   }
@@ -787,7 +789,7 @@ const handleInviteAction = async () => {
     showInviteAction.value = false
     loadData()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('admin.requestFailed'))
+    showError(e.response?.data?.message || t('admin.requestFailed'))
   } finally {
     inviteActionLoading.value = false
   }
@@ -809,7 +811,7 @@ const handleBatchInvite = async () => {
     selectedUsers.value = []
     loadData()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('admin.requestFailed'))
+    showError(e.response?.data?.message || t('admin.requestFailed'))
   } finally {
     batchInviteLoading.value = false
   }
@@ -844,7 +846,7 @@ const handleTestSMTP = async () => {
     await testSMTP({ to: testEmail.value }, { skipErrorToast: true })
     ElMessage.success(t('admin.testEmailSent'))
   } catch (e) {
-    ElMessage.error(t('admin.sendFailed') + (e.response?.data?.message || e.message))
+    showError(t('admin.sendFailed') + (e.response?.data?.message || e.message))
   } finally {
     testingSMTP.value = false
   }

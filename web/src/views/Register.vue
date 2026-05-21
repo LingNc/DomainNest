@@ -55,10 +55,12 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { register, checkUsername, sendVerifyEmail, verifyEmail } from '../api/auth'
 import { ElMessage } from 'element-plus'
+import { useError } from '../composables/useError'
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
+const { showError } = useError()
 const loading = ref(false)
 const form = ref({ username: '', email: '', password: '', invite_code: '', code: '' })
 const usernameStatus = ref('') // '' | 'available' | 'taken'
@@ -111,7 +113,7 @@ const handleSendCode = async () => {
     ElMessage.success(t('register.codeSent'))
     startCountdown()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || e.message)
+    showError(e.response?.data?.message || e.message)
   } finally {
     sendingCode.value = false
   }
@@ -128,7 +130,7 @@ const handleVerifyEmail = async () => {
     emailVerified.value = true
     ElMessage.success(t('register.verified'))
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || e.message)
+    showError(e.response?.data?.message || e.message)
   } finally {
     verifying.value = false
   }

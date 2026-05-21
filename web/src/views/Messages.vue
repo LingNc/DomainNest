@@ -139,9 +139,11 @@ import { getConversations } from '../api/message'
 import { getNotifications, getNotificationUnreadCount, markNotificationAsRead, markAllNotificationsAsRead, handleNotificationAction } from '../api/message'
 import { searchAllUsers } from '../api/auth'
 import { useWebSocket } from '../composables/useWebSocket'
+import { useError } from '../composables/useError'
 
 const router = useRouter()
 const { t } = useI18n()
+const { showError } = useError()
 
 const activeTab = ref('notifications')
 
@@ -221,7 +223,7 @@ const handleAction = async (notifId, action) => {
     }
     ElMessage.success(action === 'accepted' ? t('messages.actionAccepted') : t('messages.actionRejected'))
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('messages.actionFailed'))
+    showError(e.response?.data?.message || t('messages.actionFailed'))
   }
 }
 

@@ -446,11 +446,13 @@ import { getPermissions, grantPermission, revokePermission, revokeRequest, accep
 import { useAuthStore } from '../stores/auth'
 import { searchAllUsers } from '../api/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useError } from '../composables/useError'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const { t } = useI18n()
+const { showError } = useError()
 const domainId = route.params.id
 
 const recordTypes = [
@@ -755,7 +757,7 @@ const handleRevokeRequest = async (userId) => {
     ElMessage.success(t('domainDetail.revokeRequestSent'))
     loadPermissions()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('domainDetail.requestFailed'))
+    showError(e.response?.data?.message || t('domainDetail.requestFailed'))
   }
 }
 
@@ -819,7 +821,7 @@ const handleAcceptReturn = async () => {
     loadPendingRecords()
     loadRecords()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('domainDetail.returnFailed'))
+    showError(e.response?.data?.message || t('domainDetail.returnFailed'))
   }
 }
 
