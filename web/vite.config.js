@@ -22,6 +22,10 @@ export default defineConfig({
   server: {
     port: frontendPort,
     allowedHosts,
+    hmr: {
+      overlay: false,
+      timeout: 60000,
+    },
     proxy: {
       '/api': {
         target: `http://localhost:${serverPort}`,

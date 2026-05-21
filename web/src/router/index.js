@@ -37,4 +37,16 @@ router.beforeEach((to, from, next) => {
   next()
 })
 
+// Catch dynamic import failures (e.g. Vite HMR websocket drops during idle)
+// and fall back to a full page reload to re-establish the connection.
+router.onError((error) => {
+  if (
+    error.message?.includes('Failed to fetch dynamically imported module') ||
+    error.message?.includes('Loading chunk') ||
+    error.message?.includes('Importing a module script failed')
+  ) {
+    window.location.reload()
+  }
+})
+
 export default router
