@@ -111,14 +111,16 @@
                   <strong>{{ row.host }}</strong>
                 </template>
                 <template v-else>
-                  <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.host }}</span>
-                  <template v-if="!row.virtual && row.own_node_id">
-                    <el-tag type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
-                    <el-button link type="warning" size="small" @click="handleCancelIndependence(row)" style="margin-left:4px">{{ $t('domainDetail.cancelIndependence') }}</el-button>
-                  </template>
-                  <template v-else-if="!row.virtual && row.host !== '@'">
-                    <el-button link type="primary" size="small" @click="handleMakeIndependent(row)" style="margin-left:4px">{{ $t('domainDetail.makeIndependent') }}</el-button>
-                  </template>
+                  <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap;white-space:nowrap">
+                    <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.host }}</span>
+                    <template v-if="!row.virtual && row.own_node_id">
+                      <el-tag type="success" size="small">{{ $t('domainDetail.materialized') }}</el-tag>
+                      <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                    </template>
+                    <template v-else-if="!row.virtual && row.host !== '@'">
+                      <el-button link type="primary" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                    </template>
+                  </div>
                 </template>
               </template>
             </el-table-column>
@@ -212,14 +214,16 @@
                   </div>
                 </template>
                 <template v-else>
-                  <span>{{ row.host }}</span>
-                  <template v-if="row.own_node_id">
-                    <el-tag type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
-                    <el-button link type="warning" size="small" @click="handleCancelIndependence(row)" style="margin-left:4px">{{ $t('domainDetail.cancelIndependence') }}</el-button>
-                  </template>
-                  <template v-else-if="row.host !== '@'">
-                    <el-button link type="primary" size="small" @click="handleMakeIndependent(row)" style="margin-left:4px">{{ $t('domainDetail.makeIndependent') }}</el-button>
-                  </template>
+                  <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap;white-space:nowrap">
+                    <span>{{ row.host }}</span>
+                    <template v-if="row.own_node_id">
+                      <el-tag type="success" size="small">{{ $t('domainDetail.materialized') }}</el-tag>
+                      <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                    </template>
+                    <template v-else-if="row.host !== '@'">
+                      <el-button link type="primary" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                    </template>
+                  </div>
                 </template>
               </template>
             </el-table-column>
