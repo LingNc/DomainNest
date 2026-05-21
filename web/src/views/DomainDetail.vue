@@ -792,7 +792,7 @@ const batchTransferSelectRef = ref(null)
 const returnSelectRef = ref(null)
 const grantPermSelectRef = ref(null)
 
-const filters = reactive({ host: '', recordType: [], value: '', status: '', source: '' })
+const filters = ref({ host: '', recordType: [], value: '', status: '', source: '' })
 const pagination = reactive({ page: 1, pageSize: 20 })
 
 watch(filters, () => { flatPage.value = 1 }, { deep: true })
@@ -869,24 +869,25 @@ const valuePlaceholder = computed(() => {
 
 const filteredRecords = computed(() => {
   let recs = records.value
-  if (filters.host) {
-    const q = filters.host.toLowerCase()
+  const f = filters.value
+  if (f.host) {
+    const q = f.host.toLowerCase()
     recs = recs.filter(r => r.host.toLowerCase().includes(q))
   }
-  if (filters.recordType && filters.recordType.length > 0) {
-    const types = new Set(filters.recordType)
+  if (f.recordType && f.recordType.length > 0) {
+    const types = new Set(f.recordType)
     recs = recs.filter(r => types.has(r.record_type))
   }
-  if (filters.value) {
-    const q = filters.value.toLowerCase()
+  if (f.value) {
+    const q = f.value.toLowerCase()
     recs = recs.filter(r => r.value.toLowerCase().includes(q))
   }
-  if (filters.status) {
-    const enabled = filters.status === 'enabled'
+  if (f.status) {
+    const enabled = f.status === 'enabled'
     recs = recs.filter(r => r.enabled === enabled)
   }
-  if (filters.source) {
-    recs = recs.filter(r => r.source === filters.source)
+  if (f.source) {
+    recs = recs.filter(r => r.source === f.source)
   }
   return recs
 })
