@@ -388,6 +388,7 @@ export default {
     convertToNodeConfirm: '确定将 {host} 独立为根域名？',
     convertSuccess: '独立成功，已处理 {count} 条记录',
     makeIndependent: '独立',
+    removeFromGroup: '移出分组',
     cancelIndependence: '取消独立',
     makeIndependentConfirm: "确定将 {host} 独立为根域名？该主机下的所有记录将移动到 {host}.{domain} 成为新域名的 {'@'} 记录。",
     cancelIndependenceConfirm: '确定将 {host}.{domain} 取消独立？所有记录将合并回 {domain} 下成为 {host} 记录。',

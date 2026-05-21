@@ -388,6 +388,7 @@ export default {
     convertToNodeConfirm: 'Make {host} an independent root domain?',
     convertSuccess: 'Independence granted, {count} records affected',
     makeIndependent: 'Make Independent',
+    removeFromGroup: 'Remove from Group',
     cancelIndependence: 'Cancel Independence',
     makeIndependentConfirm: "Make {host} an independent root domain? All records under this host will move to {host}.{domain} as {'@'} records of the new domain.",
     cancelIndependenceConfirm: 'Cancel independence of {host}.{domain}? All records will merge back into {domain} as {host} records.',
