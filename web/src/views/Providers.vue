@@ -170,8 +170,8 @@ const loadingDomains = ref(false)
 const claiming = reactive({})
 
 const credentialLabels = {
-  aliyun: { id: 'AccessKey ID', secret: 'AccessKey Secret' },
-  aliesa: { id: 'AccessKey ID', secret: 'AccessKey Secret' },
+  aliyun: { id: 'AccessKey ID', secret: 'AK Secret' },
+  aliesa: { id: 'AccessKey ID', secret: 'AK Secret' },
   tencentcloud: { id: 'SecretId', secret: 'SecretKey' },
   cloudflare: { id: 'API Token', secret: '__OPTIONAL__' },
   huaweicloud: { id: 'Access Key', secret: 'Secret Key' },
@@ -215,7 +215,7 @@ function resolveLabel(val, fallback) {
 
 const credentialLabel = computed(() => ({
   id: resolveLabel(credentialLabels[addForm.provider_type]?.id, 'AccessKey ID'),
-  secret: resolveLabel(credentialLabels[addForm.provider_type]?.secret, 'AccessKey Secret'),
+  secret: resolveLabel(credentialLabels[addForm.provider_type]?.secret, 'AK Secret'),
 }))
 const credentialPlaceholder = computed(() => ({
   id: t('providers.input', { label: credentialLabel.value.id }),
