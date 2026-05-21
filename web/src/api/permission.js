@@ -11,3 +11,4 @@ export const rejectReturn = (nodeId, userId) => request.post(`/domains/${nodeId}
 export const getPendingRecords = (nodeId) => request.get(`/domains/${nodeId}/pending-records`)
 export const assignPendingRecords = (nodeId, data) => request.post(`/domains/${nodeId}/pending-records/assign`, data)
 export const deletePendingRecords = (nodeId, data) => request.post(`/domains/${nodeId}/pending-records/delete`, data)
+export const batchGrantPermissions = (data) => request.post('/domains/batch/permissions', data)
