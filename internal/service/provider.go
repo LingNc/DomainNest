@@ -3,6 +3,8 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log"
+	"strings"
 
 	"domainnest/internal/dns"
 	"domainnest/internal/model"
@@ -105,7 +107,70 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 	if err := s.db.Create(node).Error; err != nil {
 		return nil, err
 	}
+	// Async import existing provider records
+	go s.importProviderRecords(node.ID, providerID, domainName)
 	return node, nil
+}
+
+func (s *ProviderService) importProviderRecords(nodeID, providerID uint64, domainName string) {
+	p, err := s.GetDNSProvider(providerID)
+	if err != nil {
+		log.Printf("importRecords: GetDNSProvider failed for node %d: %v", nodeID, err)
+		return
+	}
+	records, err := p.ListRecords(domainName)
+	if err != nil {
+		log.Printf("importRecords: ListRecords failed for node %d domain %s: %v", nodeID, domainName, err)
+		return
+	}
+	if len(records) == 0 {
+		s.db.Model(&model.DomainNode{}).Where("id = ?", nodeID).Update("records_imported", true)
+		return
+	}
+
+	for _, r := range records {
+		host := mapProviderRRToHost(r.Host, domainName)
+		priority := convertPriority(r.Priority)
+		record := &model.DNSRecord{
+			NodeID:           nodeID,
+			Host:             host,
+			RecordType:       r.Type,
+			Value:            r.Value,
+			TTL:              int(r.TTL),
+			Priority:         priority,
+			Line:             r.Line,
+			Enabled:          r.Enabled,
+			ProviderRecordID: r.RecordID,
+			SyncStatus:       "synced",
+		}
+		if err := s.db.Create(record).Error; err != nil {
+			log.Printf("importRecords: failed to create record %s/%s for node %d: %v", host, r.Type, nodeID, err)
+		}
+	}
+
+	s.db.Model(&model.DomainNode{}).Where("id = ?", nodeID).Update("records_imported", true)
+}
+
+// mapProviderRRToHost converts a provider's RR (full subdomain) to DomainNest's host part.
+// For example, "test.example.com" with domain "example.com" becomes "test".
+// The bare domain itself maps to "@".
+func mapProviderRRToHost(rr, domainName string) string {
+	if rr == domainName || rr == "@" {
+		return "@"
+	}
+	suffix := "." + domainName
+	if strings.HasSuffix(rr, suffix) {
+		return strings.TrimSuffix(rr, suffix)
+	}
+	return rr
+}
+
+func convertPriority(p *int64) *int {
+	if p == nil {
+		return nil
+	}
+	v := int(*p)
+	return &v
 }
 
 // GetDNSProvider creates a dns.Provider instance from the stored credentials.
