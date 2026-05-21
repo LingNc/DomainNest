@@ -151,6 +151,14 @@
                 {{ row.virtual ? '' : (row.last_resolved_at || '—') }}
               </template>
             </el-table-column>
+            <el-table-column :label="$t('domainDetail.source')" width="90">
+              <template #default="{ row }">
+                <template v-if="!row.virtual">
+                  <el-tag v-if="row.source === 'provider'" size="small" type="warning">{{ $t('domainDetail.sourceProvider') }}</el-tag>
+                  <el-tag v-else size="small" type="success">{{ $t('domainDetail.sourcePlatform') }}</el-tag>
+                </template>
+              </template>
+            </el-table-column>
             <el-table-column :label="$t('domainDetail.groupTag')" width="120">
               <template #default="{ row }">
                 <template v-if="!row.virtual">
@@ -208,6 +216,12 @@
             <el-table-column prop="last_resolved_at" :label="$t('domainDetail.lastResolved')" width="160" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.last_resolved_at || '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('domainDetail.source')" width="90">
+              <template #default="{ row }">
+                <el-tag v-if="row.source === 'provider'" size="small" type="warning">{{ $t('domainDetail.sourceProvider') }}</el-tag>
+                <el-tag v-else size="small" type="success">{{ $t('domainDetail.sourcePlatform') }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column :label="$t('domainDetail.groupTag')" width="120">

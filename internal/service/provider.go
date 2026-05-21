@@ -216,6 +216,7 @@ func (s *ProviderService) importProviderRecords(nodeID, providerID uint64, domai
 			Enabled:          r.Enabled,
 			ProviderRecordID: r.RecordID,
 			SyncStatus:       "synced",
+			Source:           "provider",
 		}
 		if err := s.db.Create(record).Error; err != nil {
 			log.Printf("importRecords: failed to create record %s/%s for node %d: %v", host, r.Type, nodeID, err)

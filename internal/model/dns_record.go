@@ -24,6 +24,7 @@ type DNSRecord struct {
 	NextSyncAt       *time.Time     `gorm:"index" json:"next_sync_at,omitempty"`
 	PendingGroup     string         `gorm:"type:varchar(64);index" json:"pending_group,omitempty"`
 	GroupTag         string         `gorm:"type:varchar(64);index" json:"group_tag,omitempty"`
+	Source           string         `gorm:"type:varchar(16);default:'platform';index" json:"source"`
 	CreatedBy        uint64         `gorm:"index" json:"created_by,omitempty"`
 	LastResolvedAt   *time.Time     `json:"last_resolved_at,omitempty"`
 	CreatedAt        time.Time      `json:"created_at"`
