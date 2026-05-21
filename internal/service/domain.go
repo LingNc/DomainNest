@@ -617,10 +617,11 @@ func (s *DomainService) BatchDeleteNodes(nodeIDs []uint64, userID uint64) (delet
 func (s *DomainService) GetTransferredAwayNodes(userID uint64) ([]model.DomainTransferLog, error) {
 	var logs []model.DomainTransferLog
 	err := s.db.
-		Where("from_user_id = ?", userID).
+		Joins("JOIN domain_nodes ON domain_nodes.id = domain_transfer_logs.node_id").
+		Where("domain_transfer_logs.from_user_id = ? AND domain_nodes.owner_id != ?", userID, userID).
 		Preload("Node").
 		Preload("ToUser", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).
-		Order("created_at DESC").
+		Order("domain_transfer_logs.created_at DESC").
 		Find(&logs).Error
 	return logs, err
 }
