@@ -44,12 +44,13 @@
               :expand-on-click-node="false"
             >
               <template #default="{ data }">
-                <div class="tree-node">
+                <div class="tree-node" :class="{ archived: data.status === 'archived' }">
                   <span class="domain-name">
                     <el-avatar v-if="data.owner?.avatar" :src="data.owner.avatar" :size="20" style="margin-right:4px" />
                     {{ data.full_domain }}
                   </span>
                   <el-tag v-if="data.is_materialized" size="small" type="success">{{ $t('domainDetail.materialized') }}</el-tag>
+                  <el-tag v-if="data.status === 'archived'" size="small" type="info">{{ $t('dashboard.archived') }}</el-tag>
                   <el-tag v-if="permMap[data.id]" :type="permTagType(permMap[data.id])" size="small" class="perm-badge">
                     {{ permLabel(permMap[data.id]) }}
                   </el-tag>
@@ -591,6 +592,9 @@ onMounted(() => {
   padding: 2px 0;
   width: 100%;
   flex-wrap: wrap;
+}
+.tree-node.archived {
+  opacity: 0.6;
 }
 .domain-name {
   font-size: 14px;

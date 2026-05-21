@@ -10,3 +10,6 @@ export const convertToNode = (parentId, data) => request.post(`/domains/${parent
 export const transferRecordsByHost = (parentId, data) => request.post(`/domains/${parentId}/records/transfer`, data)
 export const demoteNode = (nodeId) => request.post(`/domains/${nodeId}/nodes/demote`)
 export const getConversionLogs = (nodeId) => request.get(`/domains/${nodeId}/nodes/conversion-logs`)
+
+export const reactivateDomain = (id, data) => request.post(`/domains/${id}/reactivate`, data)
+export const getArchiveInfo = (id) => request.get(`/domains/${id}/archive-info`)

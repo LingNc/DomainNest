@@ -294,7 +294,24 @@ const handleDelete = async (row) => {
     ElMessage.success(t('providers.deleted'))
     await loadProviders()
   } catch (e) {
-    if (e !== 'cancel') showError(e.response?.data?.message || t('providers.deleteFailed'))
+    if (e === 'cancel') return
+    if (e.response?.status === 409) {
+      const data = e.response.data
+      try {
+        await ElMessageBox.confirm(
+          t('providers.cascadeDeleteWarning', { count: data.data.linked_domains }),
+          t('providers.cascadeDeleteTitle'),
+          { type: 'warning', confirmButtonText: t('common.confirmDelete') }
+        )
+        await deleteProvider(row.id, { params: { confirm: true }, skipErrorToast: true })
+        ElMessage.success(t('providers.cascadeDeleteSuccess'))
+        await loadProviders()
+      } catch (inner) {
+        if (inner !== 'cancel') showError(inner.response?.data?.message || t('providers.deleteFailed'))
+      }
+    } else {
+      showError(e.response?.data?.message || t('providers.deleteFailed'))
+    }
   }
 }
 

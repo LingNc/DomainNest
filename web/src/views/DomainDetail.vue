@@ -23,6 +23,17 @@
       </div>
     </el-card>
 
+    <!-- Archived domain banner -->
+    <el-alert v-if="domain?.status === 'archived'" type="warning" :closable="false" show-icon style="margin-bottom:16px">
+      <template #title>{{ $t('domainDetail.archivedBanner') }}</template>
+      <template #default>
+        {{ $t('domainDetail.archivedDesc') }}
+        <el-button v-if="isProviderOwner" size="small" type="primary" style="margin-left:12px" @click="handleReactivate">
+          {{ $t('domainDetail.reactivate') }}
+        </el-button>
+      </template>
+    </el-alert>
+
     <!-- Tabbed content -->
     <el-tabs v-model="activeTab" class="domain-detail-tabs">
       <!-- DNS Records Tab -->
@@ -35,7 +46,7 @@
                 <el-button size="small" @click="handleExport('json')">{{ $t('domainDetail.exportJson') }}</el-button>
                 <el-button size="small" @click="handleExport('csv')">{{ $t('domainDetail.exportCsv') }}</el-button>
                 <el-button size="small" @click="showImport = true">{{ $t('domainDetail.import') }}</el-button>
-                <el-button type="primary" size="small" @click="openAddRecord">
+                <el-button type="primary" size="small" @click="openAddRecord" :disabled="domain?.status === 'archived'">
                   <el-icon><component :is="'Plus'" /></el-icon>
                   {{ $t('domainDetail.addRecord') }}
                 </el-button>
@@ -72,7 +83,95 @@
             <el-button size="small" type="warning" @click="showBatchTransfer = true">{{ $t('domainDetail.batchTransfer') }}</el-button>
           </div>
 
-          <el-table :data="records" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id">
+          <!-- view toggle -->
+          <div class="view-toggle">
+            <el-radio-group v-model="recordViewMode" size="small">
+              <el-radio-button value="tree">{{ $t('domainDetail.treeView') }}</el-radio-button>
+              <el-radio-button value="flat">{{ $t('domainDetail.flatView') }}</el-radio-button>
+            </el-radio-group>
+          </div>
+
+          <!-- tree view -->
+          <el-table
+            v-if="recordViewMode === 'tree'"
+            :data="treeRecords"
+            row-key="treeId"
+            :tree-props="{ children: 'children' }"
+            stripe
+            v-loading="loading"
+            @selection-change="handleSelectionChange"
+            :row-class-name="treeRowClass"
+          >
+            <el-table-column type="selection" width="40" :selectable="(row) => !row.virtual" />
+            <el-table-column prop="host" :label="$t('domainDetail.host')" width="180">
+              <template #default="{ row }">
+                <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.host }}</span>
+                <template v-if="!row.virtual && row.own_node_id">
+                  <el-tag type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
+                  <el-button link type="warning" size="small" @click="handleCancelIndependence(row)" style="margin-left:4px">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                </template>
+                <template v-else-if="!row.virtual && row.host !== '@'">
+                  <el-button link type="primary" size="small" @click="handleMakeIndependent(row)" style="margin-left:4px">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                </template>
+              </template>
+            </el-table-column>
+            <el-table-column prop="record_type" :label="$t('domainDetail.type')" width="80">
+              <template #default="{ row }">
+                <span :style="row.virtual ? 'color:#909399' : ''">{{ row.record_type }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="value" :label="$t('domainDetail.value')" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.value }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="priority" :label="$t('domainDetail.priority')" width="70">
+              <template #default="{ row }">{{ row.virtual ? '' : (row.priority ?? '-') }}</template>
+            </el-table-column>
+            <el-table-column prop="ttl" :label="$t('domainDetail.ttl')" width="70">
+              <template #default="{ row }">{{ row.virtual ? '' : row.ttl }}</template>
+            </el-table-column>
+            <el-table-column prop="line" :label="$t('domainDetail.line')" width="80">
+              <template #default="{ row }">{{ row.virtual ? '' : (row.line || $t('common.default')) }}</template>
+            </el-table-column>
+            <el-table-column :label="$t('common.enabled')" width="70">
+              <template #default="{ row }">
+                <el-switch v-if="!row.virtual" v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="90">
+              <template #default="{ row }">
+                <template v-if="!row.virtual">
+                  <el-tag :type="statusType(row.sync_status)" size="small">{{ statusLabel(row.sync_status) }}</el-tag>
+                </template>
+              </template>
+            </el-table-column>
+            <el-table-column prop="last_resolved_at" :label="$t('domainDetail.lastResolved')" width="160" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.virtual ? '' : (row.last_resolved_at || '—') }}
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('domainDetail.groupTag')" width="120">
+              <template #default="{ row }">
+                <template v-if="!row.virtual">
+                  <el-tag v-if="row.group_tag" size="small" closable @close="clearGroupTag(row)">{{ row.group_tag }}</el-tag>
+                  <el-button v-else link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
+                </template>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('common.actions')" min-width="150" fixed="right">
+              <template #default="{ row }">
+                <template v-if="!row.virtual">
+                  <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
+                  <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
+                  <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
+                </template>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <!-- flat view -->
+          <el-table v-else :data="records" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id">
             <el-table-column type="selection" width="40" />
             <el-table-column prop="host" :label="$t('domainDetail.host')" width="180">
               <template #default="{ row }">
@@ -108,6 +207,12 @@
             <el-table-column prop="last_resolved_at" :label="$t('domainDetail.lastResolved')" width="160" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.last_resolved_at || '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('domainDetail.groupTag')" width="120">
+              <template #default="{ row }">
+                <el-tag v-if="row.group_tag" size="small" closable @close="clearGroupTag(row)">{{ row.group_tag }}</el-tag>
+                <el-button v-else link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
               </template>
             </el-table-column>
             <el-table-column :label="$t('common.actions')" min-width="150" fixed="right">
@@ -501,6 +606,19 @@
         <el-button type="warning" @click="handleAcceptReturn">{{ $t('domainDetail.confirmReturn') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- set group tag dialog -->
+    <el-dialog v-model="showTagDialog" :title="$t('domainDetail.setGroupTag')" width="400px" destroy-on-close>
+      <el-form label-width="80px">
+        <el-form-item :label="$t('domainDetail.groupTag')">
+          <el-input v-model="tagForm.group_tag" :placeholder="$t('domainDetail.groupTagPlaceholder')" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showTagDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSetTag">{{ $t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -508,8 +626,8 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost } from '../api/domain'
-import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords, checkRecordConflict } from '../api/record'
+import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
+import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords } from '../api/record'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
@@ -582,6 +700,15 @@ const showConflictDialog = ref(false)
 const conflictRecord = ref(null)
 const pendingCreateData = ref(null)
 
+// Archive state
+const archiveInfo = ref(null)
+const isProviderOwner = computed(() => archiveInfo.value?.is_provider_owner || false)
+
+// Tree view & group tag state
+const recordViewMode = ref('tree')
+const showTagDialog = ref(false)
+const tagForm = ref({ record_ids: [], group_tag: '' })
+
 const statusType = (s) => s === 'synced' ? 'success' : s === 'failed' ? 'danger' : s === 'disabled' ? 'info' : 'warning'
 const statusLabel = (s) => ({ synced: t('common.synced'), failed: t('domainDetail.syncFailed'), pending: t('domainDetail.pendingSync'), disabled: t('domainDetail.disabled') }[s] || s)
 
@@ -589,6 +716,95 @@ const valuePlaceholder = computed(() => {
   const m = { A: t('domainDetail.placeholderA'), AAAA: t('domainDetail.placeholderAAAA'), CNAME: t('domainDetail.placeholderCNAME'), ALIAS: t('domainDetail.placeholderALIAS'), MX: t('domainDetail.placeholderMX'), TXT: t('domainDetail.placeholderTXT'), NS: t('domainDetail.placeholderNS') }
   return m[recordForm.value.record_type] || t('domainDetail.placeholderValue')
 })
+
+const treeRecords = computed(() => {
+  if (recordViewMode.value !== 'tree') return records.value
+
+  // Group records by host
+  const hostMap = new Map()
+  for (const rec of records.value) {
+    if (!hostMap.has(rec.host)) {
+      hostMap.set(rec.host, { host: rec.host, records: [], children: [], virtual: false })
+    }
+    hostMap.get(rec.host).records.push(rec)
+  }
+
+  // Helper: get parent host
+  const getParent = (host) => {
+    if (host === '@') return null
+    const parts = host.split('.')
+    return parts.length > 1 ? parts.slice(0, -1).join('.') : '@'
+  }
+
+  // Ensure a node exists for a given host
+  const ensureNode = (host) => {
+    if (!hostMap.has(host)) {
+      const node = { host, records: [], children: [], virtual: true }
+      hostMap.set(host, node)
+    }
+    return hostMap.get(host)
+  }
+
+  // Build tree: for each host, link it to its parent chain
+  const linked = new Set()
+  const linkToParent = (host) => {
+    if (linked.has(host)) return
+    linked.add(host)
+
+    const node = hostMap.get(host)
+    const parentHost = getParent(host)
+
+    if (parentHost === null) return // @ is a root
+
+    const parent = ensureNode(parentHost)
+    parent.children.push(node)
+    linkToParent(parentHost)
+  }
+
+  for (const host of hostMap.keys()) {
+    linkToParent(host)
+  }
+
+  // Find roots
+  const roots = []
+  for (const [host, node] of hostMap) {
+    if (getParent(host) === null) {
+      roots.push(node)
+    }
+  }
+
+  // Flatten to table rows
+  const flatten = (nodes) => {
+    const rows = []
+    for (const node of nodes) {
+      if (node.records.length > 0) {
+        const parentRow = { ...node.records[0], treeId: `${node.host}:${node.records[0].id}`, children: [] }
+        for (let i = 1; i < node.records.length; i++) {
+          parentRow.children.push({ ...node.records[i], treeId: `${node.host}:${node.records[i].id}` })
+        }
+        if (node.children.length > 0) {
+          parentRow.children.push(...flatten(node.children))
+        }
+        rows.push(parentRow)
+      } else if (node.virtual && node.children.length > 0) {
+        const childRows = flatten(node.children)
+        rows.push({
+          treeId: `virtual:${node.host}`,
+          host: node.host,
+          record_type: '—',
+          value: `${childRows.length} records`,
+          virtual: true,
+          children: childRows,
+        })
+      }
+    }
+    return rows
+  }
+
+  return flatten(roots)
+})
+
+const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
 
 const loadRecords = async () => {
   loading.value = true
@@ -614,6 +830,24 @@ const loadDomain = async () => {
 
 const loadData = async () => {
   await Promise.all([loadDomain(), loadRecords(), loadPermissions(), loadPendingRecords()])
+  loadArchiveInfo()
+}
+
+const loadArchiveInfo = async () => {
+  if (domain.value?.status === 'archived') {
+    try {
+      const res = await getArchiveInfo(domainId)
+      archiveInfo.value = res.data
+    } catch { /* ignore */ }
+  }
+}
+
+const handleReactivate = async () => {
+  if (!archiveInfo.value?.archived_provider_id) return
+  await reactivateDomain(domainId, { provider_id: archiveInfo.value.archived_provider_id })
+  ElMessage.success(t('domainDetail.reactivateSuccess'))
+  loadDomain()
+  loadArchiveInfo()
 }
 
 const onTypeChange = () => {
