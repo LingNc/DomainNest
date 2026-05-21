@@ -142,6 +142,18 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }
 
+func (h *DomainHandler) GetTransferredAway(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	nodes, err := h.domainService.GetTransferredAwayNodes(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取转出域名失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": nodes})
+}
+
 func (h *DomainHandler) ConvertToNode(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 

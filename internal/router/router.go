@@ -98,6 +98,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.GET("", domainHandler.List)
 		domains.POST("", domainHandler.Create)
 		domains.POST("/batch/permissions", permissionHandler.BatchGrantMultiDomain)
+		domains.GET("/transferred-away", domainHandler.GetTransferredAway)
 		domains.GET("/:id", domainHandler.Get)
 		domains.POST("/:id/transfer", domainHandler.Transfer)
 		domains.DELETE("/:id", domainHandler.Delete)

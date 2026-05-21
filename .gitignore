@@ -35,3 +35,4 @@ internal/static/dist/
 # Other
 *context.md
 logs/server.log
+temp/

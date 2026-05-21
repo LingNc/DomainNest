@@ -116,7 +116,9 @@
         </el-card>
 
         <el-table v-else :data="transferredAway" stripe style="width:100%">
-          <el-table-column prop="domain_name" :label="$t('admin.fullDomain')" min-width="200" show-overflow-tooltip />
+          <el-table-column :label="$t('admin.fullDomain')" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.node?.full_domain || '-' }}</template>
+          </el-table-column>
           <el-table-column :label="$t('dashboard.transferredTo')" min-width="140">
             <template #default="{ row }">
               <div style="display:flex;align-items:center;gap:6px">
