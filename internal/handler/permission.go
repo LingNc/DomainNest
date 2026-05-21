@@ -110,6 +110,10 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 			if count, err := svc.GetNotificationUnreadCount(req.TargetUserID); err == nil {
 				ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
+			ws.BroadcastToUser(req.TargetUserID, ws.TypeDomainTreeUpdate, gin.H{
+				"action":  "permission_change",
+				"node_id": nodeID,
+			})
 		}
 	}()
 
@@ -205,7 +209,126 @@ func (h *PermissionHandler) BatchGrant(c *gin.Context) {
 				if count, err := svc.GetNotificationUnreadCount(uid); err == nil {
 					ws.BroadcastToUser(uid, ws.TypeUnreadUpdate, gin.H{"count": count})
 				}
+				ws.BroadcastToUser(uid, ws.TypeDomainTreeUpdate, gin.H{
+					"action":  "permission_change",
+					"node_id": nodeID,
+				})
 			}(targetID)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": results})
+}
+
+// BatchMultiDomainResult is the per-domain-user result of a batch multi-domain grant operation.
+type BatchMultiDomainResult struct {
+	DomainNodeID uint64 `json:"domain_node_id"`
+	UserID       uint64 `json:"user_id"`
+	Success      bool   `json:"success"`
+	Error        string `json:"error,omitempty"`
+}
+
+func (h *PermissionHandler) BatchGrantMultiDomain(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	var req struct {
+		DomainNodeIDs []uint64         `json:"domain_node_ids" binding:"required,min=1,max=20"`
+		TargetUserIDs []uint64         `json:"target_user_ids" binding:"required,min=1,max=50"`
+		Level         string           `json:"level" binding:"required"`
+		AllowedTypes  []string         `json:"allowed_types"`
+		AllowedIPs    []string         `json:"allowed_ips"`
+		HostRules     []model.HostRule `json:"host_rules"`
+		MaxDepth      *int             `json:"max_depth"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	// Deduplicate domain node IDs
+	seenNodes := make(map[uint64]bool)
+	uniqueNodeIDs := make([]uint64, 0, len(req.DomainNodeIDs))
+	for _, id := range req.DomainNodeIDs {
+		if !seenNodes[id] {
+			seenNodes[id] = true
+			uniqueNodeIDs = append(uniqueNodeIDs, id)
+		}
+	}
+
+	// Deduplicate user IDs
+	seenUsers := make(map[uint64]bool)
+	uniqueUserIDs := make([]uint64, 0, len(req.TargetUserIDs))
+	for _, id := range req.TargetUserIDs {
+		if !seenUsers[id] {
+			seenUsers[id] = true
+			uniqueUserIDs = append(uniqueUserIDs, id)
+		}
+	}
+
+	allowedTypesJSON := ""
+	if len(req.AllowedTypes) > 0 {
+		b, _ := json.Marshal(req.AllowedTypes)
+		allowedTypesJSON = string(b)
+	}
+	allowedIPsJSON := ""
+	if len(req.AllowedIPs) > 0 {
+		b, _ := json.Marshal(req.AllowedIPs)
+		allowedIPsJSON = string(b)
+	}
+
+	// Pre-load nodes for notifications
+	nodeMap := make(map[uint64]*model.DomainNode)
+	for _, nodeID := range uniqueNodeIDs {
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error == nil {
+			nodeMap[nodeID] = &node
+		}
+	}
+
+	results := make([]BatchMultiDomainResult, 0, len(uniqueNodeIDs)*len(uniqueUserIDs))
+	for _, nodeID := range uniqueNodeIDs {
+		node, nodeLoaded := nodeMap[nodeID]
+		domain := ""
+		if nodeLoaded {
+			domain = node.FullDomain
+		}
+
+		for _, targetID := range uniqueUserIDs {
+			// Skip self-authorization
+			if targetID == userID {
+				results = append(results, BatchMultiDomainResult{DomainNodeID: nodeID, UserID: targetID, Success: false, Error: "不能给自己授权"})
+				continue
+			}
+
+			err := h.permissionService.Grant(targetID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, "", req.HostRules, req.MaxDepth, userID)
+			if err != nil {
+				results = append(results, BatchMultiDomainResult{DomainNodeID: nodeID, UserID: targetID, Success: false, Error: err.Error()})
+				continue
+			}
+
+			results = append(results, BatchMultiDomainResult{DomainNodeID: nodeID, UserID: targetID, Success: true})
+
+			middleware.LogOperationUser(h.db, userID, targetID, "grant_permission", "domain_node", &nodeID,
+				map[string]interface{}{"level": req.Level, "domain": domain, "batch_multi_domain": true}, c.ClientIP())
+
+			// Notify target user
+			if nodeLoaded {
+				go func(uid uint64, n model.DomainNode, nid uint64) {
+					defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+					svc := service.NewMessageService(h.db)
+					svc.SendSystemNotification(uid, "权限授予",
+						fmt.Sprintf("你已被授予 %s 域名的 %s 权限", n.FullDomain, req.Level),
+						"permission_grant", fmt.Sprintf("{\"domain_node_id\":%d,\"level\":\"%s\"}", nid, req.Level))
+					ws.BroadcastToUser(uid, ws.TypeNewNotification, gin.H{"type": "permission_change"})
+					if count, err := svc.GetNotificationUnreadCount(uid); err == nil {
+						ws.BroadcastToUser(uid, ws.TypeUnreadUpdate, gin.H{"count": count})
+					}
+					ws.BroadcastToUser(uid, ws.TypeDomainTreeUpdate, gin.H{
+						"action":  "permission_change",
+						"node_id": nid,
+					})
+				}(targetID, *node, nodeID)
+			}
 		}
 	}
 
@@ -251,6 +374,10 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 			if count, err := svc.GetNotificationUnreadCount(targetUserID); err == nil {
 				ws.BroadcastToUser(targetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
+			ws.BroadcastToUser(targetUserID, ws.TypeDomainTreeUpdate, gin.H{
+				"action":  "permission_change",
+				"node_id": nodeID,
+			})
 		}
 	}()
 
@@ -354,6 +481,11 @@ func (h *PermissionHandler) AcceptReturn(c *gin.Context) {
 
 	middleware.LogOperationUser(h.db, userID, targetUserID, "accept_return", "domain_node", &nodeID,
 		map[string]interface{}{"action": req.Action}, c.ClientIP())
+
+	ws.BroadcastToUser(targetUserID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "permission_change",
+		"node_id": nodeID,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限归还已接受"})
 }
