@@ -367,6 +367,103 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 	})
 }
 
+// ForceReclaim transfers ownership of a domain node from its current owner to the provider owner,
+// and removes all delegated permissions. The caller must be the provider owner and cannot reclaim their own node.
+func (s *DomainService) ForceReclaim(nodeID, providerOwnerID uint64) error {
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err != nil {
+		return errors.New("节点不存在")
+	}
+
+	if node.ProviderID == nil {
+		return errors.New("该节点未绑定DNS服务商")
+	}
+
+	var provider model.DNSProvider
+	if err := s.db.First(&provider, *node.ProviderID).Error; err != nil {
+		return errors.New("DNS服务商不存在")
+	}
+
+	if provider.UserID != providerOwnerID {
+		return errors.New("无权操作此服务商")
+	}
+
+	if providerOwnerID == node.OwnerID {
+		return errors.New("不能回收自己拥有的节点")
+	}
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&node).Update("owner_id", providerOwnerID).Error; err != nil {
+			return fmt.Errorf("转移所有权失败: %w", err)
+		}
+
+		if err := tx.Where("domain_node_id = ?", nodeID).Delete(&model.DomainPermission{}).Error; err != nil {
+			return fmt.Errorf("删除权限记录失败: %w", err)
+		}
+
+		log := &model.OperationLog{
+			UserID:     providerOwnerID,
+			Action:     "force_reclaim",
+			TargetType: "domain_node",
+			TargetID:   &nodeID,
+			Detail:     fmt.Sprintf("强制回收节点 %s，原所有者 %d", node.FullDomain, node.OwnerID),
+		}
+		return tx.Create(log).Error
+	})
+}
+
+// ArchiveNode marks a domain node as archived, saving its provider reference and unbinding it.
+func (s *DomainService) ArchiveNode(nodeID uint64, reason string) error {
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err != nil {
+		return errors.New("节点不存在")
+	}
+
+	return s.db.Model(&node).Updates(map[string]interface{}{
+		"status":               "archived",
+		"archived_provider_id": node.ProviderID,
+		"provider_id":          nil,
+	}).Error
+}
+
+// ReactivateNode restores an archived node to active status and rebinds it to a provider.
+func (s *DomainService) ReactivateNode(nodeID, providerID, userID uint64) error {
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err != nil {
+		return errors.New("节点不存在")
+	}
+
+	if node.Status != "archived" {
+		return errors.New("节点未处于归档状态")
+	}
+
+	var provider model.DNSProvider
+	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&provider).Error; err != nil {
+		return errors.New("DNS服务商不存在或无权操作")
+	}
+
+	return s.db.Model(&node).Updates(map[string]interface{}{
+		"status":               "active",
+		"provider_id":          providerID,
+		"archived_provider_id": nil,
+	}).Error
+}
+
+// ListProviderDomains returns all domain nodes linked to a provider (including archived).
+func (s *DomainService) ListProviderDomains(providerID, userID uint64) ([]model.DomainNode, error) {
+	var provider model.DNSProvider
+	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&provider).Error; err != nil {
+		return nil, errors.New("DNS服务商不存在或无权操作")
+	}
+
+	var nodes []model.DomainNode
+	err := s.db.Unscoped().
+		Where("provider_id = ? OR archived_provider_id = ?", providerID, providerID).
+		Preload("Owner").
+		Find(&nodes).Error
+	return nodes, err
+}
+
 // GetConversionLogs returns the conversion history for a given node.
 func (s *DomainService) GetConversionLogs(nodeID uint64) ([]model.NodeConversionLog, error) {
 	var logs []model.NodeConversionLog

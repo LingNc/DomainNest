@@ -463,6 +463,19 @@ func (s *PermissionService) AccessibleDomainIDs(userID uint64) ([]uint64, error)
 	return ids, nil
 }
 
+// IsProviderOwner checks if the user owns the provider bound to the given domain node.
+func (s *PermissionService) IsProviderOwner(userID, domainNodeID uint64) bool {
+	var node model.DomainNode
+	if err := s.db.First(&node, domainNodeID).Error; err != nil || node.ProviderID == nil {
+		return false
+	}
+	var provider model.DNSProvider
+	if err := s.db.First(&provider, *node.ProviderID).Error; err != nil {
+		return false
+	}
+	return provider.UserID == userID
+}
+
 func levelName(level int) string {
 	switch level {
 	case 1:

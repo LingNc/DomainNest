@@ -101,7 +101,7 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
 		return
 	}
-	if err := h.providerService.Delete(id, userID); err != nil {
+	if _, err := h.providerService.Delete(id, userID, false); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}

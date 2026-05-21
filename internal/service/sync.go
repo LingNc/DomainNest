@@ -79,9 +79,11 @@ func (s *SyncService) loop() {
 func (s *SyncService) processBatch() {
 	var records []model.DNSRecord
 	now := time.Now()
-	s.db.Where("(sync_status = ? OR sync_status = ?) AND (next_sync_at IS NULL OR next_sync_at <= ?)",
-		"pending", "failed", now).
-		Order("sync_attempts ASC").
+	s.db.Joins("JOIN domain_nodes ON domain_nodes.id = dns_records.node_id AND domain_nodes.deleted_at IS NULL").
+		Where("domain_nodes.status = ?", "active").
+		Where("(dns_records.sync_status = ? OR dns_records.sync_status = ?) AND (dns_records.next_sync_at IS NULL OR dns_records.next_sync_at <= ?)",
+			"pending", "failed", now).
+		Order("dns_records.sync_attempts ASC").
 		Limit(s.cfg.BatchSize).
 		Find(&records)
 

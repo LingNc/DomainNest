@@ -63,13 +63,33 @@ func (s *ProviderService) Update(providerID, userID uint64, name, endpoint strin
 		Updates(map[string]interface{}{"name": name, "endpoint": endpoint}).Error
 }
 
-func (s *ProviderService) Delete(providerID, userID uint64) error {
+func (s *ProviderService) Delete(providerID, userID uint64, confirm bool) (int, error) {
 	var count int64
 	s.db.Model(&model.DomainNode{}).Where("provider_id = ?", providerID).Count(&count)
-	if count > 0 {
-		return errors.New("无法删除已关联域名的服务商")
+
+	if count > 0 && !confirm {
+		return int(count), fmt.Errorf("此操作将归档 %d 个关联域名，请确认", count)
 	}
-	return s.db.Where("id = ? AND user_id = ?", providerID, userID).Delete(&model.DNSProvider{}).Error
+
+	if count > 0 && confirm {
+		err := s.db.Transaction(func(tx *gorm.DB) error {
+			// Archive all linked nodes
+			if err := tx.Model(&model.DomainNode{}).Where("provider_id = ?", providerID).
+				Updates(map[string]interface{}{
+					"status":               "archived",
+					"archived_provider_id": providerID,
+					"provider_id":          nil,
+				}).Error; err != nil {
+				return fmt.Errorf("归档关联域名失败: %w", err)
+			}
+			// Delete the provider
+			return tx.Where("id = ? AND user_id = ?", providerID, userID).Delete(&model.DNSProvider{}).Error
+		})
+		return int(count), err
+	}
+
+	// count == 0: just delete
+	return 0, s.db.Where("id = ? AND user_id = ?", providerID, userID).Delete(&model.DNSProvider{}).Error
 }
 
 func (s *ProviderService) ListDomains(providerID uint64) ([]dns.Domain, error) {
