@@ -163,6 +163,7 @@
               <template #default="{ row }">
                 <template v-if="!row.virtual">
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
+                  <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                   <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
                 </template>
@@ -218,6 +219,7 @@
             <el-table-column :label="$t('common.actions')" min-width="150" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
+                <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
                 <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                 <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
               </template>
@@ -627,7 +629,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
-import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords } from '../api/record'
+import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord } from '../api/record'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
@@ -1045,6 +1047,12 @@ const handleImport = async () => {
 const handleRetrySync = async (id) => {
   await retrySync(id)
   ElMessage.success(t('domainDetail.resyncSuccess'))
+  loadRecords()
+}
+
+const handleSyncNow = async (id) => {
+  await syncRecord(id)
+  ElMessage.success(t('domainDetail.syncNowSuccess'))
   loadRecords()
 }
 

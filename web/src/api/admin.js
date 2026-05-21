@@ -14,3 +14,8 @@ export const updateSettings = (category, data) => request.put(`/admin/settings/$
 export const testSMTP = (data, config) => request.post('/admin/settings/smtp/test', data, config)
 export const promoteToAdmin = (id) => request.post(`/admin/users/${id}/promote`)
 export const demoteFromAdmin = (id) => request.post(`/admin/users/${id}/demote`)
+
+export const getAdminDomainTree = () => request.get('/admin/domains/tree')
+export const getAdminDomainDetail = (id) => request.get(`/admin/domains/${id}/detail`)
+export const adminChangeOwner = (id, userId) => request.post(`/admin/domains/${id}/change-owner`, { user_id: userId })
+export const adminRevokePermission = (id, userId) => request.delete(`/admin/domains/${id}/permissions/${userId}`)

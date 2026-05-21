@@ -13,3 +13,6 @@ export const getConversionLogs = (nodeId) => request.get(`/domains/${nodeId}/nod
 
 export const reactivateDomain = (id, data) => request.post(`/domains/${id}/reactivate`, data)
 export const getArchiveInfo = (id) => request.get(`/domains/${id}/archive-info`)
+
+export const getTransferredAway = () => request.get('/domains/transferred-away')
+export const getTransferHistory = (id) => request.get(`/domains/${id}/transfer-history`)

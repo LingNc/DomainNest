@@ -108,6 +108,27 @@
           </div>
         </el-card>
       </el-tab-pane>
+
+      <!-- Transferred Away Tab -->
+      <el-tab-pane :label="$t('dashboard.tabTransferredAway')" name="transferred">
+        <el-card v-if="transferredAway.length === 0" class="empty-card">
+          <el-empty :description="$t('dashboard.noTransferredAway')" />
+        </el-card>
+
+        <el-table v-else :data="transferredAway" stripe style="width:100%">
+          <el-table-column prop="domain_name" :label="$t('admin.fullDomain')" min-width="200" show-overflow-tooltip />
+          <el-table-column :label="$t('dashboard.transferredTo')" min-width="140">
+            <template #default="{ row }">
+              <div style="display:flex;align-items:center;gap:6px">
+                <el-avatar v-if="row.to_user?.avatar" :src="row.to_user.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (row.to_user?.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ row.to_user?.username || ('User #' + row.to_user_id) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="created_at" :label="$t('dashboard.transferredAt')" width="170" />
+        </el-table>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- Create root domain dialog -->
@@ -202,7 +223,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomains, transferDomain, deleteDomain, demoteNode } from '../api/domain'
+import { getDomains, transferDomain, deleteDomain, demoteNode, getTransferredAway } from '../api/domain'
 import { createRootDomain } from '../api/admin'
 import { getMyPermissions, batchGrantPermissions } from '../api/permission'
 import { listProviders, listProviderDomains } from '../api/provider'
@@ -231,6 +252,7 @@ const searchingUsers = ref(false)
 const activeTab = ref('domains')
 const treeRef = ref(null)
 const checkedKeys = ref([])
+const transferredAway = ref([])
 
 // Batch authorize dialog
 const showBatchAuthorize = ref(false)
@@ -355,6 +377,13 @@ const loadPermissions = async () => {
   try {
     const res = await getMyPermissions()
     permissions.value = res.data || []
+  } catch { /* ignore */ }
+}
+
+const loadTransferredAway = async () => {
+  try {
+    const res = await getTransferredAway()
+    transferredAway.value = res.data || []
   } catch { /* ignore */ }
 }
 
@@ -554,6 +583,7 @@ onMounted(() => {
   loadDomains()
   loadPermissions()
   loadProviders()
+  loadTransferredAway()
 
   // WebSocket listener for tree updates
   const { on: wsOn, off: wsOff } = useWebSocket()
