@@ -66,7 +66,7 @@
               <el-select v-model="selectedDomain" :placeholder="$t('admin.selectDomain')" style="width:240px" size="default" :loading="loadingAdminDomains" :disabled="!selectedProviderId">
                 <el-option v-for="d in adminDomains" :key="d.domain_name" :label="getDomainLabel(d)" :value="d.domain_name" />
               </el-select>
-              <el-button type="primary" size="small" :disabled="adminProviders.length === 0" @click="handleCreateRoot">{{ $t('admin.createRootDomain') }}</el-button>
+              <el-button type="primary" size="default" :disabled="adminProviders.length === 0" @click="handleCreateRoot">{{ $t('admin.createRootDomain') }}</el-button>
             </div>
             <el-empty v-if="adminProviders.length === 0" :description="$t('admin.noProvidersHint')" :image-size="60" />
           </div>
