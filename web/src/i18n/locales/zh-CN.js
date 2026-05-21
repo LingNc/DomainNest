@@ -476,6 +476,7 @@ export default {
     groupTagRequired: '请输入分组名称',
     batchGroupSuccess: '分组成功',
     batchGroupFailed: '分组失败',
+    groupCreated: '分组已创建，选中记录后可移入该分组',
     renameGroup: '重命名分组',
     renameGroupTitle: '重命名分组',
     renameGroupSuccess: '分组重命名成功',

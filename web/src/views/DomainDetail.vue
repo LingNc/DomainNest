@@ -46,6 +46,7 @@
                 <el-button size="small" @click="handleExport('json')">{{ $t('domainDetail.exportJson') }}</el-button>
                 <el-button size="small" @click="handleExport('csv')">{{ $t('domainDetail.exportCsv') }}</el-button>
                 <el-button size="small" @click="showImport = true">{{ $t('domainDetail.import') }}</el-button>
+                <el-button size="small" @click="openBatchGroupDialog">{{ $t('domainDetail.batchGroup') }}</el-button>
                 <el-button type="primary" size="small" @click="openAddRecord" :disabled="domain?.status === 'archived'">
                   <el-icon><component :is="'Plus'" /></el-icon>
                   {{ $t('domainDetail.addRecord') }}
@@ -172,9 +173,6 @@
                     <el-tag type="success" size="small" style="margin-right:4px">{{ $t('domainDetail.materialized') }}</el-tag>
                     <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
                   </template>
-                  <template v-else-if="row.host !== '@'">
-                    <el-button link type="primary" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
-                  </template>
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                   <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
@@ -284,9 +282,6 @@
                     <template v-if="row.own_node_id">
                       <el-tag type="success" size="small" style="margin-right:4px">{{ $t('domainDetail.materialized') }}</el-tag>
                       <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
-                    </template>
-                    <template v-else-if="row.host !== '@'">
-                      <el-button link type="primary" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
                     </template>
                     <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                     <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
@@ -697,7 +692,7 @@
       <el-form>
         <el-form-item :label="$t('domainDetail.groupTag')">
           <el-radio-group v-model="batchGroupForm.mode">
-            <el-radio value="existing">{{ $t('domainDetail.moveToExistingGroup') }}</el-radio>
+            <el-radio v-if="selectedIds.length > 0" value="existing">{{ $t('domainDetail.moveToExistingGroup') }}</el-radio>
             <el-radio value="new">{{ $t('domainDetail.createNewGroup') }}</el-radio>
           </el-radio-group>
         </el-form-item>
@@ -735,7 +730,7 @@
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
+import { getDomain, transferDomain, deleteDomain, demoteNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag } from '../api/record'
 import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
@@ -834,7 +829,7 @@ const existingGroupNames = computed(() => {
 // Flat view pagination
 const flatPage = ref(1)
 const flatPageSize = ref(50)
-const flatPageSizeOptions = [20, 50, 100, 0]
+const flatPageSizeOptions = [20, 50, 100, 200]
 
 // Conflict detection state
 const showConflictDialog = ref(false)
@@ -1073,7 +1068,6 @@ const groupedFlatRecords = computed(() => {
 
 const paginatedFlatRecords = computed(() => {
   const all = groupedFlatRecords.value
-  if (flatPageSize.value === 0) return all
   const start = (flatPage.value - 1) * flatPageSize.value
   return all.slice(start, start + flatPageSize.value)
 })
@@ -1525,25 +1519,6 @@ const handleAcceptReturn = async () => {
   }
 }
 
-const handleMakeIndependent = async (row) => {
-  try {
-    await ElMessageBox.confirm(
-      t('domainDetail.makeIndependentConfirm', { host: row.host, domain: domain.value?.full_domain }),
-      t('domainDetail.makeIndependent'),
-      { type: 'warning' }
-    )
-    const res = await convertToNode(domainId, { host: row.host })
-    const count = res.data?.affected_records ?? 0
-    ElMessage.success(t('domainDetail.convertSuccess', { count }))
-    loadRecords()
-    loadDomain()
-  } catch (e) {
-    if (e !== 'cancel') {
-      showError(e.response?.data?.message || t('common.error'))
-    }
-  }
-}
-
 const handleCancelIndependence = async (row) => {
   try {
     await ElMessageBox.confirm(
@@ -1688,8 +1663,12 @@ const handleBatchGroup = async () => {
     return
   }
   try {
-    await batchTagRecords({ record_ids: selectedIds.value, group_tag: batchGroupForm.value.group_tag })
-    ElMessage.success(t('domainDetail.batchGroupSuccess'))
+    if (selectedIds.value.length > 0) {
+      await batchTagRecords({ record_ids: selectedIds.value, group_tag: batchGroupForm.value.group_tag })
+      ElMessage.success(t('domainDetail.batchGroupSuccess'))
+    } else {
+      ElMessage.success(t('domainDetail.groupCreated'))
+    }
     showBatchGroupDialog.value = false
     await loadRecords()
   } catch (e) {

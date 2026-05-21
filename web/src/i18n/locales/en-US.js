@@ -476,6 +476,7 @@ export default {
     groupTagRequired: 'Please enter a group name',
     batchGroupSuccess: 'Grouped successfully',
     batchGroupFailed: 'Group failed',
+    groupCreated: 'Group created. Select records to move into this group.',
     renameGroup: 'Rename Group',
     renameGroupTitle: 'Rename Group',
     renameGroupSuccess: 'Group renamed successfully',
