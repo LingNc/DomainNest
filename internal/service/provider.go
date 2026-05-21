@@ -100,6 +100,59 @@ func (s *ProviderService) ListDomains(providerID uint64) ([]dns.Domain, error) {
 	return p.ListDomains()
 }
 
+// DomainWithStatus extends the DNS domain info with claim status.
+type DomainWithStatus struct {
+	DomainName  string `json:"domain_name"`
+	RecordCount int64  `json:"record_count"`
+	Claimed     bool   `json:"claimed"`
+	NodeID      uint64 `json:"node_id,omitempty"`
+	OwnerName   string `json:"owner_name,omitempty"`
+}
+
+func (s *ProviderService) ListDomainsWithStatus(providerID uint64) ([]DomainWithStatus, error) {
+	p, err := s.GetDNSProvider(providerID)
+	if err != nil {
+		return nil, err
+	}
+	domains, err := p.ListDomains()
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, len(domains))
+	for i, d := range domains {
+		names[i] = d.DomainName
+	}
+
+	var nodes []model.DomainNode
+	s.db.Where("full_domain IN ? AND provider_id = ?", names, providerID).
+		Preload("Owner", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname") }).
+		Find(&nodes)
+
+	nodeMap := make(map[string]model.DomainNode)
+	for _, n := range nodes {
+		nodeMap[n.FullDomain] = n
+	}
+
+	result := make([]DomainWithStatus, len(domains))
+	for i, d := range domains {
+		result[i] = DomainWithStatus{
+			DomainName:  d.DomainName,
+			RecordCount: d.RecordCount,
+		}
+		if node, ok := nodeMap[d.DomainName]; ok {
+			result[i].Claimed = true
+			result[i].NodeID = node.ID
+			if node.Owner.Nickname != "" {
+				result[i].OwnerName = node.Owner.Nickname
+			} else {
+				result[i].OwnerName = node.Owner.Username
+			}
+		}
+	}
+	return result, nil
+}
+
 func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName string) (*model.DomainNode, error) {
 	var provider model.DNSProvider
 	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&provider).Error; err != nil {

@@ -85,11 +85,24 @@
       <el-table :data="domains" stripe v-loading="loadingDomains" style="width:100%">
         <el-table-column prop="domain_name" :label="$t('common.domain')" min-width="200" />
         <el-table-column prop="record_count" :label="$t('providers.recordCount')" width="100" />
-        <el-table-column :label="$t('common.actions')" width="120">
+        <el-table-column :label="$t('providers.owner')" width="120">
           <template #default="{ row }">
-            <el-button size="small" type="primary" :loading="claiming[row.domain_name]" @click="handleClaim(row)">
-              {{ $t('providers.claim') }}
-            </el-button>
+            <span v-if="row.claimed">{{ row.owner_name }}</span>
+            <span v-else style="color:#909399">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('common.actions')" width="160">
+          <template #default="{ row }">
+            <template v-if="row.claimed">
+              <el-button size="small" type="warning" :loading="claiming[row.domain_name]" @click="handleReclaim(row)">
+                {{ $t('providers.reclaim') }}
+              </el-button>
+            </template>
+            <template v-else>
+              <el-button size="small" type="primary" :loading="claiming[row.domain_name]" @click="handleClaim(row)">
+                {{ $t('providers.claim') }}
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -100,7 +113,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { listProviders, createProvider, updateProvider, deleteProvider, listProviderDomains, claimDomain } from '../api/provider'
+import { listProviders, createProvider, updateProvider, deleteProvider, listProviderDomains, claimDomain, reclaimDomain } from '../api/provider'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useError } from '../composables/useError'
 
@@ -335,8 +348,22 @@ const handleClaim = async (domain) => {
   try {
     await claimDomain(currentProvider.value.id, { domain_name: domain.domain_name }, { skipErrorToast: true })
     ElMessage.success(t('providers.claimSuccess', { domain: domain.domain_name }))
+    await viewDomains(currentProvider.value)
   } catch (e) {
     showError(e.response?.data?.message || t('providers.claimFailed'))
+  } finally {
+    claiming[domain.domain_name] = false
+  }
+}
+
+const handleReclaim = async (domain) => {
+  claiming[domain.domain_name] = true
+  try {
+    await reclaimDomain(currentProvider.value.id, domain.node_id)
+    ElMessage.success(t('providers.reclaimSuccess', { domain: domain.domain_name }))
+    await viewDomains(currentProvider.value)
+  } catch (e) {
+    showError(e.response?.data?.message || t('providers.reclaimFailed'))
   } finally {
     claiming[domain.domain_name] = false
   }

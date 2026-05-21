@@ -121,7 +121,7 @@ func (h *ProviderHandler) ListDomains(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
 		return
 	}
-	domains, err := h.providerService.ListDomains(id)
+	domains, err := h.providerService.ListDomainsWithStatus(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
