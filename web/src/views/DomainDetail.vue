@@ -25,7 +25,6 @@
                   <el-icon><component :is="'Plus'" /></el-icon>
                   {{ $t('domainDetail.addRecord') }}
                 </el-button>
-                <el-button size="small" text type="primary" @click="showCreateChild = true">{{ $t('domainDetail.createSubdomain') }}</el-button>
                 <el-button size="small" text type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
                 <el-button size="small" text type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
               </div>
@@ -369,19 +368,6 @@
       </template>
     </el-dialog>
 
-    <!-- create subdomain -->
-    <el-dialog v-model="showCreateChild" :title="$t('domainDetail.createSubdomain')" width="400px" destroy-on-close>
-      <el-form :model="childForm" label-width="80px">
-        <el-form-item :label="$t('domainDetail.subdomain')">
-          <el-input v-model="childForm.host" :placeholder="$t('domainDetail.subdomainPlaceholder')" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showCreateChild = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleCreateChild">{{ $t('domainDetail.create') }}</el-button>
-      </template>
-    </el-dialog>
-
     <!-- transfer domain -->
     <el-dialog v-model="showTransfer" :title="$t('domainDetail.transferDomain')" width="400px" destroy-on-close>
       <el-alert type="warning" :closable="false" style="margin-bottom:16px">
@@ -445,7 +431,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, createDomain, transferDomain, deleteDomain } from '../api/domain'
+import { getDomain, transferDomain, deleteDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
@@ -481,7 +467,6 @@ const selectedIds = ref([])
 
 const showAddRecord = ref(false)
 const showEditRecord = ref(false)
-const showCreateChild = ref(false)
 const showTransfer = ref(false)
 const showImport = ref(false)
 const importTab = ref('json')
@@ -502,7 +487,6 @@ const recordForm = ref({ host: '@', record_type: 'A', value: '', ttl: 600, prior
 const editForm = ref({ id: null, host: '', record_type: '', value: '', ttl: 600, priority: null })
 const srvForm = ref({ priority: 0, weight: 0, port: 0, target: '' })
 const caaForm = ref({ flag: 0, tag: 'issue', value: '' })
-const childForm = ref({ host: '' })
 const transferForm = ref({ target_user_id: null })
 
 const pendingRecords = ref([])
@@ -691,13 +675,6 @@ const handleRetrySync = async (id) => {
   await retrySync(id)
   ElMessage.success(t('domainDetail.resyncSuccess'))
   loadRecords()
-}
-
-const handleCreateChild = async () => {
-  await createDomain({ parent_id: parseInt(domainId), host: childForm.value.host })
-  ElMessage.success(t('domainDetail.createSubdomainSuccess'))
-  showCreateChild.value = false
-  router.push('/dashboard')
 }
 
 const handleTransfer = async () => {

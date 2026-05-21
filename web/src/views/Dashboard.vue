@@ -36,6 +36,10 @@
               {{ permLabel(permMap[data.id]) }}
             </el-tag>
             <el-tag size="small" type="info">{{ $t('dashboard.recordsCount', { count: data.records?.length || 0 }) }}</el-tag>
+            <div class="node-actions" @click.stop>
+              <el-button size="small" text type="warning" @click="handleTransferDomain(data)">{{ $t('dashboard.transferDomain') }}</el-button>
+              <el-button size="small" text type="danger" @click="handleDeleteDomain(data)">{{ $t('dashboard.deleteDomain') }}</el-button>
+            </div>
           </div>
         </template>
       </el-tree>
@@ -67,12 +71,12 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomains } from '../api/domain'
+import { getDomains, transferDomain, deleteDomain } from '../api/domain'
 import { createRootDomain } from '../api/admin'
 import { getMyPermissions } from '../api/permission'
 import { listProviders, listProviderDomains } from '../api/provider'
 import { useAuthStore } from '../stores/auth'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -149,6 +153,39 @@ const handleCreateRoot = async () => {
   } catch { /* error shown by interceptor */ }
 }
 
+const handleTransferDomain = async (data) => {
+  const { value: targetUserId } = await ElMessageBox.prompt(
+    t('dashboard.transferPrompt'),
+    t('dashboard.transferDomain'),
+    {
+      inputPattern: /^\d+$/,
+      inputErrorMessage: t('dashboard.transferInputError'),
+      confirmButtonText: t('dashboard.confirmTransfer'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning',
+    }
+  )
+  await ElMessageBox.confirm(
+    t('dashboard.confirmTransferMsg', { domain: data.full_domain }),
+    t('dashboard.transferDomain'),
+    { type: 'warning', confirmButtonText: t('dashboard.confirmTransfer') }
+  )
+  await transferDomain(data.id, { target_user_id: parseInt(targetUserId) })
+  ElMessage.success(t('dashboard.transferSuccess'))
+  loadDomains()
+}
+
+const handleDeleteDomain = async (data) => {
+  await ElMessageBox.confirm(
+    t('dashboard.confirmDeleteDomain', { domain: data.full_domain }),
+    t('dashboard.deleteDomain'),
+    { type: 'error', confirmButtonText: t('common.confirmDelete') }
+  )
+  await deleteDomain(data.id)
+  ElMessage.success(t('dashboard.deleteDomainSuccess'))
+  loadDomains()
+}
+
 onMounted(() => {
   loadDomains()
   loadPermissions()
@@ -191,6 +228,12 @@ onMounted(() => {
 }
 .perm-badge {
   flex-shrink: 0;
+}
+.node-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
 }
 .empty-card {
   min-height: 300px;
