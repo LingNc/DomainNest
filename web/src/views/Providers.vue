@@ -101,13 +101,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listProviders, createProvider, updateProvider, deleteProvider, listProviderDomains, claimDomain } from '../api/provider'
-import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { t } = useI18n()
 
 const showError = (msg) => {
   if (msg.length > 100) {
-    ElNotification.error({ title: t('common.error'), message: msg, duration: 0 })
+    ElMessageBox.alert(msg, t('common.error'), { type: 'error', confirmButtonText: t('common.confirm') })
   } else {
     ElMessage.error(msg)
   }
