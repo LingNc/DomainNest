@@ -130,7 +130,7 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 func (h *DomainHandler) ConvertToNode(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 
-	parentID, err := strconv.ParseUint(c.Param("parentId"), 10, 64)
+	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的父节点ID"})
 		return
@@ -175,7 +175,7 @@ func (h *DomainHandler) ConvertToNode(c *gin.Context) {
 func (h *DomainHandler) DemoteNode(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 
-	nodeID, err := strconv.ParseUint(c.Param("nodeId"), 10, 64)
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
@@ -201,7 +201,7 @@ func (h *DomainHandler) DemoteNode(c *gin.Context) {
 func (h *DomainHandler) GetConversionLogs(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 
-	nodeID, err := strconv.ParseUint(c.Param("nodeId"), 10, 64)
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return

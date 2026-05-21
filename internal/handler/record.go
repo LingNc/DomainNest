@@ -225,7 +225,7 @@ func (h *RecordHandler) BatchToggle(c *gin.Context) {
 
 func (h *RecordHandler) TransferByHost(c *gin.Context) {
 	userID := c.GetUint64("user_id")
-	parentID, err := strconv.ParseUint(c.Param("parentId"), 10, 64)
+	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
