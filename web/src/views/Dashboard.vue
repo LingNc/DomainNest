@@ -175,15 +175,22 @@ onMounted(() => {
 .tree-node {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 0;
+  gap: 6px;
+  padding: 2px 0;
   width: 100%;
+  flex-wrap: wrap;
 }
 .domain-name {
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .perm-badge {
-  margin-left: -4px;
+  flex-shrink: 0;
 }
 .empty-card {
   min-height: 300px;
