@@ -85,7 +85,7 @@
 
           <!-- view toggle -->
           <div class="view-toggle">
-            <el-radio-group v-model="recordViewMode" size="small">
+            <el-radio-group v-model="recordViewMode" size="small" @change="loadRecords">
               <el-radio-button value="tree">{{ $t('domainDetail.treeView') }}</el-radio-button>
               <el-radio-button value="flat">{{ $t('domainDetail.flatView') }}</el-radio-button>
             </el-radio-group>
@@ -148,10 +148,15 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="90">
+            <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="100">
               <template #default="{ row }">
                 <template v-if="!row.virtual">
-                  <el-tag :type="statusType(row.sync_status)" size="small">{{ statusLabel(row.sync_status) }}</el-tag>
+                  <el-tag
+                    :type="statusType(row.sync_status)"
+                    size="small"
+                    :class="{ 'clickable-tag': row.sync_status === 'pending' || row.sync_status === 'failed' }"
+                    @click="(row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
+                  >{{ statusLabel(row.sync_status) }}</el-tag>
                 </template>
               </template>
             </el-table-column>
@@ -178,17 +183,15 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('common.actions')" min-width="200" fixed="right">
+            <el-table-column :label="$t('common.actions')" min-width="160" fixed="right">
               <template #default="{ row }">
                 <template v-if="row.isGroup" />
                 <template v-else-if="row.virtual" />
                 <template v-else-if="row.source === 'provider'">
                   <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
-                  <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
                 </template>
                 <template v-else>
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
-                  <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                   <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
                 </template>
@@ -197,7 +200,7 @@
           </el-table>
 
           <!-- flat view -->
-          <el-table v-else :data="records" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id">
+          <el-table v-else :data="sortedRecords" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id" :row-class-name="flatRowClass">
             <el-table-column type="selection" width="40" />
             <el-table-column prop="host" :label="$t('domainDetail.host')" width="180">
               <template #default="{ row }">
@@ -226,9 +229,14 @@
                 <el-tag v-else :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? $t('common.enabled') : $t('common.disabled') }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="90">
+            <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="100">
               <template #default="{ row }">
-                <el-tag :type="statusType(row.sync_status)" size="small">{{ statusLabel(row.sync_status) }}</el-tag>
+                <el-tag
+                  :type="statusType(row.sync_status)"
+                  size="small"
+                  :class="{ 'clickable-tag': row.sync_status === 'pending' || row.sync_status === 'failed' }"
+                  @click="(row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
+                >{{ statusLabel(row.sync_status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="last_resolved_at" :label="$t('domainDetail.lastResolved')" width="160" show-overflow-tooltip>
@@ -250,15 +258,13 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('common.actions')" min-width="200" fixed="right">
+            <el-table-column :label="$t('common.actions')" min-width="160" fixed="right">
               <template #default="{ row }">
                 <template v-if="row.source === 'provider'">
                   <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
-                  <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
                 </template>
                 <template v-else>
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
-                  <el-button link type="success" size="small" @click="handleSyncNow(row.id)" :disabled="domain?.status === 'archived'">{{ $t('domainDetail.syncNow') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                   <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
                 </template>
@@ -268,7 +274,7 @@
           <el-empty v-if="!loading && records.length === 0" :description="$t('domainDetail.noRecords')" />
 
           <!-- pagination -->
-          <div class="pagination-bar" v-if="total > 0">
+          <div class="pagination-bar" v-if="recordViewMode === 'flat' && total > 0">
             <el-pagination
               v-model:current-page="pagination.page"
               v-model:page-size="pagination.pageSize"
@@ -872,15 +878,40 @@ const treeRecords = computed(() => {
 
 const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
 
+const sortedRecords = computed(() => {
+  const recs = [...records.value]
+  recs.sort((a, b) => {
+    // Group-tagged records first
+    if (a.group_tag && !b.group_tag) return -1
+    if (!a.group_tag && b.group_tag) return 1
+    if (a.group_tag !== b.group_tag) return (a.group_tag || '').localeCompare(b.group_tag || '')
+    // Then by host
+    return (a.host || '').localeCompare(b.host || '')
+  })
+  return recs
+})
+
+const flatRowClass = ({ row }) => row.group_tag ? 'group-row' : ''
+
 const loadRecords = async () => {
   loading.value = true
   try {
-    const params = { page: pagination.page, page_size: pagination.pageSize }
+    const params = {}
     if (filters.host) params.host = filters.host
     if (filters.record_type) params.record_type = filters.record_type
     if (filters.value) params.value = filters.value
     if (filters.enabled !== undefined && filters.enabled !== '') params.enabled = filters.enabled
     if (filters.sync_status) params.sync_status = filters.sync_status
+
+    if (recordViewMode.value === 'tree') {
+      // Tree view: load all records, no pagination
+      params.page_size = 9999
+    } else {
+      // Flat view: paginated
+      params.page = pagination.page
+      params.page_size = pagination.pageSize
+    }
+
     const res = await getRecords(domainId, params)
     records.value = res.data.items
     total.value = res.data.total
@@ -1549,6 +1580,15 @@ onMounted(() => {
 }
 :deep(.virtual-row) {
   opacity: 0.6;
+}
+:deep(.group-row) {
+  background-color: #fafafa;
+}
+.clickable-tag {
+  cursor: pointer;
+}
+.clickable-tag:hover {
+  opacity: 0.8;
 }
 @media (max-width: 768px) {
   .card-header {
