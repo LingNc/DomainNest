@@ -751,7 +751,7 @@ const handleRevokePerm = async (userId) => {
 const handleRevokeRequest = async (userId) => {
   await ElMessageBox.confirm(t('domainDetail.confirmRevokeRequest'), t('domainDetail.revokeRequestTitle'), { type: 'warning' })
   try {
-    await revokeRequest(domainId, userId)
+    await revokeRequest(domainId, userId, { skipErrorToast: true })
     ElMessage.success(t('domainDetail.revokeRequestSent'))
     loadPermissions()
   } catch (e) {
@@ -812,7 +812,7 @@ const handleAcceptReturn = async () => {
     data.target_user_id = returnForm.value.target_user_id
   }
   try {
-    await acceptReturn(domainId, returnTargetUserId.value, data)
+    await acceptReturn(domainId, returnTargetUserId.value, data, { skipErrorToast: true })
     ElMessage.success(t('domainDetail.returnComplete'))
     showReturnDialog.value = false
     loadPermissions()

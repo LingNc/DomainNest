@@ -354,7 +354,7 @@ const handleSendEmailCode = async () => {
   }
   sendingCode.value = true
   try {
-    await sendVerifyEmail({ email: form.email, purpose: 'change_email' })
+    await sendVerifyEmail({ email: form.email, purpose: 'change_email' }, { skipErrorToast: true })
     emailCodeSent.value = true
     ElMessage.success(t('register.codeSent'))
     startEmailCountdown()
@@ -372,7 +372,7 @@ const handleVerifyEmail = async () => {
   }
   verifyingEmail.value = true
   try {
-    await verifyEmail({ email: form.email, code: emailCode.value, purpose: 'change_email' })
+    await verifyEmail({ email: form.email, code: emailCode.value, purpose: 'change_email' }, { skipErrorToast: true })
     emailVerified.value = true
     ElMessage.success(t('register.verified'))
   } catch (e) {
@@ -444,7 +444,7 @@ const handleGrantInvite = async () => {
   }
   granting.value = true
   try {
-    await grantInviteQuota(grantForm)
+    await grantInviteQuota(grantForm, { skipErrorToast: true })
     ElMessage.success(t('profile.grantSuccess'))
     grantForm.target_user_id = null
     grantForm.amount = 1
@@ -464,7 +464,7 @@ const handleRevokeInvite = async () => {
   }
   revoking.value = true
   try {
-    await revokeInviteQuota(revokeForm)
+    await revokeInviteQuota(revokeForm, { skipErrorToast: true })
     ElMessage.success(t('profile.revokeSuccess'))
     revokeForm.target_user_id = null
     revokeForm.amount = 1
@@ -494,7 +494,7 @@ const handleAvatarUpload = async ({ file }) => {
   const fd = new FormData()
   fd.append('file', file)
   try {
-    const res = await uploadAvatar(fd)
+    const res = await uploadAvatar(fd, { skipErrorToast: true })
     form.avatar = res.data.avatar
     auth.setAuth(auth.token, { ...auth.user, avatar: res.data.avatar })
     ElMessage.success(t('profile.avatarUploadSuccess'))
@@ -513,7 +513,7 @@ const handleDeleteAccount = async () => {
   } catch { return }
   deleting.value = true
   try {
-    await deleteAccount()
+    await deleteAccount({ skipErrorToast: true })
     ElMessage.success(t('profile.accountDeleted'))
     auth.clearAuth()
     router.push('/login')

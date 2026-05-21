@@ -575,7 +575,7 @@ watch(selectedProviderId, async (id) => {
   if (!id) return
   loadingAdminDomains.value = true
   try {
-    const res = await listProviderDomains(id)
+    const res = await listProviderDomains(id, { skipErrorToast: true })
     adminDomains.value = res.data || []
   } catch (e) {
     ElMessage.error(e.response?.data?.message || t('admin.fetchDomainsFailed'))
@@ -779,9 +779,9 @@ const handleInviteAction = async () => {
   try {
     const data = { target_user_id: inviteTarget.value.id, amount: inviteActionAmount.value }
     if (inviteActionType.value === 'grant') {
-      await grantInviteQuota(data)
+      await grantInviteQuota(data, { skipErrorToast: true })
     } else {
-      await revokeInviteQuota(data)
+      await revokeInviteQuota(data, { skipErrorToast: true })
     }
     ElMessage.success(inviteActionType.value === 'grant' ? t('profile.grantSuccess') : t('profile.revokeSuccess'))
     showInviteAction.value = false
@@ -801,7 +801,7 @@ const handleBatchInvite = async () => {
   try {
     const promises = selectedUsers.value.map(u => {
       const data = { target_user_id: u.id, amount: batchInviteAmount.value }
-      return batchInviteType.value === 'grant' ? grantInviteQuota(data) : revokeInviteQuota(data)
+      return batchInviteType.value === 'grant' ? grantInviteQuota(data, { skipErrorToast: true }) : revokeInviteQuota(data, { skipErrorToast: true })
     })
     await Promise.all(promises)
     ElMessage.success(batchInviteType.value === 'grant' ? t('admin.batchGrantSuccess') : t('admin.batchRevokeSuccess'))
@@ -841,7 +841,7 @@ const onTLSTypeChange = (val) => {
 const handleTestSMTP = async () => {
   testingSMTP.value = true
   try {
-    await testSMTP({ to: testEmail.value })
+    await testSMTP({ to: testEmail.value }, { skipErrorToast: true })
     ElMessage.success(t('admin.testEmailSent'))
   } catch (e) {
     ElMessage.error(t('admin.sendFailed') + (e.response?.data?.message || e.message))

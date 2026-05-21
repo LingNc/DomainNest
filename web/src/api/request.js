@@ -20,7 +20,9 @@ request.interceptors.response.use(
   response => {
     const { data } = response
     if (data.code !== 0) {
-      ElMessage.error(data.message || '请求失败')
+      if (!response.config?.skipErrorToast) {
+        ElMessage.error(data.message || '请求失败')
+      }
       return Promise.reject(data)
     }
     useAvatarCache().extractFromResponse(data.data)

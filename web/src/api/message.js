@@ -9,4 +9,4 @@ export const getNotifications = (params) => request.get('/messages/notifications
 export const getNotificationUnreadCount = () => request.get('/messages/notifications/unread-count', { skipErrorToast: true })
 export const markNotificationAsRead = (id) => request.post(`/messages/notifications/${id}/read`)
 export const markAllNotificationsAsRead = () => request.post('/messages/notifications/read-all')
-export const handleNotificationAction = (id, action) => request.post(`/messages/notifications/${id}/action`, { action })
+export const handleNotificationAction = (id, action, config) => request.post(`/messages/notifications/${id}/action`, { action }, config)

@@ -261,7 +261,7 @@ const handleAdd = async () => {
   }
   submitting.value = true
   try {
-    await createProvider(addForm)
+    await createProvider(addForm, { skipErrorToast: true })
     ElMessage.success(t('providers.addSuccess'))
     addDialogVisible.value = false
     await loadProviders()
@@ -282,7 +282,7 @@ const openEditDialog = (row) => {
 const handleEdit = async () => {
   submitting.value = true
   try {
-    await updateProvider(editForm.id, { name: editForm.name, endpoint: editForm.endpoint })
+    await updateProvider(editForm.id, { name: editForm.name, endpoint: editForm.endpoint }, { skipErrorToast: true })
     ElMessage.success(t('providers.updateSuccess'))
     editDialogVisible.value = false
     await loadProviders()
@@ -296,7 +296,7 @@ const handleEdit = async () => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(t('providers.confirmDeleteText'), t('common.confirmDelete'), { type: 'warning' })
-    await deleteProvider(row.id)
+    await deleteProvider(row.id, { skipErrorToast: true })
     ElMessage.success(t('providers.deleted'))
     await loadProviders()
   } catch (e) {
@@ -310,7 +310,7 @@ const viewDomains = async (row) => {
   domainsDialogVisible.value = true
   loadingDomains.value = true
   try {
-    const res = await listProviderDomains(row.id)
+    const res = await listProviderDomains(row.id, { skipErrorToast: true })
     domains.value = res.data || []
   } catch (e) {
     showError(e.response?.data?.message || t('providers.fetchDomainsFailed'))
@@ -322,7 +322,7 @@ const viewDomains = async (row) => {
 const handleClaim = async (domain) => {
   claiming[domain.domain_name] = true
   try {
-    await claimDomain(currentProvider.value.id, { domain_name: domain.domain_name })
+    await claimDomain(currentProvider.value.id, { domain_name: domain.domain_name }, { skipErrorToast: true })
     ElMessage.success(t('providers.claimSuccess', { domain: domain.domain_name }))
   } catch (e) {
     showError(e.response?.data?.message || t('providers.claimFailed'))

@@ -210,7 +210,7 @@ const handleMarkAllRead = async () => {
 
 const handleAction = async (notifId, action) => {
   try {
-    await handleNotificationAction(notifId, action)
+    await handleNotificationAction(notifId, action, { skipErrorToast: true })
     const notif = notifications.value.find(n => n.id === notifId)
     if (notif) {
       notif.action_status = action

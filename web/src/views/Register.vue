@@ -106,7 +106,7 @@ const handleSendCode = async () => {
   }
   sendingCode.value = true
   try {
-    await sendVerifyEmail({ email: form.value.email, purpose: 'register' })
+    await sendVerifyEmail({ email: form.value.email, purpose: 'register' }, { skipErrorToast: true })
     codeSent.value = true
     ElMessage.success(t('register.codeSent'))
     startCountdown()
@@ -124,7 +124,7 @@ const handleVerifyEmail = async () => {
   }
   verifying.value = true
   try {
-    await verifyEmail({ email: form.value.email, code: form.value.code, purpose: 'register' })
+    await verifyEmail({ email: form.value.email, code: form.value.code, purpose: 'register' }, { skipErrorToast: true })
     emailVerified.value = true
     ElMessage.success(t('register.verified'))
   } catch (e) {
