@@ -180,6 +180,7 @@ body {
    distance from edge is symmetric with the input side */
 .el-dialog .el-form-item__label {
   text-align: left;
+  padding-left: 0 !important;
 }
 
 /* Ensure el-dialog is vertically centered on all screen sizes */
