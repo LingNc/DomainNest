@@ -87,23 +87,14 @@
             :row-class-name="treeRowClass"
           >
             <el-table-column type="selection" width="40" :selectable="(row) => !row.virtual" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="220">
+            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="140">
               <template #default="{ row }">
                 <template v-if="row.isGroup">
                   <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
                   <strong>{{ row.host }}</strong>
                 </template>
                 <template v-else>
-                  <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap;white-space:nowrap">
-                    <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.host }}</span>
-                    <template v-if="!row.virtual && row.own_node_id">
-                      <el-tag type="success" size="small">{{ $t('domainDetail.materialized') }}</el-tag>
-                      <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
-                    </template>
-                    <template v-else-if="!row.virtual && row.host !== '@'">
-                      <el-button link type="primary" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
-                    </template>
-                  </div>
+                  <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.host }}</span>
                 </template>
               </template>
             </el-table-column>
@@ -169,7 +160,7 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('common.actions')" min-width="160" fixed="right">
+            <el-table-column :label="$t('common.actions')" min-width="200" fixed="right">
               <template #default="{ row }">
                 <template v-if="row.isGroup" />
                 <template v-else-if="row.virtual" />
@@ -177,6 +168,13 @@
                   <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
                 </template>
                 <template v-else>
+                  <template v-if="row.own_node_id">
+                    <el-tag type="success" size="small" style="margin-right:4px">{{ $t('domainDetail.materialized') }}</el-tag>
+                    <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                  </template>
+                  <template v-else-if="row.host !== '@'">
+                    <el-button link type="primary" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                  </template>
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                   <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
@@ -206,16 +204,7 @@
                   </div>
                 </template>
                 <template v-else>
-                  <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap;white-space:nowrap">
-                    <span>{{ row.host }}</span>
-                    <template v-if="row.own_node_id">
-                      <el-tag type="success" size="small">{{ $t('domainDetail.materialized') }}</el-tag>
-                      <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
-                    </template>
-                    <template v-else-if="row.host !== '@'">
-                      <el-button link type="primary" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
-                    </template>
-                  </div>
+                  <span>{{ row.host }}</span>
                 </template>
               </template>
             </el-table-column>
@@ -285,13 +274,20 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('common.actions')" min-width="160" fixed="right">
+            <el-table-column :label="$t('common.actions')" min-width="200" fixed="right">
               <template #default="{ row }">
                 <template v-if="!row.isGroupHeader">
                   <template v-if="row.source === 'provider'">
                     <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
                   </template>
                   <template v-else>
+                    <template v-if="row.own_node_id">
+                      <el-tag type="success" size="small" style="margin-right:4px">{{ $t('domainDetail.materialized') }}</el-tag>
+                      <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                    </template>
+                    <template v-else-if="row.host !== '@'">
+                      <el-button link type="primary" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                    </template>
                     <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                     <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                     <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
