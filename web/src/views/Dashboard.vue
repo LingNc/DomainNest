@@ -555,7 +555,7 @@ onMounted(() => {
   loadProviders()
 
   // WebSocket listener for tree updates
-  const { on: wsOn, off: wsOff } = useWebSocket()
+  const { on: wsOn } = useWebSocket()
   const handleTreeUpdate = () => {
     loadDomains()
     loadPermissions()
