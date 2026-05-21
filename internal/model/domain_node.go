@@ -12,10 +12,12 @@ type DomainNode struct {
 	FullDomain string         `gorm:"type:varchar(255);uniqueIndex;not null" json:"full_domain"`
 	ParentID   *uint64        `gorm:"index" json:"parent_id"`
 	OwnerID    uint64         `gorm:"index;not null" json:"owner_id"`
-	ProviderID *uint64        `gorm:"index" json:"provider_id,omitempty"`
-	CreatedAt  time.Time      `json:"created_at"`
-	UpdatedAt  time.Time      `json:"updated_at"`
-	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID       *uint64        `gorm:"index" json:"provider_id,omitempty"`
+	MaterializedFrom *uint64        `gorm:"index" json:"materialized_from,omitempty"`
+	IsMaterialized   bool           `gorm:"default:false" json:"is_materialized"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 
 	Parent   *DomainNode   `gorm:"foreignKey:ParentID" json:"parent,omitempty"`
 	Children []DomainNode  `gorm:"foreignKey:ParentID" json:"children,omitempty"`

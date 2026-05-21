@@ -8,8 +8,9 @@ import (
 
 type DNSRecord struct {
 	ID             uint64         `gorm:"primaryKey;autoIncrement" json:"id"`
-	NodeID         uint64         `gorm:"index;not null" json:"node_id"`
-	Host           string         `gorm:"type:varchar(64);not null;default:'@'" json:"host"`
+	NodeID     uint64  `gorm:"index;not null" json:"node_id"`
+	OwnNodeID  *uint64 `gorm:"index" json:"own_node_id,omitempty"`
+	Host       string  `gorm:"type:varchar(64);not null;default:'@'" json:"host"`
 	RecordType     string         `gorm:"type:varchar(10);not null" json:"record_type"`
 	Value          string         `gorm:"type:varchar(512);not null" json:"value"`
 	TTL            int            `gorm:"default:600" json:"ttl"`
