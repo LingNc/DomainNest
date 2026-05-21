@@ -198,7 +198,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomains, transferDomain, deleteDomain, demoteNode } from '../api/domain'
@@ -555,12 +555,16 @@ onMounted(() => {
   loadProviders()
 
   // WebSocket listener for tree updates
-  const { on: wsOn } = useWebSocket()
+  const { on: wsOn, off: wsOff } = useWebSocket()
   const handleTreeUpdate = () => {
     loadDomains()
     loadPermissions()
   }
   wsOn('domain_tree_update', handleTreeUpdate)
+
+  onUnmounted(() => {
+    wsOff('domain_tree_update', handleTreeUpdate)
+  })
 })
 </script>
 
