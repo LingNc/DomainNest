@@ -3,7 +3,8 @@
 # Build frontend and sync to embed directory
 frontend:
 	cd web && npm ci && npm run build
-	rm -rf internal/static/dist/static/
+	rm -rf internal/static/dist/
+	mkdir -p internal/static/dist
 	cp -r web/dist/* internal/static/dist/
 
 # Full production build (frontend + Go binary)
