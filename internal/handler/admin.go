@@ -204,7 +204,7 @@ func (h *AdminHandler) ListLogs(c *gin.Context) {
 		return db.Select("id", "username", "nickname")
 	}).Preload("TargetUser", func(db *gorm.DB) *gorm.DB {
 		return db.Select("id", "username", "nickname")
-	}).Order("created_at DESC").
+	}).
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&logs)

@@ -488,6 +488,13 @@ export default {
     selectGroup: '选择分组',
     filterByGroup: '按分组筛选',
     allGroups: '全部分组',
+    sortBy: '排序',
+    sortHost: '主机记录',
+    sortType: '记录类型',
+    sortValue: '记录值',
+    sortTTL: 'TTL',
+    sortPriority: '优先级',
+    sortSource: '来源',
   },
   settings: {
     title: '系统设置',

@@ -488,6 +488,13 @@ export default {
     selectGroup: 'Select Group',
     filterByGroup: 'Filter by Group',
     allGroups: 'All Groups',
+    sortBy: 'Sort by',
+    sortHost: 'Host Record',
+    sortType: 'Record Type',
+    sortValue: 'Record Value',
+    sortTTL: 'TTL',
+    sortPriority: 'Priority',
+    sortSource: 'Source',
   },
   settings: {
     title: 'System Settings',

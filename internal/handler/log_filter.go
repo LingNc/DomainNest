@@ -41,5 +41,18 @@ func applyLogFilters(query *gorm.DB, c *gin.Context) *gorm.DB {
 	if targetUserID := c.Query("target_user_id"); targetUserID != "" {
 		query = query.Where("target_user_id = ?", targetUserID)
 	}
+
+	// Sorting
+	sortBy := c.DefaultQuery("sort_by", "created_at")
+	sortOrder := c.DefaultQuery("sort_order", "desc")
+	allowedSortColumns := map[string]bool{"created_at": true, "action": true, "target_type": true, "id": true}
+	if !allowedSortColumns[sortBy] {
+		sortBy = "created_at"
+	}
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc"
+	}
+	query = query.Order(sortBy + " " + strings.ToUpper(sortOrder))
+
 	return query
 }

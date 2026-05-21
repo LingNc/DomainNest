@@ -169,7 +169,7 @@
               <el-button size="small" @click="resetLogFilters">{{ $t('common.reset') }}</el-button>
             </div>
           </div>
-          <el-table :data="logs" stripe v-loading="loading" style="width:100%">
+          <el-table :data="logs" stripe v-loading="loading" style="width:100%" @sort-change="handleLogSortChange">
             <el-table-column prop="id" :label="$t('admin.id')" width="60" />
             <el-table-column :label="$t('admin.user')" min-width="120">
               <template #default="{ row }">
@@ -192,8 +192,8 @@
                 <span v-else style="color:#909399">-</span>
               </template>
             </el-table-column>
-            <el-table-column prop="action" :label="$t('common.action')" min-width="120" />
-            <el-table-column prop="target_type" :label="$t('admin.targetTypeLabel')" min-width="100" />
+            <el-table-column prop="action" :label="$t('common.action')" min-width="120" sortable="custom" />
+            <el-table-column prop="target_type" :label="$t('admin.targetTypeLabel')" min-width="100" sortable="custom" />
             <el-table-column prop="ip_address" :label="$t('common.ipAddress')" width="130" />
             <el-table-column :label="$t('common.detail')" min-width="200">
               <template #default="{ row }">
@@ -205,7 +205,7 @@
                 <span v-else style="color:#909399">-</span>
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" :label="$t('common.time')" width="170" />
+            <el-table-column prop="created_at" :label="$t('common.time')" width="170" sortable="custom" />
           </el-table>
           <el-pagination v-if="logTotal > 0" :current-page="logPage" :page-size="logPageSize" :total="logTotal"
             layout="total, sizes, prev, pager, next" :page-sizes="[20, 50, 100]"
@@ -423,6 +423,8 @@ const uploadsForm = reactive({ max_avatar_size_mb: 2 })
 const logFilters = reactive({ user_id: '', target_user_id: '', action: [], target_type: [], q: '', q_exclude: '', dateRange: null })
 const actionExcludeMode = ref(false)
 const targetTypeExcludeMode = ref(false)
+const logSortBy = ref('created_at')
+const logSortOrder = ref('desc')
 
 const DETAIL_KEY_I18N = {
   username: 'common.username',
@@ -614,7 +616,7 @@ watch(selectedProviderId, async (id) => {
 })
 
 const loadLogs = async () => {
-  const params = { page: logPage.value, page_size: logPageSize.value }
+  const params = { page: logPage.value, page_size: logPageSize.value, sort_by: logSortBy.value, sort_order: logSortOrder.value }
   if (logFilters.user_id) params.user_id = logFilters.user_id
   if (logFilters.target_user_id) params.target_user_id = logFilters.target_user_id
   if (logFilters.action.length > 0) {
@@ -664,6 +666,12 @@ const handleLogPageChange = (p) => {
 const handleLogSizeChange = (s) => {
   logPageSize.value = s
   logPage.value = 1
+  loadLogs()
+}
+
+const handleLogSortChange = ({ prop, order }) => {
+  logSortBy.value = prop || 'created_at'
+  logSortOrder.value = order === 'ascending' ? 'asc' : 'desc'
   loadLogs()
 }
 

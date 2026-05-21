@@ -68,12 +68,23 @@
             <el-button size="small" type="primary" @click="openBatchGroupDialog">{{ $t('domainDetail.batchGroup') }}</el-button>
           </div>
 
-          <!-- view toggle -->
-          <div class="view-toggle">
+          <!-- view toggle + sort -->
+          <div class="view-toggle" style="display:flex;align-items:center;gap:8px">
             <el-radio-group v-model="recordViewMode" size="small" @change="loadRecords">
               <el-radio-button value="tree">{{ $t('domainDetail.treeView') }}</el-radio-button>
               <el-radio-button value="flat">{{ $t('domainDetail.flatView') }}</el-radio-button>
             </el-radio-group>
+            <el-select v-model="sortBy" size="small" :placeholder="$t('domainDetail.sortBy')" clearable style="width:140px">
+              <el-option :label="$t('domainDetail.sortHost')" value="host" />
+              <el-option :label="$t('domainDetail.sortType')" value="record_type" />
+              <el-option :label="$t('domainDetail.sortValue')" value="value" />
+              <el-option :label="$t('domainDetail.sortTTL')" value="ttl" />
+              <el-option :label="$t('domainDetail.sortPriority')" value="priority" />
+              <el-option :label="$t('domainDetail.sortSource')" value="source" />
+            </el-select>
+            <el-button size="small" @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'" :disabled="!sortBy">
+              <el-icon><component :is="sortOrder === 'asc' ? 'SortUp' : 'SortDown'" /></el-icon>
+            </el-button>
           </div>
 
           <!-- tree view -->
@@ -788,6 +799,8 @@ const returnSelectRef = ref(null)
 const grantPermSelectRef = ref(null)
 
 const filters = ref({ host: '', recordType: [], value: '', status: '', source: '' })
+const sortBy = ref('')
+const sortOrder = ref('asc')
 const pagination = reactive({ page: 1, pageSize: 20 })
 
 watch(filters, () => { flatPage.value = 1 }, { deep: true })
@@ -887,14 +900,28 @@ const filteredRecords = computed(() => {
   return recs
 })
 
+const sortedRecords = computed(() => {
+  const recs = [...filteredRecords.value]
+  if (!sortBy.value) return recs
+  const order = sortOrder.value === 'asc' ? 1 : -1
+  recs.sort((a, b) => {
+    const va = a[sortBy.value] ?? ''
+    const vb = b[sortBy.value] ?? ''
+    if (typeof va === 'string') return va.localeCompare(vb) * order
+    if (typeof va === 'number') return (va - vb) * order
+    return 0
+  })
+  return recs
+})
+
 const treeRecords = computed(() => {
-  if (recordViewMode.value !== 'tree') return filteredRecords.value
+  if (recordViewMode.value !== 'tree') return sortedRecords.value
 
   // Separate provider, grouped, and ungrouped records
   const grouped = new Map()
   const ungrouped = []
   const providerRecords = []
-  for (const rec of filteredRecords.value) {
+  for (const rec of sortedRecords.value) {
     if (rec.source === 'provider') {
       providerRecords.push(rec)
     } else if (rec.group_tag) {
@@ -1020,7 +1047,7 @@ const treeRecords = computed(() => {
 const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
 
 const groupedFlatRecords = computed(() => {
-  const recs = [...filteredRecords.value]
+  const recs = [...sortedRecords.value]
 
   // Sort: provider first, then by group_tag, then by host
   recs.sort((a, b) => {

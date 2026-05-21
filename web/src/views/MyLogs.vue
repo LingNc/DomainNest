@@ -43,7 +43,7 @@
           <el-button size="small" @click="resetFilters">{{ $t('common.reset') }}</el-button>
         </div>
       </div>
-      <el-table :data="logs" stripe v-loading="loading" style="width:100%" :row-class-name="rowClassName">
+      <el-table :data="logs" stripe v-loading="loading" style="width:100%" :row-class-name="rowClassName" @sort-change="handleSortChange">
         <!-- All view: single related user column -->
         <el-table-column v-if="viewFilter === 'all'" :label="$t('myLogs.relatedUser')" min-width="120">
           <template #default="{ row }">
@@ -57,8 +57,8 @@
             <span v-else style="color:#909399">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="action" :label="$t('common.action')" min-width="120" />
-        <el-table-column prop="target_type" :label="$t('common.targetType')" min-width="100" />
+        <el-table-column prop="action" :label="$t('common.action')" min-width="120" sortable="custom" />
+        <el-table-column prop="target_type" :label="$t('common.targetType')" min-width="100" sortable="custom" />
         <el-table-column prop="ip_address" :label="$t('common.ipAddress')" width="130" />
         <!-- Actor view: target user is "the other person", actor column hidden (current user is always actor) -->
         <el-table-column v-if="viewFilter === 'actor'" :label="$t('myLogs.targetUser')" min-width="120">
@@ -96,7 +96,7 @@
             <span v-else style="color:#909399">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" :label="$t('common.time')" width="170" />
+        <el-table-column prop="created_at" :label="$t('common.time')" width="170" sortable="custom" />
       </el-table>
       <el-empty v-if="!loading && logs.length === 0" :description="$t('myLogs.noLogs')" />
       <el-pagination v-if="total > pageSize" :current-page="page" :page-size="pageSize" :total="total"
@@ -261,11 +261,13 @@ const filters = reactive({ action: [], target_type: [], q: '', q_exclude: '', da
 const actionExcludeMode = ref(false)
 const targetTypeExcludeMode = ref(false)
 const viewFilter = ref('all')
+const sortBy = ref('created_at')
+const sortOrder = ref('desc')
 
 const loadLogs = async () => {
   loading.value = true
   try {
-    const params = { page: page.value, page_size: pageSize.value }
+    const params = { page: page.value, page_size: pageSize.value, sort_by: sortBy.value, sort_order: sortOrder.value }
     if (viewFilter.value !== 'all') params.view = viewFilter.value
     if (filters.action.length > 0) {
       if (actionExcludeMode.value) {
@@ -297,6 +299,12 @@ const loadLogs = async () => {
 
 const handleViewChange = () => {
   page.value = 1
+  loadLogs()
+}
+
+const handleSortChange = ({ prop, order }) => {
+  sortBy.value = prop || 'created_at'
+  sortOrder.value = order === 'ascending' ? 'asc' : 'desc'
   loadLogs()
 }
 
