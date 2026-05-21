@@ -175,18 +175,25 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	}
 
 	var childCount int64
-	s.db.Model(&model.DomainNode{}).Where("parent_id = ?", nodeID).Count(&childCount)
+	s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL", nodeID).Count(&childCount)
 	if childCount > 0 {
-		return errors.New("无法删除含有子节点的节点")
+		return errors.New("无法删除含有子节点的节点，请先删除所有子域名")
 	}
 
-	var recordCount int64
-	s.db.Model(&model.DNSRecord{}).Where("node_id = ?", nodeID).Count(&recordCount)
-	if recordCount > 0 {
-		return errors.New("无法删除含有DNS记录的节点")
-	}
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Cascade-delete DNS records belonging to this node
+		if err := tx.Where("node_id = ?", nodeID).Delete(&model.DNSRecord{}).Error; err != nil {
+			return fmt.Errorf("删除DNS记录失败: %w", err)
+		}
 
-	return s.db.Delete(&node).Error
+		// Delete permission records for this node
+		if err := tx.Where("domain_node_id = ?", nodeID).Delete(&model.DomainPermission{}).Error; err != nil {
+			return fmt.Errorf("删除权限记录失败: %w", err)
+		}
+
+		// Delete the node itself
+		return tx.Delete(&node).Error
+	})
 }
 
 // MaterializeNode converts an implicit host under a parent node into an explicit DomainNode.
