@@ -7,6 +7,8 @@ export const actionGroups = [
       { value: 'delete_domain', label: '删除域名' },
       { value: 'create_root_domain', label: '创建根域名' },
       { value: 'assign_domain', label: '分配域名' },
+      { value: 'convert_to_node', label: '独立为根域名' },
+      { value: 'demote_node', label: '取消独立' },
     ],
   },
   {
