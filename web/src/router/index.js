@@ -10,7 +10,7 @@ const routes = [
   { path: '/domains/:id', name: 'DomainDetail', component: () => import('../views/DomainDetail.vue'), meta: { requiresAuth: true } },
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { requiresAuth: true } },
   { path: '/profile', name: 'Profile', component: () => import('../views/Profile.vue'), meta: { requiresAuth: true } },
-  { path: '/permissions', name: 'MyPermissions', component: () => import('../views/MyPermissions.vue'), meta: { requiresAuth: true } },
+  { path: '/permissions', redirect: '/dashboard' },
   { path: '/ram-tokens', name: 'RAMTokens', component: () => import('../views/RAMTokens.vue'), meta: { requiresAuth: true } },
   { path: '/friends', name: 'Friends', component: () => import('../views/Friends.vue'), meta: { requiresAuth: true } },
   { path: '/messages', name: 'Messages', component: () => import('../views/Messages.vue'), meta: { requiresAuth: true } },

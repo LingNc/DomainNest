@@ -53,10 +53,6 @@
           <el-icon><component :is="'User'" /></el-icon>
           <span>{{ $t('sidebar.profile') }}</span>
         </el-menu-item>
-        <el-menu-item index="/permissions">
-          <el-icon><component :is="'Key'" /></el-icon>
-          <span>{{ $t('sidebar.permissions') }}</span>
-        </el-menu-item>
         <el-menu-item index="/my-logs">
           <el-icon><component :is="'Document'" /></el-icon>
           <span>{{ $t('sidebar.logs') }}</span>
@@ -155,7 +151,6 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/providers')) return '/providers'
   if (route.path.startsWith('/profile')) return '/profile'
   if (route.path.startsWith('/my-logs')) return '/my-logs'
-  if (route.path.startsWith('/permissions')) return '/permissions'
   if (route.path.startsWith('/messages')) return '/messages'
   if (route.path.startsWith('/friends')) return '/friends'
   return '/dashboard'
