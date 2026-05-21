@@ -455,7 +455,7 @@ func (h *RecordHandler) CheckConflict(c *gin.Context) {
 	// Map provider RR to DomainNest host and check for match
 	for _, pr := range providerRecords {
 		host := mapProviderRRToHost(pr.Host, rootDomain)
-		if host == req.Host && strings.EqualFold(pr.Type, req.RecordType) {
+		if strings.EqualFold(host, req.Host) && strings.EqualFold(pr.Type, req.RecordType) {
 			c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{
 				"has_conflict":    true,
 				"existing_record": pr,
