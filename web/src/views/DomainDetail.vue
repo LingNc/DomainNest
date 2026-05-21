@@ -77,10 +77,12 @@
             <el-table-column prop="host" :label="$t('domainDetail.host')" width="180">
               <template #default="{ row }">
                 <span>{{ row.host }}</span>
-                <el-tag v-if="row.own_node_id" type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
+                <template v-if="row.own_node_id">
+                  <el-tag type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
+                  <el-button link type="warning" size="small" @click="handleCancelIndependence(row)" style="margin-left:4px">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                </template>
                 <template v-else-if="row.host !== '@'">
-                  <el-tag type="info" size="small" style="margin-left:4px">{{ $t('domainDetail.implicit') }}</el-tag>
-                  <el-button link type="primary" size="small" @click="handleConvertToNode(row.host)" style="margin-left:4px">{{ $t('domainDetail.convertToNode') }}</el-button>
+                  <el-button link type="primary" size="small" @click="handleMakeIndependent(row)" style="margin-left:4px">{{ $t('domainDetail.makeIndependent') }}</el-button>
                 </template>
               </template>
             </el-table-column>
@@ -112,7 +114,6 @@
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                 <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
-                <el-button v-if="row.host !== '@'" link type="warning" size="small" @click="openTransferRecord(row)">{{ $t('domainDetail.transfer') }}</el-button>
                 <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
               </template>
             </el-table-column>
@@ -983,17 +984,36 @@ const handleAcceptReturn = async () => {
   }
 }
 
-const handleConvertToNode = async (host) => {
+const handleMakeIndependent = async (row) => {
   try {
     await ElMessageBox.confirm(
-      t('domainDetail.convertToNodeConfirm', { host }),
-      t('domainDetail.convertToNode'),
+      t('domainDetail.makeIndependentConfirm', { host: row.host, domain: domain.value?.full_domain }),
+      t('domainDetail.makeIndependent'),
       { type: 'warning' }
     )
-    const res = await convertToNode(domainId, { host })
+    const res = await convertToNode(domainId, { host: row.host })
     const count = res.data?.affected_records ?? 0
     ElMessage.success(t('domainDetail.convertSuccess', { count }))
     loadRecords()
+    loadDomain()
+  } catch (e) {
+    if (e !== 'cancel') {
+      showError(e.response?.data?.message || t('common.error'))
+    }
+  }
+}
+
+const handleCancelIndependence = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      t('domainDetail.cancelIndependenceConfirm', { host: row.host, domain: domain.value?.full_domain }),
+      t('domainDetail.cancelIndependence'),
+      { type: 'warning' }
+    )
+    await demoteNode(row.own_node_id)
+    ElMessage.success(t('domainDetail.demoteSuccess'))
+    loadRecords()
+    loadDomain()
   } catch (e) {
     if (e !== 'cancel') {
       showError(e.response?.data?.message || t('common.error'))
