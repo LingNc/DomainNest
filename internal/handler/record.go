@@ -242,8 +242,8 @@ func (h *RecordHandler) TransferByHost(c *gin.Context) {
 
 	results := h.recordService.TransferRecordsByHost(parentID, userID, req.TargetUserID, req.Hosts)
 
-	middleware.LogOperation(h.db, userID, "transfer_records_by_host", "domain_node", &parentID,
-		map[string]interface{}{"hosts": req.Hosts, "target_user_id": req.TargetUserID}, c.ClientIP())
+	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "transfer_records_by_host", "domain_node", &parentID,
+		map[string]interface{}{"hosts": req.Hosts}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"results": results}})
 }
