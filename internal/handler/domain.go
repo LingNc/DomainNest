@@ -7,6 +7,7 @@ import (
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
+	"domainnest/internal/ws"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -105,6 +106,15 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "transfer_domain", "domain_node", &nodeID,
 		map[string]interface{}{}, c.ClientIP())
 
+	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "transfer",
+		"node_id": nodeID,
+	})
+	ws.BroadcastToUser(req.TargetUserID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "transfer_received",
+		"node_id": nodeID,
+	})
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "转移成功"})
 }
 
@@ -123,6 +133,11 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "delete_domain", "domain_node", &nodeID,
 		nil, c.ClientIP())
+
+	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "delete",
+		"node_id": nodeID,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }
@@ -163,6 +178,12 @@ func (h *DomainHandler) ConvertToNode(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "convert_to_node", "domain_node", &node.ID,
 		map[string]interface{}{"full_domain": node.FullDomain, "host": req.Host}, c.ClientIP())
 
+	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":    "materialize",
+		"node_id":   node.ID,
+		"parent_id": parentID,
+	})
+
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": gin.H{
@@ -194,6 +215,11 @@ func (h *DomainHandler) DemoteNode(c *gin.Context) {
 
 	middleware.LogOperation(h.db, userID, "demote_node", "domain_node", &nodeID,
 		nil, c.ClientIP())
+
+	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "demote",
+		"node_id": nodeID,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "降级成功"})
 }

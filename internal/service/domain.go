@@ -232,16 +232,20 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 			return err
 		}
 
-		// Update exact host match records: set own_node_id
+		// Move records to the new node and set host to "@"
 		if err := tx.Model(&model.DNSRecord{}).
 			Where("node_id = ? AND host = ? AND deleted_at IS NULL", parentID, host).
-			Update("own_node_id", node.ID).Error; err != nil {
+			Updates(map[string]interface{}{
+				"node_id":     node.ID,
+				"host":        "@",
+				"own_node_id": node.ID,
+			}).Error; err != nil {
 			return err
 		}
 
 		// Set materialized_from to first record ID
 		var firstRecord model.DNSRecord
-		if err := tx.Where("node_id = ? AND host = ? AND deleted_at IS NULL", parentID, host).
+		if err := tx.Where("node_id = ? AND host = ? AND deleted_at IS NULL", node.ID, "@").
 			Order("id ASC").First(&firstRecord).Error; err == nil {
 			node.MaterializedFrom = &firstRecord.ID
 			tx.Model(node).Update("materialized_from", firstRecord.ID)
@@ -250,7 +254,7 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 		// Collect affected record IDs for logging
 		var recordIDs []uint64
 		tx.Model(&model.DNSRecord{}).
-			Where("node_id = ? AND host = ? AND deleted_at IS NULL", parentID, host).
+			Where("node_id = ? AND host = ? AND deleted_at IS NULL", node.ID, "@").
 			Pluck("id", &recordIDs)
 
 		recordIDsJSON := "[]"
@@ -267,7 +271,7 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 			Action:       "materialize",
 			TriggeredBy:  triggeredBy,
 			RecordIDs:    recordIDsJSON,
-			Detail:       fmt.Sprintf("Materialized '%s' from records under %s", host, parent.FullDomain),
+			Detail:       fmt.Sprintf("Made '%s' independent from %s", host, parent.FullDomain),
 		}
 		return tx.Create(log).Error
 	})
@@ -292,6 +296,11 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 	}
 
 	parentID := *node.ParentID
+
+	var parent model.DomainNode
+	if err := s.db.First(&parent, parentID).Error; err != nil {
+		return errors.New("父节点不存在")
+	}
 
 	// Check no children
 	var childCount int64
@@ -321,14 +330,9 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 
 		recordIDs := make([]uint64, 0, len(records))
 		for _, rec := range records {
-			newHost := node.Host
-			if rec.Host != "@" {
-				newHost = node.Host + "." + rec.Host
-			}
-
 			updates := map[string]interface{}{
 				"node_id":     parentID,
-				"host":        newHost,
+				"host":        node.Host,
 				"own_node_id": nil,
 			}
 			if err := tx.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(updates).Error; err != nil {
@@ -357,7 +361,7 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 			Action:       "dematerialize",
 			TriggeredBy:  triggeredBy,
 			RecordIDs:    recordIDsJSON,
-			Detail:       fmt.Sprintf("Demoted '%s' back to implicit under %s", node.Host, node.FullDomain),
+			Detail:       fmt.Sprintf("Demoted '%s' back to subdomain records under %s", node.Host, parent.FullDomain),
 		}
 		return tx.Create(log).Error
 	})

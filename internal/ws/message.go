@@ -6,6 +6,7 @@ const (
 	TypeFriendRequest      = "friend_request"
 	TypeUnreadUpdate       = "unread_update"
 	TypeConversationUpdate = "conversation_update"
+	TypeDomainTreeUpdate   = "domain_tree_update"
 )
 
 // Envelope is the JSON wrapper sent over the wire.
