@@ -1194,10 +1194,29 @@ const handleTransfer = async () => {
 }
 
 const handleDeleteDomain = async () => {
-  await ElMessageBox.confirm(t('domainDetail.confirmDeleteDomain'), t('common.confirmDelete'), { type: 'error' })
-  await deleteDomain(domainId)
-  ElMessage.success(t('domainDetail.deleteDomainSuccess'))
-  router.push('/dashboard')
+  const recordCount = total.value || 0
+  const childCount = domain.value?.children?.length || 0
+
+  let message = t('domainDetail.confirmDeleteDomain')
+  if (recordCount > 0) {
+    message += '\n\n' + t('domainDetail.deleteDomainRecords', { count: recordCount })
+  }
+  if (childCount > 0) {
+    message += '\n' + t('domainDetail.deleteDomainChildren', { count: childCount })
+  }
+  if (recordCount > 0 || childCount > 0) {
+    message += '\n\n' + t('domainDetail.deleteDomainWarning')
+  }
+
+  try {
+    await ElMessageBox.confirm(message, t('common.confirmDelete'), { type: 'warning' })
+    await deleteDomain(domainId)
+    ElMessage.success(t('domainDetail.deleteDomainSuccess'))
+    router.push('/dashboard')
+  } catch (e) {
+    if (e === 'cancel') return
+    showError(e.response?.data?.message || t('domainDetail.deleteDomainFailed'))
+  }
 }
 
 const loadPermissions = async () => {
