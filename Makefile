@@ -21,5 +21,7 @@ dev:
 
 # Clean generated assets
 clean:
-	rm -rf internal/static/dist/static/
+	rm -rf internal/static/dist/
+	rm -rf web/dist/
+	rm -rf web/node_modules/.vite/
 	rm -f domainnest
