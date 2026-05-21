@@ -30,6 +30,7 @@ type DNSRecord struct {
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
+	TrashedAt        *time.Time     `gorm:"index" json:"trashed_at,omitempty"`
 
 	Node DomainNode `gorm:"foreignKey:NodeID" json:"node,omitempty"`
 }
