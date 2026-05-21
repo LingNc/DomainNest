@@ -185,7 +185,12 @@ func (h *AdminHandler) RetrySync(c *gin.Context) {
 	}
 
 	if err := h.db.Model(&model.DNSRecord{}).Where("id = ?", recordID).
-		Update("sync_status", "pending").Error; err != nil {
+		Updates(map[string]interface{}{
+			"sync_status":     "pending",
+			"sync_attempts":   0,
+			"next_sync_at":    nil,
+			"last_sync_error": "",
+		}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}

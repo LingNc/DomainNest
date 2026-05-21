@@ -20,7 +20,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	settingsService *service.SettingsService, permissionService *service.PermissionService,
 	ramTokenService *service.RAMTokenService, friendService *service.FriendService,
 	messageService *service.MessageService, providerService *service.ProviderService,
-	hub *ws.Hub) *gin.Engine {
+	syncService *service.SyncService, hub *ws.Hub) *gin.Engine {
 
 	r := gin.Default()
 
@@ -53,6 +53,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	friendHandler := handler.NewFriendHandler(friendService, db)
 	messageHandler := handler.NewMessageHandler(messageService, friendService, db)
 	providerHandler := handler.NewProviderHandler(providerService, db)
+	syncHandler := handler.NewSyncHandler(syncService, recordService, db)
 
 	v1 := r.Group("/api/v1")
 
@@ -115,6 +116,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.GET("/:id/pending-records", permissionHandler.GetPendingRecords)
 		domains.POST("/:id/pending-records/assign", permissionHandler.AssignPendingRecords)
 		domains.POST("/:id/pending-records/delete", permissionHandler.DeletePendingRecords)
+		domains.POST("/:id/sync", syncHandler.ManualSync)
+		domains.GET("/:id/sync-logs", syncHandler.GetSyncLogs)
 	}
 
 	records := v1.Group("/records")
