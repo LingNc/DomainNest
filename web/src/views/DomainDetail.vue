@@ -25,6 +25,8 @@
                   <el-icon><component :is="'Plus'" /></el-icon>
                   {{ $t('domainDetail.addRecord') }}
                 </el-button>
+                <el-button v-if="domain?.is_materialized" size="small" text type="warning" @click="handleDemoteNode">{{ $t('domainDetail.demoteNode') }}</el-button>
+                <el-button size="small" text @click="loadConversionLogs">{{ $t('domainDetail.conversionHistory') }}</el-button>
                 <el-button size="small" text type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
                 <el-button size="small" text type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
               </div>
@@ -61,7 +63,16 @@
 
           <el-table :data="records" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id">
             <el-table-column type="selection" width="40" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" width="120" />
+            <el-table-column prop="host" :label="$t('domainDetail.host')" width="180">
+              <template #default="{ row }">
+                <span>{{ row.host }}</span>
+                <el-tag v-if="row.own_node_id" type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
+                <template v-else-if="row.host !== '@'">
+                  <el-tag type="info" size="small" style="margin-left:4px">{{ $t('domainDetail.implicit') }}</el-tag>
+                  <el-button link type="primary" size="small" @click="handleConvertToNode(row.host)" style="margin-left:4px">{{ $t('domainDetail.convertToNode') }}</el-button>
+                </template>
+              </template>
+            </el-table-column>
             <el-table-column prop="record_type" :label="$t('domainDetail.type')" width="80" />
             <el-table-column prop="value" :label="$t('domainDetail.value')" show-overflow-tooltip />
             <el-table-column prop="priority" :label="$t('domainDetail.priority')" width="70">
@@ -393,6 +404,22 @@
       </template>
     </el-dialog>
 
+    <!-- conversion history dialog -->
+    <el-dialog v-model="showConversionLogs" :title="$t('domainDetail.conversionHistory')" width="600px" destroy-on-close>
+      <el-table :data="conversionLogs" stripe v-loading="loadingConversionLogs" empty-text="—">
+        <el-table-column prop="action" :label="$t('common.action')" width="120">
+          <template #default="{ row }">
+            <el-tag :type="row.action === 'materialize' ? 'success' : 'warning'" size="small">{{ row.action }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="trigger.username" :label="$t('domainDetail.triggerUser')" width="120">
+          <template #default="{ row }">{{ row.trigger?.username || row.triggered_by }}</template>
+        </el-table-column>
+        <el-table-column prop="detail" :label="$t('common.detail')" show-overflow-tooltip />
+        <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+      </el-table>
+    </el-dialog>
+
     <!-- revoke permission - record handling -->
     <el-dialog v-model="showReturnDialog" :title="$t('domainDetail.returnDialogTitle')" width="480px" destroy-on-close>
       <el-alert type="warning" :closable="false" style="margin-bottom:16px">
@@ -431,7 +458,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, transferDomain, deleteDomain } from '../api/domain'
+import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, getConversionLogs } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
@@ -494,6 +521,10 @@ const selectedPendingIds = ref([])
 const showReturnDialog = ref(false)
 const returnForm = ref({ action: 'keep', target_user_id: null })
 const returnTargetUserId = ref(null)
+
+const showConversionLogs = ref(false)
+const conversionLogs = ref([])
+const loadingConversionLogs = ref(false)
 
 const statusType = (s) => s === 'synced' ? 'success' : s === 'failed' ? 'danger' : s === 'disabled' ? 'info' : 'warning'
 const statusLabel = (s) => ({ synced: t('common.synced'), failed: t('domainDetail.syncFailed'), pending: t('domainDetail.pendingSync'), disabled: t('domainDetail.disabled') }[s] || s)
@@ -829,6 +860,59 @@ const handleAcceptReturn = async () => {
     loadRecords()
   } catch (e) {
     showError(e.response?.data?.message || t('domainDetail.returnFailed'))
+  }
+}
+
+const handleConvertToNode = async (host) => {
+  try {
+    await ElMessageBox.confirm(
+      t('domainDetail.convertToNodeConfirm', { host }),
+      t('domainDetail.convertToNode'),
+      { type: 'warning' }
+    )
+    const res = await convertToNode(domainId, { host })
+    const count = res.data?.affected_records ?? 0
+    ElMessage.success(t('domainDetail.convertSuccess', { count }))
+    loadRecords()
+  } catch (e) {
+    if (e !== 'cancel') {
+      showError(e.response?.data?.message || t('common.error'))
+    }
+  }
+}
+
+const handleDemoteNode = async () => {
+  try {
+    await ElMessageBox.confirm(
+      t('domainDetail.demoteConfirm'),
+      t('domainDetail.demoteNode'),
+      { type: 'warning' }
+    )
+    await demoteNode(domainId)
+    ElMessage.success(t('domainDetail.demoteSuccess'))
+    // Navigate to parent
+    if (domain.value?.parent_id) {
+      router.push(`/domains/${domain.value.parent_id}`)
+    } else {
+      router.push('/dashboard')
+    }
+  } catch (e) {
+    if (e !== 'cancel') {
+      showError(e.response?.data?.message || t('common.error'))
+    }
+  }
+}
+
+const loadConversionLogs = async () => {
+  loadingConversionLogs.value = true
+  showConversionLogs.value = true
+  try {
+    const res = await getConversionLogs(domainId)
+    conversionLogs.value = res.data || []
+  } catch {
+    conversionLogs.value = []
+  } finally {
+    loadingConversionLogs.value = false
   }
 }
 
