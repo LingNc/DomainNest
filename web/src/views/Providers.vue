@@ -357,9 +357,17 @@ const handleClaim = async (domain) => {
 }
 
 const handleReclaim = async (domain) => {
+  try {
+    await ElMessageBox.confirm(
+      t('providers.reclaimConfirmText', { domain: domain.domain_name, owner: domain.owner_name || '-' }),
+      t('providers.reclaim'),
+      { type: 'warning', confirmButtonText: t('common.confirm') }
+    )
+  } catch { return }
+
   claiming[domain.domain_name] = true
   try {
-    await reclaimDomain(currentProvider.value.id, domain.node_id)
+    await reclaimDomain(currentProvider.value.id, domain.node_id, { skipErrorToast: true })
     ElMessage.success(t('providers.reclaimSuccess', { domain: domain.domain_name }))
     await viewDomains(currentProvider.value)
   } catch (e) {

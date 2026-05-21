@@ -87,7 +87,7 @@
             :row-class-name="treeRowClass"
           >
             <el-table-column type="selection" width="40" :selectable="(row) => !row.virtual" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" width="180">
+            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="220">
               <template #default="{ row }">
                 <template v-if="row.isGroup">
                   <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
@@ -310,7 +310,7 @@
       </el-tab-pane>
 
       <!-- Authorization Tab -->
-      <el-tab-pane :label="$t('domainDetail.tabAuthorization')" name="authorization">
+      <el-tab-pane v-if="domain?.owner_id === auth.user?.id || auth.isAdmin" :label="$t('domainDetail.tabAuthorization')" name="authorization">
         <!-- Permission list -->
         <el-card>
           <template #header>
@@ -375,7 +375,7 @@
     <el-dialog v-model="showGrantPerm" :title="$t('domainDetail.grantUser')" width="520px" destroy-on-close>
       <el-form :model="grantForm" label-width="100px">
         <el-form-item :label="$t('domainDetail.users')">
-          <el-select v-model="grantForm.target_user_ids" multiple filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUsers')" style="width:100%" collapse-tags collapse-tags-tooltip>
+          <el-select ref="grantPermSelectRef" v-model="grantForm.target_user_ids" multiple filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUsers')" style="width:100%" collapse-tags collapse-tags-tooltip @change="onGrantPermUserChange">
             <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -566,7 +566,7 @@
       </el-alert>
       <el-form :model="transferForm" label-width="80px">
         <el-form-item :label="$t('domainDetail.targetUser')">
-          <el-select v-model="transferForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
+          <el-select ref="transferSelectRef" v-model="transferForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%" @change="onTransferUserChange">
             <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -606,7 +606,7 @@
       </div>
       <el-form label-width="80px">
         <el-form-item :label="$t('domainDetail.targetUser')">
-          <el-select v-model="batchTransferForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
+          <el-select ref="batchTransferSelectRef" v-model="batchTransferForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%" @change="onBatchTransferUserChange">
             <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -658,7 +658,7 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item v-if="returnForm.action === 'transfer'" :label="$t('domainDetail.targetUser')">
-          <el-select v-model="returnForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
+          <el-select ref="returnSelectRef" v-model="returnForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%" @change="onReturnUserChange">
             <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -705,7 +705,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
@@ -760,6 +760,10 @@ const showGrantPerm = ref(false)
 const grantForm = ref({ target_user_ids: [], level: 'read', allowed_types: [], allowed_ips_text: '', host_rules: [], host_prefix: '', max_depth: null })
 const selectableUsers = ref([])
 const searchingUsers = ref(false)
+const transferSelectRef = ref(null)
+const batchTransferSelectRef = ref(null)
+const returnSelectRef = ref(null)
+const grantPermSelectRef = ref(null)
 
 const filters = reactive({ host: '', recordType: [], value: '', status: '', source: '' })
 const pagination = reactive({ page: 1, pageSize: 20 })
@@ -1325,7 +1329,7 @@ const handleDeleteDomain = async () => {
 
 const loadPermissions = async () => {
   try {
-    const res = await getPermissions(domainId)
+    const res = await getPermissions(domainId, { skipErrorToast: true })
     permissions.value = res.data || []
   } catch { /* no permission to view */ }
 }
@@ -1401,7 +1405,7 @@ const handleRevokeRequest = async (userId) => {
 
 const loadPendingRecords = async () => {
   try {
-    const res = await getPendingRecords(domainId)
+    const res = await getPendingRecords(domainId, { skipErrorToast: true })
     pendingRecords.value = res.data || []
   } catch { /* no permission to view */ }
 }
@@ -1530,6 +1534,19 @@ const searchUsersRemote = async (query) => {
     selectableUsers.value = (res.data || []).filter(u => u.id !== auth.user?.id)
   } catch { /* ignore */ }
   searchingUsers.value = false
+}
+
+const onTransferUserChange = () => {
+  nextTick(() => { transferSelectRef.value && (transferSelectRef.value.query = '') })
+}
+const onBatchTransferUserChange = () => {
+  nextTick(() => { batchTransferSelectRef.value && (batchTransferSelectRef.value.query = '') })
+}
+const onReturnUserChange = () => {
+  nextTick(() => { returnSelectRef.value && (returnSelectRef.value.query = '') })
+}
+const onGrantPermUserChange = () => {
+  nextTick(() => { grantPermSelectRef.value && (grantPermSelectRef.value.query = '') })
 }
 
 const groupSelectedByHost = () => {

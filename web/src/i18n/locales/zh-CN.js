@@ -582,6 +582,7 @@ export default {
     recordCount: '记录数',
     claim: '认领',
     reclaim: '回收',
+    reclaimConfirmText: '确定要回收域名 {domain} 吗？当前归属者：{owner}',
     reclaimSuccess: '域名 {domain} 已回收成功',
     reclaimFailed: '回收失败',
     owner: '归属者',

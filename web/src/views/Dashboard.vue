@@ -74,8 +74,8 @@
         </el-card>
 
         <el-card v-for="group in permissionGroups" :key="group.key" class="managed-group">
-          <div class="group-header" @click="group.expanded = !group.expanded">
-            <el-icon style="margin-right:8px"><component :is="group.expanded ? 'ArrowDown' : 'ArrowRight'" /></el-icon>
+          <div class="group-header" @click="toggleGroupExpand(group.key)">
+            <el-icon style="margin-right:8px"><component :is="expandedGroupKeys.has(group.key) ? 'ArrowDown' : 'ArrowRight'" /></el-icon>
             <span class="group-domain">{{ group.rootDomain }}</span>
             <el-divider direction="vertical" />
             <span class="group-grantor">
@@ -86,7 +86,7 @@
             <el-tag size="small" type="info" style="margin-left:8px">{{ group.entries.length }} {{ $t('domainDetail.permissions') }}</el-tag>
           </div>
 
-          <div v-if="group.expanded" class="group-entries">
+          <div v-if="expandedGroupKeys.has(group.key)" class="group-entries">
             <div v-for="entry in group.entries" :key="entry.id" class="managed-entry">
               <div class="entry-info">
                 <el-tag :type="entry.scopeType === 'full' ? 'success' : entry.scopeType === 'exact' ? '' : 'warning'" size="small">
@@ -162,7 +162,7 @@
       </el-alert>
       <el-form label-width="80px">
         <el-form-item :label="$t('domainDetail.targetUser')">
-          <el-select v-model="transferTargetUserId" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
+          <el-select ref="transferSelectRef" v-model="transferTargetUserId" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%" @change="onTransferUserChange">
             <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -190,7 +190,7 @@
       </div>
       <el-form :model="batchGrantForm" label-width="100px">
         <el-form-item :label="$t('domainDetail.users')">
-          <el-select v-model="batchGrantForm.target_user_ids" multiple filterable remote :remote-method="searchBatchUsersRemote" :loading="searchingBatchUsers" :placeholder="$t('domainDetail.searchUsers')" style="width:100%" collapse-tags collapse-tags-tooltip>
+          <el-select ref="batchGrantSelectRef" v-model="batchGrantForm.target_user_ids" multiple filterable remote :remote-method="searchBatchUsersRemote" :loading="searchingBatchUsers" :placeholder="$t('domainDetail.searchUsers')" style="width:100%" collapse-tags collapse-tags-tooltip @change="onBatchGrantUserChange">
             <el-option v-for="u in batchSelectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
               <div style="display:flex;align-items:center;gap:8px">
                 <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
@@ -223,7 +223,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomains, transferDomain, deleteDomain, demoteNode, getTransferredAway, batchDeleteDomains } from '../api/domain'
@@ -251,11 +251,20 @@ const transferDomainId = ref(null)
 const transferTargetUserId = ref(null)
 const selectableUsers = ref([])
 const searchingUsers = ref(false)
+const transferSelectRef = ref(null)
+const batchGrantSelectRef = ref(null)
 
 const activeTab = ref('domains')
 const treeRef = ref(null)
 const checkedKeys = ref([])
 const transferredAway = ref([])
+const expandedGroupKeys = ref(new Set())
+const toggleGroupExpand = (key) => {
+  const s = new Set(expandedGroupKeys.value)
+  if (s.has(key)) s.delete(key)
+  else s.add(key)
+  expandedGroupKeys.value = s
+}
 
 // Batch authorize dialog
 const showBatchAuthorize = ref(false)
@@ -325,7 +334,6 @@ const permissionGroups = computed(() => {
         key,
         rootDomain,
         grantor: perm.creator,
-        expanded: false,
         entries: [],
       })
     }
@@ -450,6 +458,14 @@ const searchBatchUsersRemote = async (query) => {
   searchingBatchUsers.value = false
 }
 
+const onTransferUserChange = () => {
+  nextTick(() => { transferSelectRef.value && (transferSelectRef.value.query = '') })
+}
+
+const onBatchGrantUserChange = () => {
+  nextTick(() => { batchGrantSelectRef.value && (batchGrantSelectRef.value.query = '') })
+}
+
 const handleTransferDomain = (data) => {
   transferDomainId.value = data.id
   transferTargetUserId.value = null
@@ -508,6 +524,7 @@ const handleTransferConfirm = async () => {
   checkedKeys.value = []
   if (treeRef.value) treeRef.value.setCheckedKeys([])
   loadDomains()
+  loadTransferredAway()
 }
 
 const handleDeleteDomain = async (data) => {

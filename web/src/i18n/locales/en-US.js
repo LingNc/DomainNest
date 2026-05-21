@@ -582,6 +582,7 @@ export default {
     recordCount: 'Records',
     claim: 'Claim',
     reclaim: 'Reclaim',
+    reclaimConfirmText: 'Reclaim domain {domain}? Current owner: {owner}',
     reclaimSuccess: 'Domain {domain} reclaimed successfully',
     reclaimFailed: 'Reclaim failed',
     owner: 'Owner',
