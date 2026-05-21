@@ -830,7 +830,7 @@ const searchUsersRemote = async (query) => {
   searchingUsers.value = true
   try {
     const res = await searchAllUsers(query)
-    selectableUsers.value = res.data || []
+    selectableUsers.value = (res.data || []).filter(u => u.id !== auth.user?.id)
   } catch { /* ignore */ }
   searchingUsers.value = false
 }
