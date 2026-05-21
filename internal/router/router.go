@@ -29,16 +29,18 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	})
 
 	// Serve static files from embedded frontend build
-	staticFS, _ := fs.Sub(static.StaticFiles, "dist")
-	r.StaticFS("/static", http.FS(staticFS))
+	// StaticFS("/static") strips the /static prefix, so root at dist/static
+	staticFileFS, _ := fs.Sub(static.StaticFiles, "dist/static")
+	r.StaticFS("/static", http.FS(staticFileFS))
 
 	// SPA fallback: serve index.html for all non-API routes
+	staticRootFS, _ := fs.Sub(static.StaticFiles, "dist")
 	r.NoRoute(func(c *gin.Context) {
 		if len(c.Request.URL.Path) > 4 && c.Request.URL.Path[:4] == "/api" {
 			c.JSON(404, gin.H{"code": 404, "message": "not found"})
 			return
 		}
-		c.FileFromFS("/", http.FS(staticFS))
+		c.FileFromFS("/", http.FS(staticRootFS))
 	})
 
 	emailVerifySvc := service.NewEmailVerifyService(db, emailService)
