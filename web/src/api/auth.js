@@ -19,3 +19,4 @@ export const searchAllUsers = (q) => request.get('/auth/users/search', { params:
 export const deleteAccount = (config) => request.delete('/auth/account', config)
 export const sendVerifyEmail = (data, config) => request.post('/auth/send-verify-email', data, config)
 export const verifyEmail = (data, config) => request.post('/auth/verify-email', data, config)
+export const verifyEmailChange = (data, config) => request.post('/auth/verify-email-change', data, config)

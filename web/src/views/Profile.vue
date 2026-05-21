@@ -225,7 +225,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs, searchAllUsers, deleteAccount, sendVerifyEmail, verifyEmail } from '../api/auth'
+import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs, searchAllUsers, deleteAccount, sendVerifyEmail, verifyEmailChange } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useError } from '../composables/useError'
@@ -374,7 +374,7 @@ const handleVerifyEmail = async () => {
   }
   verifyingEmail.value = true
   try {
-    await verifyEmail({ email: form.email, code: emailCode.value, purpose: 'change_email' }, { skipErrorToast: true })
+    await verifyEmailChange({ email: form.email, code: emailCode.value, purpose: 'change_email' }, { skipErrorToast: true })
     emailVerified.value = true
     ElMessage.success(t('register.verified'))
   } catch (e) {
