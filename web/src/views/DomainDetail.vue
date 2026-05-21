@@ -726,7 +726,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
-import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord } from '../api/record'
+import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord } from '../api/record'
+import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
@@ -1186,8 +1187,8 @@ const handleToggle = async (id, enabled) => {
 
 const handleDeleteRecord = async (id) => {
   await ElMessageBox.confirm(t('domainDetail.confirmDeleteRecord'), t('common.hint'), { type: 'warning' })
-  await deleteRecord(id)
-  ElMessage.success(t('domainDetail.recordDeleted'))
+  await trashRecord(id)
+  ElMessage.success(t('domainDetail.recordTrashed'))
   loadRecords()
 }
 
@@ -1198,8 +1199,8 @@ const handleSelectionChange = (rows) => {
 
 const handleBatchDelete = async () => {
   await ElMessageBox.confirm(t('domainDetail.confirmBatchDelete', { count: selectedIds.value.length }), t('domainDetail.batchDeleteTitle'), { type: 'warning' })
-  await batchDeleteRecords(selectedIds.value)
-  ElMessage.success(t('domainDetail.batchDeleteSuccess'))
+  await batchTrash(selectedIds.value)
+  ElMessage.success(t('domainDetail.batchTrashSuccess'))
   loadRecords()
 }
 
