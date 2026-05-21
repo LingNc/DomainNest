@@ -523,6 +523,37 @@ func (s *DomainService) AdminTransferNode(nodeID, targetUserID uint64) error {
 	})
 }
 
+// AdminBatchDeleteNodes deletes multiple leaf nodes in one call.
+// Nodes that have children or do not exist are silently skipped.
+func (s *DomainService) AdminBatchDeleteNodes(nodeIDs []uint64) (deleted int, err error) {
+	for _, nodeID := range nodeIDs {
+		var node model.DomainNode
+		if err := s.db.First(&node, nodeID).Error; err != nil {
+			continue // skip non-existent
+		}
+
+		var childCount int64
+		s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL", nodeID).Count(&childCount)
+		if childCount > 0 {
+			continue // skip nodes with children
+		}
+
+		txErr := s.db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Where("node_id = ?", nodeID).Delete(&model.DNSRecord{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("domain_node_id = ?", nodeID).Delete(&model.DomainPermission{}).Error; err != nil {
+				return err
+			}
+			return tx.Delete(&node).Error
+		})
+		if txErr == nil {
+			deleted++
+		}
+	}
+	return
+}
+
 func (s *DomainService) GetTransferredAwayNodes(userID uint64) ([]model.DomainTransferLog, error) {
 	var logs []model.DomainTransferLog
 	err := s.db.

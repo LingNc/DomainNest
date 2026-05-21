@@ -73,6 +73,13 @@
 
           <el-input v-model="domainTreeSearch" :placeholder="$t('admin.domainTreeSearch')" clearable style="margin-bottom:12px;width:300px" />
 
+          <div v-if="selectedDomains.length > 0" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+            <el-tag>{{ $t('admin.selectedCount', { count: selectedDomains.length }) }}</el-tag>
+            <el-button type="danger" size="small" :loading="batchDeleteLoading" @click="handleBatchDeleteDomains">
+              {{ $t('admin.batchDeleteDomains') }}
+            </el-button>
+          </div>
+
           <div class="domain-tree-layout">
             <!-- Tree panel -->
             <div class="domain-tree-panel">
@@ -80,7 +87,9 @@
                 row-key="id" :tree-props="{ children: 'children' }"
                 highlight-current-row @row-click="handleDomainTreeRowClick"
                 :row-class-name="(row) => selectedDomainDetail?.domain?.id === row.row?.id ? 'current-row' : ''"
+                @selection-change="handleDomainSelectionChange"
               >
+                <el-table-column type="selection" width="40" :selectable="() => true" />
                 <el-table-column prop="full_domain" :label="$t('admin.fullDomain')" min-width="200" show-overflow-tooltip />
                 <el-table-column :label="$t('admin.currentOwner')" min-width="130">
                   <template #default="{ row }">
@@ -447,7 +456,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, getAdminDomainDetail, adminChangeOwner, adminRevokePermission } from '../api/admin'
+import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, getAdminDomainDetail, adminChangeOwner, adminRevokePermission, adminBatchDeleteDomains } from '../api/admin'
 import { listProviders, listProviderDomains } from '../api/provider'
 import { grantInviteQuota, revokeInviteQuota } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
@@ -489,6 +498,8 @@ const resetPwdTarget = ref(null)
 const newPassword = ref('')
 
 const selectedUsers = ref([])
+const selectedDomains = ref([])
+const batchDeleteLoading = ref(false)
 const showInviteAction = ref(false)
 const inviteActionType = ref('grant')
 const inviteTarget = ref(null)
@@ -903,6 +914,29 @@ const handleResetPwd = async () => {
 }
 
 const handleSelectionChange = (selection) => { selectedUsers.value = selection }
+
+const handleDomainSelectionChange = (selection) => { selectedDomains.value = selection }
+
+const handleBatchDeleteDomains = async () => {
+  try {
+    await ElMessageBox.confirm(
+      t('admin.batchDeleteConfirmText', { count: selectedDomains.value.length }),
+      t('common.confirmDelete'),
+      { type: 'warning' }
+    )
+    batchDeleteLoading.value = true
+    const ids = selectedDomains.value.map(d => d.id)
+    const res = await adminBatchDeleteDomains({ node_ids: ids })
+    ElMessage.success(res.message || t('admin.batchDeleteSuccess'))
+    selectedDomains.value = []
+    await loadDomainTree()
+  } catch (e) {
+    if (e === 'cancel') return
+    showError(e.response?.data?.message || t('admin.batchDeleteFailed'))
+  } finally {
+    batchDeleteLoading.value = false
+  }
+}
 
 const openGrantDialog = (row) => {
   inviteTarget.value = row

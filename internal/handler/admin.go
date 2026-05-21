@@ -130,6 +130,28 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "域名分配成功"})
 }
 
+func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
+	var req struct {
+		NodeIDs []uint64 `json:"node_ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	deleted, err := h.domainService.AdminBatchDeleteNodes(req.NodeIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	callerID := c.GetUint64("user_id")
+	middleware.LogOperation(h.db, callerID, "batch_delete_domains", "domain_node", nil,
+		map[string]interface{}{"node_ids": req.NodeIDs, "deleted": deleted}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": fmt.Sprintf("成功删除 %d 个域名", deleted), "data": gin.H{"deleted": deleted}})
+}
+
 func (h *AdminHandler) ListDomains(c *gin.Context) {
 	var nodes []model.DomainNode
 	if err := h.db.Preload("Owner").Order("id ASC").Find(&nodes).Error; err != nil {

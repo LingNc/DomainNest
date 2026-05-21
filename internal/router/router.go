@@ -162,6 +162,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	admin.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.AdminRequired(), middleware.OnlineTracker(db))
 	{
 		admin.POST("/domains", adminHandler.CreateRootDomain)
+		admin.POST("/domains/batch-delete", adminHandler.BatchDeleteDomains)
 		admin.GET("/domains", adminHandler.ListDomains)
 		admin.GET("/domains/tree", adminHandler.GetDomainTree)
 		admin.GET("/domains/:id/detail", adminHandler.GetDomainDetail)
