@@ -14,8 +14,10 @@ type DomainNode struct {
 	OwnerID    uint64         `gorm:"index;not null" json:"owner_id"`
 	ProviderID       *uint64        `gorm:"index" json:"provider_id,omitempty"`
 	MaterializedFrom *uint64        `gorm:"index" json:"materialized_from,omitempty"`
-	IsMaterialized   bool           `gorm:"default:false" json:"is_materialized"`
-	RecordsImported  bool           `gorm:"default:false" json:"records_imported"`
+	IsMaterialized     bool           `gorm:"default:false" json:"is_materialized"`
+	RecordsImported    bool           `gorm:"default:false" json:"records_imported"`
+	Status             string         `gorm:"type:varchar(16);default:'active';index" json:"status"`
+	ArchivedProviderID *uint64        `gorm:"index" json:"archived_provider_id,omitempty"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
