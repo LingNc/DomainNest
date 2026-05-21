@@ -101,7 +101,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listProviders, createProvider, updateProvider, deleteProvider, listProviderDomains, claimDomain } from '../api/provider'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 
 const { t } = useI18n()
 
@@ -258,7 +258,7 @@ const handleAdd = async () => {
     addDialogVisible.value = false
     await loadProviders()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('providers.addFailed'))
+    ElNotification.error({ title: t('common.error'), message: e.response?.data?.message || t('providers.addFailed'), duration: 0 })
   } finally {
     submitting.value = false
   }
@@ -279,7 +279,7 @@ const handleEdit = async () => {
     editDialogVisible.value = false
     await loadProviders()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('providers.updateFailed'))
+    ElNotification.error({ title: t('common.error'), message: e.response?.data?.message || t('providers.updateFailed'), duration: 0 })
   } finally {
     submitting.value = false
   }
@@ -292,7 +292,7 @@ const handleDelete = async (row) => {
     ElMessage.success(t('providers.deleted'))
     await loadProviders()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.response?.data?.message || t('providers.deleteFailed'))
+    if (e !== 'cancel') ElNotification.error({ title: t('common.error'), message: e.response?.data?.message || t('providers.deleteFailed'), duration: 0 })
   }
 }
 
@@ -305,7 +305,7 @@ const viewDomains = async (row) => {
     const res = await listProviderDomains(row.id)
     domains.value = res.data || []
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('providers.fetchDomainsFailed'))
+    ElNotification.error({ title: t('common.error'), message: e.response?.data?.message || t('providers.fetchDomainsFailed'), duration: 0 })
   } finally {
     loadingDomains.value = false
   }
@@ -317,7 +317,7 @@ const handleClaim = async (domain) => {
     await claimDomain(currentProvider.value.id, { domain_name: domain.domain_name })
     ElMessage.success(t('providers.claimSuccess', { domain: domain.domain_name }))
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || t('providers.claimFailed'))
+    ElNotification.error({ title: t('common.error'), message: e.response?.data?.message || t('providers.claimFailed'), duration: 0 })
   } finally {
     claiming[domain.domain_name] = false
   }

@@ -40,6 +40,7 @@ export default {
     copy: 'Copy',
     copied: 'Copied',
     saved: 'Saved successfully',
+    error: 'Error',
   },
   login: {
     subtitle: 'Domain Allocation & DDNS Management',

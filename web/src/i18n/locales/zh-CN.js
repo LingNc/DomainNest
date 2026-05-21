@@ -40,6 +40,7 @@ export default {
     copy: '复制',
     copied: '已复制',
     saved: '保存成功',
+    error: '错误',
   },
   login: {
     subtitle: '域名分配与 DDNS 管理系统',
