@@ -31,6 +31,7 @@ func NewSyncService(db *gorm.DB, ddnsService *DDNSService, cfg *config.SyncConfi
 }
 
 func (s *SyncService) applyDefaults() {
+	s.cfg.Enabled = true
 	if s.cfg.Interval <= 0 {
 		s.cfg.Interval = 60
 	}
