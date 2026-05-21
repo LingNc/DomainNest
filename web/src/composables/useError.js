@@ -10,7 +10,7 @@ function ensureStyle() {
   style.id = STYLE_ID
   style.textContent = `
     .${CUSTOM_CLASS} { background: #fef0f0 !important; }
-    .${CUSTOM_CLASS} .el-message-box__header { background: #fde2e2; }
+    .${CUSTOM_CLASS} .el-message-box__header { background: #fef0f0 !important; }
     .${CUSTOM_CLASS} .el-message-box__title { color: #f56c6c !important; }
     .${CUSTOM_CLASS} .el-message-box__content { color: #c45656; }
   `
