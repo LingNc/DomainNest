@@ -176,6 +176,12 @@ body {
   color: #303133;
 }
 
+/* Fix dialog form padding balance: left-align labels so visual
+   distance from edge is symmetric with the input side */
+.el-dialog .el-form-item__label {
+  text-align: left;
+}
+
 /* Ensure el-dialog is vertically centered on all screen sizes */
 .el-overlay-dialog {
   display: flex !important;
