@@ -46,7 +46,6 @@
                 <el-button size="small" @click="handleExport('json')">{{ $t('domainDetail.exportJson') }}</el-button>
                 <el-button size="small" @click="handleExport('csv')">{{ $t('domainDetail.exportCsv') }}</el-button>
                 <el-button size="small" @click="showImport = true">{{ $t('domainDetail.import') }}</el-button>
-                <el-button size="small" @click="openBatchGroupDialog">{{ $t('domainDetail.batchGroup') }}</el-button>
                 <el-button type="primary" size="small" @click="openAddRecord" :disabled="domain?.status === 'archived'">
                   <el-icon><component :is="'Plus'" /></el-icon>
                   {{ $t('domainDetail.addRecord') }}
@@ -184,6 +183,8 @@
                     <el-tag type="success" size="small" style="margin-right:4px">{{ $t('domainDetail.materialized') }}</el-tag>
                     <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
                   </template>
+                  <el-button v-if="!row.own_node_id && row.host !== '@'" link type="success" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                  <el-button v-if="row.group_tag" link type="warning" size="small" @click="clearGroupTag(row)">{{ $t('domainDetail.removeFromGroup') }}</el-button>
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                   <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
@@ -294,6 +295,8 @@
                       <el-tag type="success" size="small" style="margin-right:4px">{{ $t('domainDetail.materialized') }}</el-tag>
                       <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
                     </template>
+                    <el-button v-if="!row.own_node_id && row.host !== '@'" link type="success" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                    <el-button v-if="row.group_tag" link type="warning" size="small" @click="clearGroupTag(row)">{{ $t('domainDetail.removeFromGroup') }}</el-button>
                     <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                     <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                     <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
@@ -741,7 +744,7 @@
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, transferDomain, deleteDomain, demoteNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
+import { getDomain, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
 import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag } from '../api/record'
 import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
@@ -1049,13 +1052,21 @@ const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
 const groupedFlatRecords = computed(() => {
   const recs = [...sortedRecords.value]
 
-  // Sort: provider first, then by group_tag, then by host
+  // Sort: provider first, then by group_tag, then by host or user's sort
   recs.sort((a, b) => {
     if (a.source === 'provider' && b.source !== 'provider') return -1
     if (a.source !== 'provider' && b.source === 'provider') return 1
     const tagA = a.source === 'provider' ? '___provider___' : (a.group_tag || '___ungrouped___')
     const tagB = b.source === 'provider' ? '___provider___' : (b.group_tag || '___ungrouped___')
     if (tagA !== tagB) return tagA.localeCompare(tagB)
+    // Within the same group, respect user's sort if set
+    if (sortBy.value) {
+      const order = sortOrder.value === 'asc' ? 1 : -1
+      const va = a[sortBy.value] ?? ''
+      const vb = b[sortBy.value] ?? ''
+      if (typeof va === 'string') return va.localeCompare(vb) * order
+      if (typeof va === 'number') return (va - vb) * order
+    }
     return a.host.localeCompare(b.host)
   })
 
@@ -1115,7 +1126,6 @@ const flatRowClass = ({ row }) => {
 
 const loadRecords = async () => {
   loading.value = true
-  collapsedGroups.clear()
   flatPage.value = 1
   try {
     // Load all records; filtering is done client-side via filteredRecords
@@ -1124,6 +1134,18 @@ const loadRecords = async () => {
     const res = await getRecords(domainId, params)
     records.value = res.data.items
     total.value = res.data.total
+
+    // Collapse all groups by default
+    collapsedGroups.clear()
+    for (const rec of records.value) {
+      if (rec.source === 'provider') {
+        collapsedGroups.add('__provider__')
+      } else if (rec.group_tag) {
+        collapsedGroups.add(rec.group_tag)
+      } else {
+        collapsedGroups.add('__ungrouped__')
+      }
+    }
   } finally {
     loading.value = false
   }
@@ -1564,6 +1586,25 @@ const handleCancelIndependence = async (row) => {
   }
 }
 
+const handleMakeIndependent = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      t('domainDetail.convertToNodeConfirm', { host: row.host }),
+      t('domainDetail.convertToNode'),
+      { type: 'warning' }
+    )
+    const res = await convertToNode(domainId, { host: row.host })
+    const count = res.data?.affected_records || 0
+    ElMessage.success(t('domainDetail.convertSuccess', { count }))
+    loadRecords()
+    loadDomain()
+  } catch (e) {
+    if (e !== 'cancel') {
+      showError(e.response?.data?.message || t('common.error'))
+    }
+  }
+}
+
 const handleDemoteNode = async () => {
   try {
     await ElMessageBox.confirm(
@@ -1825,6 +1866,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
 }
 .perm-user {
   font-weight: 500;
@@ -1841,6 +1883,10 @@ onMounted(() => {
   background: #f5f5f5;
   padding: 1px 6px;
   border-radius: 3px;
+}
+.perm-actions {
+  display: flex;
+  gap: 4px;
 }
 .host-rules {
   width: 100%;
