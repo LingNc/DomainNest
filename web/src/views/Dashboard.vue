@@ -132,6 +132,67 @@
           <el-table-column prop="created_at" :label="$t('dashboard.transferredAt')" width="170" />
         </el-table>
       </el-tab-pane>
+
+      <!-- Recycle Bin Tab -->
+      <el-tab-pane :label="$t('trash.title')" name="trash">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <el-button type="danger" size="small" @click="handleEmptyTrash" :disabled="trashTotal === 0">
+            <el-icon><component :is="'Delete'" /></el-icon>
+            {{ $t('trash.empty') }}
+          </el-button>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+          <el-input v-model="trashFilters.host" :placeholder="$t('trash.host')" clearable size="small" style="width:140px" @clear="loadTrash" @keyup.enter="loadTrash" />
+          <el-select v-model="trashFilters.record_type" :placeholder="$t('trash.type')" clearable size="small" style="width:120px" @change="loadTrash">
+            <el-option v-for="rt in trashRecordTypes" :key="rt.value" :label="rt.label" :value="rt.value" />
+          </el-select>
+          <el-select v-model="trashFilters.domain_id" :placeholder="$t('trash.domain')" clearable filterable size="small" style="width:180px" @change="loadTrash">
+            <el-option v-for="d in trashDomains" :key="d.id" :label="d.full_domain" :value="d.id" />
+          </el-select>
+          <el-date-picker v-model="trashFilters.dateRange" type="daterange" :range-separator="'-'" :start-placeholder="$t('trash.trashedAt')" :end-placeholder="$t('trash.trashedAt')" size="small" style="width:230px" value-format="YYYY-MM-DD" @change="loadTrash" />
+          <div class="filter-actions">
+            <el-button size="small" type="primary" @click="loadTrash">{{ $t('common.search') }}</el-button>
+            <el-button size="small" @click="resetTrashFilters">{{ $t('common.reset') }}</el-button>
+          </div>
+        </div>
+
+        <!-- Batch action bar -->
+        <div class="batch-bar" v-if="trashSelectedIds.length > 0">
+          <span>{{ $t('domainDetail.selectedCount', { count: trashSelectedIds.length }) }}</span>
+          <el-button size="small" type="success" @click="handleBatchRestore">{{ $t('trash.batchRestore') }}</el-button>
+          <el-button size="small" type="danger" @click="handleTrashBatchDelete">{{ $t('trash.batchDelete') }}</el-button>
+        </div>
+
+        <!-- Table -->
+        <el-table :data="trashItems" stripe v-loading="trashLoading" style="width:100%" @selection-change="handleTrashSelectionChange">
+          <el-table-column type="selection" width="40" />
+          <el-table-column prop="host" :label="$t('trash.host')" min-width="120" show-overflow-tooltip />
+          <el-table-column prop="full_domain" :label="$t('trash.domain')" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="record_type" :label="$t('trash.type')" width="100" />
+          <el-table-column prop="value" :label="$t('trash.value')" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="source" :label="$t('trash.source')" width="100">
+            <template #default="{ row }">
+              <el-tag v-if="row.source === 'provider'" size="small" type="warning">{{ $t('domainDetail.sourceProvider') }}</el-tag>
+              <el-tag v-else size="small" type="success">{{ $t('domainDetail.sourcePlatform') }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="trashed_at" :label="$t('trash.trashedAt')" width="170" />
+          <el-table-column :label="$t('common.actions')" width="150" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="handleRestore(row.id)">{{ $t('trash.restore') }}</el-button>
+              <el-button link type="danger" size="small" @click="handlePermanentDelete(row.id)">{{ $t('trash.permanentDelete') }}</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-empty v-if="!trashLoading && trashItems.length === 0" :description="$t('trash.noRecords')" />
+
+        <el-pagination v-if="trashTotal > trashPageSize" :current-page="trashPage" :page-size="trashPageSize" :total="trashTotal"
+          layout="total, sizes, prev, pager, next" :page-sizes="[20, 50, 100]"
+          @current-change="handleTrashPageChange" @size-change="handleTrashSizeChange" style="margin-top:16px" />
+      </el-tab-pane>
     </el-tabs>
 
     <!-- Create root domain dialog -->
@@ -230,6 +291,7 @@ import { getDomains, transferDomain, deleteDomain, demoteNode, getTransferredAwa
 import { createRootDomain } from '../api/admin'
 import { getMyPermissions, batchGrantPermissions } from '../api/permission'
 import { listProviders, listProviderDomains } from '../api/provider'
+import { listTrash, restoreRecord, permanentDelete, emptyTrash, batchRestore } from '../api/trash'
 import { searchAllUsers } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -275,6 +337,27 @@ const batchGrantForm = ref({
   allowed_types: [],
   target_user_ids: [],
 })
+
+// Recycle bin state
+const trashItems = ref([])
+const trashLoading = ref(false)
+const trashPage = ref(1)
+const trashPageSize = ref(20)
+const trashTotal = ref(0)
+const trashSelectedIds = ref([])
+const trashDomains = ref([])
+const trashFilters = reactive({ host: '', record_type: '', domain_id: '', dateRange: null })
+const trashRecordTypes = [
+  { label: 'A', value: 'A' },
+  { label: 'AAAA', value: 'AAAA' },
+  { label: 'CNAME', value: 'CNAME' },
+  { label: 'ALIAS', value: 'ALIAS' },
+  { label: 'MX', value: 'MX' },
+  { label: 'TXT', value: 'TXT' },
+  { label: 'CAA', value: 'CAA' },
+  { label: 'NS', value: 'NS' },
+  { label: 'SRV', value: 'SRV' },
+]
 
 const recordTypes = [
   { label: 'A', value: 'A' },
@@ -634,11 +717,132 @@ const handleBatchDelete = async () => {
   loadDomains()
 }
 
+// Recycle bin functions
+const loadTrash = async () => {
+  trashLoading.value = true
+  try {
+    const params = { page: trashPage.value, page_size: trashPageSize.value }
+    if (trashFilters.host) params.host = trashFilters.host
+    if (trashFilters.record_type) params.record_type = trashFilters.record_type
+    if (trashFilters.domain_id) params.domain_id = trashFilters.domain_id
+    if (trashFilters.dateRange && trashFilters.dateRange.length === 2) {
+      params.trashed_after = trashFilters.dateRange[0]
+      params.trashed_before = trashFilters.dateRange[1]
+    }
+    const res = await listTrash(params)
+    trashItems.value = res.data.items || []
+    trashTotal.value = res.data.total || 0
+  } finally {
+    trashLoading.value = false
+  }
+}
+
+const loadTrashDomains = async () => {
+  try {
+    const res = await getDomains()
+    const flatten = (nodes) => {
+      const result = []
+      for (const n of nodes) {
+        result.push({ id: n.id, full_domain: n.full_domain })
+        if (n.children) result.push(...flatten(n.children))
+      }
+      return result
+    }
+    trashDomains.value = flatten(res.data || [])
+  } catch { /* ignore */ }
+}
+
+const handleTrashSelectionChange = (rows) => {
+  trashSelectedIds.value = rows.map(r => r.id)
+}
+
+const handleRestore = async (id) => {
+  await restoreRecord(id)
+  ElMessage.success(t('trash.restoreSuccess'))
+  loadTrash()
+}
+
+const handlePermanentDelete = async (id) => {
+  try {
+    await ElMessageBox.confirm(
+      t('trash.permanentDeleteConfirm'),
+      t('trash.permanentDelete'),
+      { type: 'warning', confirmButtonText: t('common.confirmDelete') }
+    )
+    await permanentDelete(id)
+    ElMessage.success(t('trash.deleteSuccess'))
+    loadTrash()
+  } catch (e) {
+    if (e === 'cancel') return
+  }
+}
+
+const handleBatchRestore = async () => {
+  await batchRestore(trashSelectedIds.value)
+  ElMessage.success(t('trash.batchRestoreSuccess', { count: trashSelectedIds.value.length }))
+  trashSelectedIds.value = []
+  loadTrash()
+}
+
+const handleTrashBatchDelete = async () => {
+  try {
+    await ElMessageBox.confirm(
+      t('trash.permanentDeleteConfirm'),
+      t('trash.batchDelete'),
+      { type: 'warning', confirmButtonText: t('common.confirmDelete') }
+    )
+    for (const id of trashSelectedIds.value) {
+      await permanentDelete(id)
+    }
+    ElMessage.success(t('trash.batchDeleteSuccess', { count: trashSelectedIds.value.length }))
+    trashSelectedIds.value = []
+    loadTrash()
+  } catch (e) {
+    if (e === 'cancel') return
+  }
+}
+
+const handleEmptyTrash = async () => {
+  try {
+    await ElMessageBox.confirm(
+      t('trash.emptyConfirm'),
+      t('trash.empty'),
+      { type: 'error', confirmButtonText: t('common.confirmDelete') }
+    )
+    await emptyTrash()
+    ElMessage.success(t('trash.emptySuccess'))
+    loadTrash()
+  } catch (e) {
+    if (e === 'cancel') return
+  }
+}
+
+const resetTrashFilters = () => {
+  trashFilters.host = ''
+  trashFilters.record_type = ''
+  trashFilters.domain_id = ''
+  trashFilters.dateRange = null
+  trashPage.value = 1
+  loadTrash()
+}
+
+const handleTrashPageChange = (p) => {
+  trashPage.value = p
+  loadTrash()
+}
+
+const handleTrashSizeChange = (s) => {
+  trashPageSize.value = s
+  trashPage.value = 1
+  loadTrash()
+}
+
 onMounted(() => {
   loadDomains()
   loadPermissions()
   loadProviders()
   loadTransferredAway()
+  loadTrashDomains()
 
   // WebSocket listener for tree updates
   const { on: wsOn, off: wsOff } = useWebSocket()
@@ -651,6 +855,13 @@ onMounted(() => {
   onUnmounted(() => {
     wsOff('domain_tree_update', handleTreeUpdate)
   })
+})
+
+// Load trash when tab becomes active
+watch(activeTab, (tab) => {
+  if (tab === 'trash') {
+    loadTrash()
+  }
 })
 </script>
 
@@ -713,6 +924,18 @@ onMounted(() => {
   padding: 8px 12px;
   background: #f0f9ff;
   border-radius: 4px;
+}
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .managed-group {
   margin-bottom: 12px;
