@@ -19,3 +19,5 @@ export const importRecords = (nodeId, data, format) => {
 
 export const checkRecordConflict = (nodeId, data) =>
   request.post(`/domains/${nodeId}/records/check-conflict`, data)
+
+export const batchTagRecords = (data) => request.put('/records/batch-tag', data)

@@ -850,6 +850,23 @@ const handleReactivate = async () => {
   loadArchiveInfo()
 }
 
+const openTagDialog = (row) => {
+  tagForm.value = { record_ids: [row.id], group_tag: '' }
+  showTagDialog.value = true
+}
+
+const clearGroupTag = async (row) => {
+  await batchTagRecords({ record_ids: [row.id], group_tag: '' })
+  loadRecords()
+}
+
+const handleSetTag = async () => {
+  await batchTagRecords(tagForm.value)
+  ElMessage.success(t('domainDetail.tagUpdated'))
+  showTagDialog.value = false
+  loadRecords()
+}
+
 const onTypeChange = () => {
   recordForm.value.value = ''
   recordForm.value.priority = null
@@ -1442,5 +1459,11 @@ onMounted(() => {
   background: #f5f7fa;
   border-radius: 4px;
   margin-bottom: 6px;
+}
+.view-toggle {
+  margin-bottom: 12px;
+}
+:deep(.virtual-row) {
+  opacity: 0.6;
 }
 </style>
