@@ -7,5 +7,6 @@ export const transferDomain = (id, data) => request.post(`/domains/${id}/transfe
 export const deleteDomain = (id) => request.delete(`/domains/${id}`)
 
 export const convertToNode = (parentId, data) => request.post(`/domains/${parentId}/nodes/convert`, data)
+export const transferRecordsByHost = (parentId, data) => request.post(`/domains/${parentId}/records/transfer`, data)
 export const demoteNode = (nodeId) => request.post(`/domains/${nodeId}/nodes/demote`)
 export const getConversionLogs = (nodeId) => request.get(`/domains/${nodeId}/nodes/conversion-logs`)

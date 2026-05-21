@@ -59,6 +59,7 @@
             <el-button size="small" type="success" @click="handleBatchToggle(true)">{{ $t('domainDetail.batchEnable') }}</el-button>
             <el-button size="small" type="warning" @click="handleBatchToggle(false)">{{ $t('domainDetail.batchDisable') }}</el-button>
             <el-button size="small" type="danger" @click="handleBatchDelete">{{ $t('domainDetail.batchDelete') }}</el-button>
+            <el-button size="small" type="warning" @click="showBatchTransfer = true">{{ $t('domainDetail.batchTransfer') }}</el-button>
           </div>
 
           <el-table :data="records" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id">
@@ -101,6 +102,7 @@
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                 <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
+                <el-button v-if="row.host !== '@'" link type="warning" size="small" @click="openTransferRecord(row)">{{ $t('domainDetail.transfer') }}</el-button>
                 <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
               </template>
             </el-table-column>
@@ -420,6 +422,77 @@
       </el-table>
     </el-dialog>
 
+    <!-- batch transfer dialog -->
+    <el-dialog v-model="showBatchTransfer" :title="$t('domainDetail.transferSubdomain')" width="560px" destroy-on-close>
+      <el-alert type="warning" :closable="false" style="margin-bottom:16px">
+        {{ $t('domainDetail.transferConsequenceWarning') }}
+      </el-alert>
+      <div style="margin-bottom:16px">
+        <div style="font-weight:600;margin-bottom:8px">{{ $t('domainDetail.transferHostsSummary') }}</div>
+        <div v-for="group in batchTransferGroups" :key="group.host" class="transfer-host-item">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:500">{{ group.host }}</span>
+            <el-tag size="small">{{ $t('domainDetail.hostRecordsCount', { count: group.count }) }}</el-tag>
+            <el-tag v-if="group.blocked" type="danger" size="small">{{ $t('domainDetail.hostStatusBlocked') }}</el-tag>
+            <el-tag v-else-if="group.materialized" type="success" size="small">{{ $t('domainDetail.hostStatusMaterialized') }}</el-tag>
+            <el-tag v-else type="info" size="small">{{ $t('domainDetail.hostStatusImplicit') }}</el-tag>
+          </div>
+          <div v-if="group.blocked" style="font-size:12px;color:#909399;margin-top:2px">
+            {{ $t('domainDetail.transferRootHint') }}
+          </div>
+        </div>
+      </div>
+      <el-form label-width="80px">
+        <el-form-item :label="$t('domainDetail.targetUser')">
+          <el-select v-model="batchTransferForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
+            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+              <div style="display:flex;align-items:center;gap:8px">
+                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ u.nickname || u.username }}</span>
+                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showBatchTransfer = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="warning" @click="handleBatchTransfer">{{ $t('domainDetail.batchTransfer') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- single transfer dialog -->
+    <el-dialog v-model="showTransferRecord" :title="$t('domainDetail.transferSubdomainTitle', { host: transferRecordForm.host })" width="480px" destroy-on-close>
+      <el-alert type="warning" :closable="false" style="margin-bottom:16px">
+        {{ $t('domainDetail.transferConsequenceWarning') }}
+      </el-alert>
+      <div style="margin-bottom:16px">
+        <div style="font-weight:600;margin-bottom:4px">{{ transferRecordForm.host }}</div>
+        <div style="font-size:13px;color:#606266">
+          {{ $t('domainDetail.hostRecordsCount', { count: transferRecordForm.recordCount }) }}
+        </div>
+      </div>
+      <el-form label-width="80px">
+        <el-form-item :label="$t('domainDetail.targetUser')">
+          <el-select v-model="transferRecordForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
+            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
+              <div style="display:flex;align-items:center;gap:8px">
+                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
+                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                <span>{{ u.nickname || u.username }}</span>
+                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showTransferRecord = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="warning" @click="handleSingleTransfer">{{ $t('domainDetail.transfer') }}</el-button>
+      </template>
+    </el-dialog>
+
     <!-- revoke permission - record handling -->
     <el-dialog v-model="showReturnDialog" :title="$t('domainDetail.returnDialogTitle')" width="480px" destroy-on-close>
       <el-alert type="warning" :closable="false" style="margin-bottom:16px">
@@ -458,7 +531,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, getConversionLogs } from '../api/domain'
+import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, getConversionLogs, transferRecordsByHost } from '../api/domain'
 import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
@@ -491,6 +564,7 @@ const records = ref([])
 const total = ref(0)
 const loading = ref(false)
 const selectedIds = ref([])
+const selectedRows = ref([])
 
 const showAddRecord = ref(false)
 const showEditRecord = ref(false)
@@ -525,6 +599,11 @@ const returnTargetUserId = ref(null)
 const showConversionLogs = ref(false)
 const conversionLogs = ref([])
 const loadingConversionLogs = ref(false)
+
+const showBatchTransfer = ref(false)
+const batchTransferForm = ref({ target_user_id: null })
+const showTransferRecord = ref(false)
+const transferRecordForm = ref({ host: '', recordCount: 0, target_user_id: null })
 
 const statusType = (s) => s === 'synced' ? 'success' : s === 'failed' ? 'danger' : s === 'disabled' ? 'info' : 'warning'
 const statusLabel = (s) => ({ synced: t('common.synced'), failed: t('domainDetail.syncFailed'), pending: t('domainDetail.pendingSync'), disabled: t('domainDetail.disabled') }[s] || s)
@@ -633,6 +712,7 @@ const handleDeleteRecord = async (id) => {
 
 const handleSelectionChange = (rows) => {
   selectedIds.value = rows.map(r => r.id)
+  selectedRows.value = rows
 }
 
 const handleBatchDelete = async () => {
@@ -926,6 +1006,109 @@ const searchUsersRemote = async (query) => {
   searchingUsers.value = false
 }
 
+const groupSelectedByHost = () => {
+  const groups = {}
+  for (const row of selectedRows.value) {
+    const host = row.host
+    if (!groups[host]) {
+      groups[host] = { host, count: 0, materialized: !!row.own_node_id, blocked: host === '@' }
+    }
+    groups[host].count++
+  }
+  return Object.values(groups)
+}
+
+const batchTransferGroups = computed(() => groupSelectedByHost())
+
+const openTransferRecord = (row) => {
+  const hostRecords = records.value.filter(r => r.host === row.host)
+  transferRecordForm.value = { host: row.host, recordCount: hostRecords.length, target_user_id: null }
+  showTransferRecord.value = true
+}
+
+const showTransferResults = (results, targetUserLabel) => {
+  const successItems = results.filter(r => r.status === 'transferred')
+  const errorItems = results.filter(r => r.status === 'error')
+
+  let html = ''
+  for (const r of successItems) {
+    html += `<div style="color:#67c23a;margin-bottom:4px">&#10003; ${r.full_domain || r.host} &rarr; ${targetUserLabel}</div>`
+  }
+  for (const r of errorItems) {
+    const reason = r.message || r.error || t('common.error')
+    html += `<div style="color:#f56c6c;margin-bottom:4px">&#10007; ${r.host}: ${reason}</div>`
+  }
+
+  const title = errorItems.length > 0
+    ? t('domainDetail.transferPartial')
+    : t('domainDetail.transferCompleted')
+
+  ElMessageBox.alert(html, title, { dangerouslyUseHTMLString: true, confirmButtonText: t('common.confirm') })
+}
+
+const handleBatchTransfer = async () => {
+  const groups = batchTransferGroups.value.filter(g => !g.blocked)
+  if (groups.length === 0) {
+    ElMessage.warning(t('domainDetail.transferRootHint'))
+    return
+  }
+  if (!batchTransferForm.value.target_user_id) {
+    ElMessage.warning(t('domainDetail.searchUser'))
+    return
+  }
+
+  await ElMessageBox.confirm(
+    t('domainDetail.confirmBatchTransferMsg', { count: groups.length }),
+    t('domainDetail.confirmBatchTransfer'),
+    { type: 'warning' }
+  )
+
+  try {
+    const res = await transferRecordsByHost(domainId, {
+      hosts: groups.map(g => g.host),
+      target_user_id: batchTransferForm.value.target_user_id,
+    })
+    const targetLabel = selectableUsers.value.find(u => u.id === batchTransferForm.value.target_user_id)
+      ? `@${selectableUsers.value.find(u => u.id === batchTransferForm.value.target_user_id).username}`
+      : `#${batchTransferForm.value.target_user_id}`
+    showTransferResults(res.data.results || [], targetLabel)
+    showBatchTransfer.value = false
+    batchTransferForm.value = { target_user_id: null }
+    loadRecords()
+  } catch (e) {
+    showError(e.response?.data?.message || t('common.error'))
+  }
+}
+
+const handleSingleTransfer = async () => {
+  if (!transferRecordForm.value.target_user_id) {
+    ElMessage.warning(t('domainDetail.searchUser'))
+    return
+  }
+
+  await ElMessageBox.confirm(
+    t('domainDetail.confirmSingleTransferMsg', { host: transferRecordForm.value.host, count: transferRecordForm.value.recordCount }),
+    t('domainDetail.confirmSingleTransfer'),
+    { type: 'warning' }
+  )
+
+  try {
+    const res = await transferRecordsByHost(domainId, {
+      hosts: [transferRecordForm.value.host],
+      target_user_id: transferRecordForm.value.target_user_id,
+    })
+    const targetLabel = selectableUsers.value.find(u => u.id === transferRecordForm.value.target_user_id)
+      ? `@${selectableUsers.value.find(u => u.id === transferRecordForm.value.target_user_id).username}`
+      : `#${transferRecordForm.value.target_user_id}`
+    showTransferResults(res.data.results || [], targetLabel)
+    showTransferRecord.value = false
+    transferRecordForm.value = { host: '', recordCount: 0, target_user_id: null }
+    loadRecords()
+  } catch (e) {
+    showError(e.response?.data?.message || t('common.error'))
+  }
+}
+
 onMounted(() => {
   loadData()
 })
@@ -1015,5 +1198,11 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+}
+.transfer-host-item {
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  margin-bottom: 6px;
 }
 </style>
