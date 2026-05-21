@@ -450,36 +450,6 @@
       </template>
     </el-dialog>
 
-    <!-- single transfer dialog -->
-    <el-dialog v-model="showTransferRecord" :title="$t('domainDetail.transferSubdomainTitle', { host: transferRecordForm.host })" width="480px" destroy-on-close>
-      <el-alert type="warning" :closable="false" style="margin-bottom:16px">
-        {{ $t('domainDetail.transferConsequenceWarning') }}
-      </el-alert>
-      <div style="margin-bottom:16px">
-        <div style="font-weight:600;margin-bottom:4px">{{ transferRecordForm.host }}</div>
-        <div style="font-size:13px;color:#606266">
-          {{ $t('domainDetail.hostRecordsCount', { count: transferRecordForm.recordCount }) }}
-        </div>
-      </div>
-      <el-form label-width="80px">
-        <el-form-item :label="$t('domainDetail.targetUser')">
-          <el-select v-model="transferRecordForm.target_user_id" filterable remote :remote-method="searchUsersRemote" :loading="searchingUsers" :placeholder="$t('domainDetail.searchUser')" style="width:100%">
-            <el-option v-for="u in selectableUsers" :key="u.id" :label="`${u.nickname || u.username} (@${u.username})`" :value="u.id">
-              <div style="display:flex;align-items:center;gap:8px">
-                <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
-                <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
-                <span>{{ u.nickname || u.username }}</span>
-                <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
-              </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showTransferRecord = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="warning" @click="handleSingleTransfer">{{ $t('domainDetail.transfer') }}</el-button>
-      </template>
-    </el-dialog>
 
     <!-- conflict detection dialog -->
     <el-dialog v-model="showConflictDialog" :title="$t('domainDetail.conflictTitle')" width="520px" destroy-on-close>
@@ -606,8 +576,6 @@ const returnTargetUserId = ref(null)
 
 const showBatchTransfer = ref(false)
 const batchTransferForm = ref({ target_user_id: null })
-const showTransferRecord = ref(false)
-const transferRecordForm = ref({ host: '', recordCount: 0, target_user_id: null })
 
 // Conflict detection state
 const showConflictDialog = ref(false)
@@ -1067,11 +1035,6 @@ const groupSelectedByHost = () => {
 
 const batchTransferGroups = computed(() => groupSelectedByHost())
 
-const openTransferRecord = (row) => {
-  const hostRecords = records.value.filter(r => r.host === row.host)
-  transferRecordForm.value = { host: row.host, recordCount: hostRecords.length, target_user_id: null }
-  showTransferRecord.value = true
-}
 
 const showTransferResults = (results, targetUserLabel) => {
   const successItems = results.filter(r => r.status === 'transferred')
@@ -1127,34 +1090,6 @@ const handleBatchTransfer = async () => {
   }
 }
 
-const handleSingleTransfer = async () => {
-  if (!transferRecordForm.value.target_user_id) {
-    ElMessage.warning(t('domainDetail.searchUser'))
-    return
-  }
-
-  await ElMessageBox.confirm(
-    t('domainDetail.confirmSingleTransferMsg', { host: transferRecordForm.value.host, count: transferRecordForm.value.recordCount }),
-    t('domainDetail.confirmSingleTransfer'),
-    { type: 'warning' }
-  )
-
-  try {
-    const res = await transferRecordsByHost(domainId, {
-      hosts: [transferRecordForm.value.host],
-      target_user_id: transferRecordForm.value.target_user_id,
-    })
-    const targetLabel = selectableUsers.value.find(u => u.id === transferRecordForm.value.target_user_id)
-      ? `@${selectableUsers.value.find(u => u.id === transferRecordForm.value.target_user_id).username}`
-      : `#${transferRecordForm.value.target_user_id}`
-    showTransferResults(res.data.results || [], targetLabel)
-    showTransferRecord.value = false
-    transferRecordForm.value = { host: '', recordCount: 0, target_user_id: null }
-    loadRecords()
-  } catch (e) {
-    showError(e.response?.data?.message || t('common.error'))
-  }
-}
 
 onMounted(() => {
   loadData()
