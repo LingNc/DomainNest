@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -58,6 +59,30 @@ func (s *RecordService) ListRecords(nodeID, userID uint64, q RecordQuery) (*Reco
 	}
 
 	query := s.db.Model(&model.DNSRecord{}).Where("node_id = ?", nodeID)
+
+	// Apply permission-based filters for non-owner users
+	var perm model.DomainPermission
+	isOwner := false
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err == nil && node.OwnerID == userID {
+		isOwner = true
+	}
+	if !isOwner {
+		if err := s.db.Where("user_id = ? AND domain_node_id = ? AND status = 'active'", userID, nodeID).First(&perm).Error; err == nil {
+			// Filter by allowed types
+			if perm.AllowedTypes != "" && perm.AllowedTypes != "[]" {
+				var types []string
+				if jsonErr := jsonUnmarshal(perm.AllowedTypes, &types); jsonErr == nil && len(types) > 0 {
+					query = query.Where("record_type IN ?", types)
+				}
+			}
+			// Filter by host prefix (backward compat)
+			if perm.HostPrefix != "" {
+				query = query.Where("host LIKE ?", perm.HostPrefix+"%")
+			}
+		}
+	}
+
 	if q.Host != "" {
 		query = query.Where("host LIKE ?", "%"+q.Host+"%")
 	}
@@ -88,6 +113,12 @@ func (s *RecordService) ListRecords(nodeID, userID uint64, q RecordQuery) (*Reco
 	query.Order("id ASC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&records)
 
 	return &RecordListResult{Items: records, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
+}
+
+// jsonUnmarshal is a helper to unmarshal JSON strings.
+func jsonUnmarshal(s string, v interface{}) error {
+	b := []byte(s)
+	return json.Unmarshal(b, v)
 }
 
 func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, value string, ttl int, priority *int, line string, extraArgs ...interface{}) (*model.DNSRecord, error) {
