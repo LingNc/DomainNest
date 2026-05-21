@@ -485,6 +485,44 @@ func (s *DomainService) GetConversionLogs(nodeID uint64) ([]model.NodeConversion
 	return logs, err
 }
 
+// AdminTransferNode is like TransferNode but skips the permission check.
+// Used by admin handlers where the caller is already verified as admin.
+func (s *DomainService) AdminTransferNode(nodeID, targetUserID uint64) error {
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err != nil {
+		return errors.New("节点不存在")
+	}
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var nodeIDs []uint64
+		err := tx.Raw(`
+			WITH RECURSIVE subtree AS (
+				SELECT id FROM domain_nodes WHERE id = ? AND deleted_at IS NULL
+				UNION ALL
+				SELECT dn.id FROM domain_nodes dn JOIN subtree s ON dn.parent_id = s.id WHERE dn.deleted_at IS NULL
+			)
+			SELECT id FROM subtree
+		`, nodeID).Scan(&nodeIDs).Error
+		if err != nil {
+			return fmt.Errorf("failed to find subtree: %w", err)
+		}
+
+		if err := tx.Model(&model.DomainNode{}).Where("id IN ?", nodeIDs).Update("owner_id", targetUserID).Error; err != nil {
+			return fmt.Errorf("failed to transfer nodes: %w", err)
+		}
+
+		for _, nid := range nodeIDs {
+			tx.Create(&model.DomainTransferLog{
+				NodeID:     nid,
+				FromUserID: node.OwnerID,
+				ToUserID:   targetUserID,
+			})
+		}
+
+		return nil
+	})
+}
+
 func (s *DomainService) GetTransferredAwayNodes(userID uint64) ([]model.DomainTransferLog, error) {
 	var logs []model.DomainTransferLog
 	err := s.db.

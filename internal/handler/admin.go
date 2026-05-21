@@ -8,6 +8,8 @@ import (
 
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
+	"domainnest/internal/service"
+	"domainnest/internal/ws"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -15,11 +17,12 @@ import (
 )
 
 type AdminHandler struct {
-	db *gorm.DB
+	db            *gorm.DB
+	domainService *service.DomainService
 }
 
-func NewAdminHandler(db *gorm.DB) *AdminHandler {
-	return &AdminHandler{db: db}
+func NewAdminHandler(db *gorm.DB, domainService *service.DomainService) *AdminHandler {
+	return &AdminHandler{db: db, domainService: domainService}
 }
 
 func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
@@ -104,7 +107,7 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 	}
 	oldOwnerID := node.OwnerID
 
-	if err := h.db.Model(&model.DomainNode{}).Where("id = ?", nodeID).Update("owner_id", req.UserID).Error; err != nil {
+	if err := h.domainService.AdminTransferNode(nodeID, req.UserID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
@@ -112,6 +115,15 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 	callerID := c.GetUint64("user_id")
 	middleware.LogOperationUser(h.db, callerID, req.UserID, "assign_domain", "domain_node", &nodeID,
 		map[string]interface{}{"old_owner_id": oldOwnerID, "new_owner_id": req.UserID}, c.ClientIP())
+
+	ws.BroadcastToUser(oldOwnerID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "transfer",
+		"node_id": nodeID,
+	})
+	ws.BroadcastToUser(req.UserID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "transfer_received",
+		"node_id": nodeID,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "域名分配成功"})
 }
@@ -499,4 +511,118 @@ func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
 	middleware.LogOperationUser(h.db, callerID, targetID, "demote_from_admin", "user", &targetID, nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "管理员已降级为普通用户"})
+}
+
+func (h *AdminHandler) GetDomainTree(c *gin.Context) {
+	var nodes []model.DomainNode
+	if err := h.db.Preload("Owner").Order("id ASC").Find(&nodes).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	// Count permissions per node
+	nodeIDs := make([]uint64, len(nodes))
+	for i, n := range nodes {
+		nodeIDs[i] = n.ID
+	}
+
+	permCounts := make(map[uint64]int64)
+	if len(nodeIDs) > 0 {
+		type permCount struct {
+			DomainNodeID uint64
+			Count        int64
+		}
+		var results []permCount
+		h.db.Model(&model.DomainPermission{}).
+			Where("domain_node_id IN ?", nodeIDs).
+			Select("domain_node_id, count(*) as count").
+			Group("domain_node_id").
+			Scan(&results)
+		for _, r := range results {
+			permCounts[r.DomainNodeID] = r.Count
+		}
+	}
+
+	type treeNode struct {
+		ID              uint64      `json:"id"`
+		ParentID        *uint64     `json:"parent_id"`
+		FullDomain      string      `json:"full_domain"`
+		Owner           model.User  `json:"owner"`
+		Status          string      `json:"status"`
+		PermissionCount int64       `json:"permission_count"`
+		CreatedAt       interface{} `json:"created_at"`
+	}
+
+	items := make([]treeNode, len(nodes))
+	for i, n := range nodes {
+		items[i] = treeNode{
+			ID:              n.ID,
+			ParentID:        n.ParentID,
+			FullDomain:      n.FullDomain,
+			Owner:           n.Owner,
+			Status:          n.Status,
+			PermissionCount: permCounts[n.ID],
+			CreatedAt:       n.CreatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": items})
+}
+
+func (h *AdminHandler) GetDomainDetail(c *gin.Context) {
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	var node model.DomainNode
+	if err := h.db.Preload("Owner").Preload("Provider").First(&node, nodeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "域名节点不存在"})
+		return
+	}
+
+	var permissions []model.DomainPermission
+	h.db.Where("domain_node_id = ?", nodeID).Preload("User").Find(&permissions)
+
+	transferHistory, _ := h.domainService.GetTransferHistory(nodeID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"node":             node,
+			"permissions":      permissions,
+			"transfer_history": transferHistory,
+		},
+	})
+}
+
+func (h *AdminHandler) RevokePermission(c *gin.Context) {
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	userID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		return
+	}
+
+	result := h.db.Where("domain_node_id = ? AND user_id = ?", nodeID, userID).Delete(&model.DomainPermission{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "权限记录不存在"})
+		return
+	}
+
+	callerID := c.GetUint64("user_id")
+	middleware.LogOperationUser(h.db, callerID, userID, "revoke_permission", "domain_node", &nodeID,
+		map[string]interface{}{"target_user_id": userID}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已撤销"})
 }

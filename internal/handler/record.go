@@ -18,11 +18,12 @@ import (
 type RecordHandler struct {
 	recordService   *service.RecordService
 	providerService *service.ProviderService
+	ddnsService     *service.DDNSService
 	db              *gorm.DB
 }
 
-func NewRecordHandler(recordService *service.RecordService, providerService *service.ProviderService, db *gorm.DB) *RecordHandler {
-	return &RecordHandler{recordService: recordService, providerService: providerService, db: db}
+func NewRecordHandler(recordService *service.RecordService, providerService *service.ProviderService, ddnsService *service.DDNSService, db *gorm.DB) *RecordHandler {
+	return &RecordHandler{recordService: recordService, providerService: providerService, ddnsService: ddnsService, db: db}
 }
 
 func (h *RecordHandler) List(c *gin.Context) {
@@ -499,4 +500,48 @@ func mapProviderRRToHost(rr, domainName string) string {
 		return strings.TrimSuffix(rr, suffix)
 	}
 	return rr
+}
+
+func (h *RecordHandler) SyncNow(c *gin.Context) {
+	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		return
+	}
+
+	// Verify record exists and user has write permission on the node
+	var record model.DNSRecord
+	if err := h.db.First(&record, recordID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在"})
+		return
+	}
+
+	userID := c.GetUint64("user_id")
+	if err := h.recordService.CheckPermission(userID, record.NodeID, 2); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "无权操作"})
+		return
+	}
+
+	syncErr := h.ddnsService.SyncRecord(recordID)
+
+	// Create sync log entry
+	status := "success"
+	errMsg := ""
+	if syncErr != nil {
+		status = "failed"
+		errMsg = syncErr.Error()
+	}
+	h.db.Create(&model.SyncLog{
+		RecordID: recordID,
+		Action:   "manual_sync",
+		Status:   status,
+		Error:    errMsg,
+	})
+
+	if syncErr != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"status": "failed", "error": syncErr.Error()}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"status": "success"}})
 }
