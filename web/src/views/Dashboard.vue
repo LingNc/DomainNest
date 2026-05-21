@@ -24,10 +24,10 @@
         <template v-else>
           <!-- Batch action bar -->
           <div class="batch-bar" v-if="checkedNodes.length > 0">
-            <span>{{ $t('dashboard.selectedCount', { count: checkedNodes.length }) }}</span>
-            <el-button size="small" type="warning" @click="openBatchTransfer">{{ $t('dashboard.batchTransfer') }}</el-button>
-            <el-button size="small" type="primary" @click="openBatchAuthorize">{{ $t('dashboard.batchAuthorize') }}</el-button>
-            <el-button size="small" type="danger" @click="handleBatchCancelIndependence" v-if="hasMaterializedSelected">{{ $t('dashboard.batchCancelIndependence') }}</el-button>
+            <span>{{ $t('domainDetail.selectedCount', { count: checkedNodes.length }) }}</span>
+            <el-button size="small" type="warning" @click="openBatchTransfer">{{ $t('domainDetail.batchTransfer') }}</el-button>
+            <el-button size="small" type="primary" @click="openBatchAuthorize">{{ $t('domainDetail.batchAuthorize') }}</el-button>
+            <el-button size="small" type="danger" @click="handleBatchCancelIndependence" v-if="hasMaterializedSelected">{{ $t('domainDetail.batchCancelIndependence') }}</el-button>
           </div>
 
           <el-card>
@@ -78,11 +78,11 @@
             <span class="group-domain">{{ group.rootDomain }}</span>
             <el-divider direction="vertical" />
             <span class="group-grantor">
-              {{ $t('dashboard.grantedBy') }}:
+              {{ $t('domainDetail.grantedBy') }}:
               <el-avatar v-if="group.grantor?.avatar" :src="group.grantor.avatar" :size="20" style="vertical-align:middle;margin:0 4px" />
               {{ group.grantor?.username || $t('common.unknown') }}
             </span>
-            <el-tag size="small" type="info" style="margin-left:8px">{{ group.entries.length }} {{ $t('dashboard.permissions') }}</el-tag>
+            <el-tag size="small" type="info" style="margin-left:8px">{{ group.entries.length }} {{ $t('domainDetail.permissions') }}</el-tag>
           </div>
 
           <div v-if="group.expanded" class="group-entries">
@@ -102,7 +102,7 @@
                 <el-tag v-if="entry.allowedTypesStr" size="small" type="info" style="margin-left:4px">{{ entry.allowedTypesStr }}</el-tag>
               </div>
               <div class="entry-actions">
-                <el-button size="small" type="primary" @click="$router.push(`/domains/${entry.domain_node_id}`)">{{ $t('dashboard.viewDomain') }}</el-button>
+                <el-button size="small" type="primary" @click="$router.push(`/domains/${entry.domain_node_id}`)">{{ $t('domainDetail.viewDomain') }}</el-button>
               </div>
             </div>
           </div>
@@ -157,9 +157,9 @@
     </el-dialog>
 
     <!-- Batch authorize dialog -->
-    <el-dialog v-model="showBatchAuthorize" :title="$t('dashboard.batchAuthorize')" width="520px" destroy-on-close>
+    <el-dialog v-model="showBatchAuthorize" :title="$t('domainDetail.batchAuthorize')" width="520px" destroy-on-close>
       <div style="margin-bottom:16px">
-        <div style="font-weight:600;margin-bottom:8px">{{ $t('dashboard.selectedDomains') }}</div>
+        <div style="font-weight:600;margin-bottom:8px">{{ $t('domainDetail.selectedDomains') }}</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px">
           <el-tag v-for="node in checkedNodes" :key="node.id" size="small">{{ node.full_domain }}</el-tag>
         </div>
@@ -192,7 +192,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showBatchAuthorize = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleBatchAuthorize">{{ $t('dashboard.confirmBatchAuthorize') }}</el-button>
+        <el-button type="primary" @click="handleBatchAuthorize">{{ $t('domainDetail.confirmBatchAuthorize') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -311,23 +311,23 @@ const permissionGroups = computed(() => {
     }
 
     let scopeType = 'full'
-    let scopeLabel = t('dashboard.scopeFull')
+    let scopeLabel = t('domainDetail.scopeFull')
     let ruleSummary = ''
 
     if (rules && Array.isArray(rules) && rules.length > 0) {
       const valid = rules.filter(r => r.value)
       if (valid.length === 1 && valid[0].type === 'exact') {
         scopeType = 'exact'
-        scopeLabel = t('dashboard.scopeExact')
+        scopeLabel = t('domainDetail.scopeExact')
       } else if (valid.length > 0) {
         scopeType = 'pattern'
-        scopeLabel = t('dashboard.scopePattern')
+        scopeLabel = t('domainDetail.scopePattern')
         const typeMap = { exact: t('domainDetail.ruleExact'), prefix: t('domainDetail.rulePrefix'), suffix: t('domainDetail.ruleSuffix'), contains: t('domainDetail.ruleContains'), regex: t('domainDetail.ruleRegex') }
         ruleSummary = valid.map(r => `${typeMap[r.type] || r.type}: ${r.value}`).join(', ')
       }
     } else if (perm.host_prefix) {
       scopeType = 'exact'
-      scopeLabel = t('dashboard.scopeExact')
+      scopeLabel = t('domainDetail.scopeExact')
       ruleSummary = perm.host_prefix
     }
 
@@ -451,12 +451,12 @@ const handleTransferConfirm = async () => {
     // Batch transfer
     const nodes = checkedNodes.value.filter(n => n.owner_id === auth.user?.id)
     if (nodes.length === 0) {
-      ElMessage.warning(t('dashboard.noOwnedDomainsSelected'))
+      ElMessage.warning(t('domainDetail.noOwnedDomainsSelected'))
       return
     }
     await ElMessageBox.confirm(
-      t('dashboard.confirmBatchTransferMsg', { count: nodes.length }),
-      t('dashboard.batchTransfer'),
+      t('domainDetail.confirmBatchTransferMsg', { count: nodes.length }),
+      t('domainDetail.batchTransfer'),
       { type: 'warning' }
     )
     let success = 0
@@ -469,7 +469,7 @@ const handleTransferConfirm = async () => {
         failed++
       }
     }
-    ElMessage.success(t('dashboard.batchTransferResult', { success, fail: failed }))
+    ElMessage.success(t('domainDetail.batchTransferResult', { success, fail: failed }))
   }
 
   showTransferDialog.value = false
@@ -515,7 +515,7 @@ const handleBatchAuthorize = async () => {
     const results = res.data || []
     const successCount = results.filter(r => r.success).length
     const failCount = results.filter(r => !r.success).length
-    ElMessage.success(t('dashboard.batchAuthorizeResult', { success: successCount, fail: failCount }))
+    ElMessage.success(t('domainDetail.batchAuthorizeResult', { success: successCount, fail: failCount }))
     showBatchAuthorize.value = false
     checkedKeys.value = []
     if (treeRef.value) treeRef.value.setCheckedKeys([])
@@ -529,8 +529,8 @@ const handleBatchCancelIndependence = async () => {
   if (materialized.length === 0) return
 
   await ElMessageBox.confirm(
-    t('dashboard.batchCancelIndependenceConfirm', { count: materialized.length }),
-    t('dashboard.batchCancelIndependence'),
+    t('domainDetail.batchCancelIndependenceConfirm', { count: materialized.length }),
+    t('domainDetail.batchCancelIndependence'),
     { type: 'warning' }
   )
 
@@ -544,7 +544,7 @@ const handleBatchCancelIndependence = async () => {
       failed++
     }
   }
-  ElMessage.success(t('dashboard.batchCancelResult', { success, fail: failed }))
+  ElMessage.success(t('domainDetail.batchCancelResult', { success, fail: failed }))
   checkedKeys.value = []
   if (treeRef.value) treeRef.value.setCheckedKeys([])
   loadDomains()

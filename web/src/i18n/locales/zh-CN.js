@@ -619,6 +619,8 @@ export default {
     assignDomain: '分配域名',
     assignTo: '分配给',
     selectUser: '选择用户',
+    selectTargetUser: '选择目标用户',
+    passwordReset: '密码重置',
     confirmAssign: '确认分配',
     operationLogs: '操作日志',
     targetTypeLabel: '目标类型',

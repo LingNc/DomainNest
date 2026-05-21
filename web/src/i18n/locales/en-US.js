@@ -619,6 +619,8 @@ export default {
     assignDomain: 'Assign Domain',
     assignTo: 'Assign To',
     selectUser: 'Select User',
+    selectTargetUser: 'Select Target User',
+    passwordReset: 'Password Reset',
     confirmAssign: 'Confirm Assignment',
     operationLogs: 'Operation Logs',
     targetTypeLabel: 'Target Type',
