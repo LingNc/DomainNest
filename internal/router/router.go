@@ -109,6 +109,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.POST("/:id/records/check-conflict", recordHandler.CheckConflict)
 		domains.GET("/:id/records/export", recordHandler.Export)
 		domains.POST("/:id/records/import", recordHandler.Import)
+		domains.POST("/:id/reactivate", domainHandler.ReactivateDomain)
+		domains.GET("/:id/archive-info", domainHandler.ArchiveInfo)
 		domains.GET("/:id/permissions", permissionHandler.List)
 		domains.POST("/:id/permissions", permissionHandler.Grant)
 		domains.POST("/:id/permissions/batch", permissionHandler.BatchGrant)
@@ -131,6 +133,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		records.PUT("/:id/toggle", recordHandler.Toggle)
 		records.POST("/batch-delete", recordHandler.BatchDelete)
 		records.POST("/batch-toggle", recordHandler.BatchToggle)
+		records.PUT("/batch-tag", recordHandler.BatchTag)
 	}
 
 	ddns := v1.Group("/ddns")
@@ -209,6 +212,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		providers.DELETE("/:id", providerHandler.Delete)
 		providers.GET("/:id/domains", providerHandler.ListDomains)
 		providers.POST("/:id/claim", providerHandler.ClaimDomain)
+		providers.POST("/:id/domains/:did/reclaim", domainHandler.ReclaimDomain)
 	}
 
 	return r

@@ -280,6 +280,21 @@ func (s *RecordService) BatchToggle(recordIDs []uint64, userID uint64, enabled b
 		Updates(map[string]interface{}{"enabled": enabled, "sync_status": syncStatus}).Error
 }
 
+func (s *RecordService) BatchUpdateGroupTag(recordIDs []uint64, userID uint64, groupTag string) error {
+	for _, id := range recordIDs {
+		var record model.DNSRecord
+		if err := s.db.First(&record, id).Error; err != nil {
+			return fmt.Errorf("记录 %d 不存在", id)
+		}
+		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
+			return fmt.Errorf("无权访问记录 %d", id)
+		}
+	}
+
+	return s.db.Model(&model.DNSRecord{}).Where("id IN ?", recordIDs).
+		Update("group_tag", groupTag).Error
+}
+
 func (s *RecordService) GetRecordByID(recordID uint64) (*model.DNSRecord, error) {
 	var record model.DNSRecord
 	if err := s.db.First(&record, recordID).Error; err != nil {

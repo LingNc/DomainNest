@@ -227,6 +227,29 @@ func (h *RecordHandler) BatchToggle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "更新成功"})
 }
 
+func (h *RecordHandler) BatchTag(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	var req struct {
+		RecordIDs []uint64 `json:"record_ids" binding:"required"`
+		GroupTag  string   `json:"group_tag"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	if err := h.recordService.BatchUpdateGroupTag(req.RecordIDs, userID, req.GroupTag); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "batch_tag_records", "dns_record", nil,
+		map[string]interface{}{"ids": req.RecordIDs, "group_tag": req.GroupTag}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "更新成功"})
+}
+
 func (h *RecordHandler) TransferByHost(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)

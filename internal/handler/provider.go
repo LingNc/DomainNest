@@ -101,8 +101,14 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
 		return
 	}
-	if _, err := h.providerService.Delete(id, userID, false); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+	confirm := c.Query("confirm") == "true"
+	count, err := h.providerService.Delete(id, userID, confirm)
+	if err != nil {
+		if count > 0 {
+			c.JSON(http.StatusConflict, gin.H{"code": 409, "message": err.Error(), "data": gin.H{"linked_domains": count}})
+			return
+		}
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
 		return
 	}
 	middleware.LogOperation(h.db, userID, "delete_provider", "dns_provider", &id, nil, c.ClientIP())

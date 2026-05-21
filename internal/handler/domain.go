@@ -247,3 +247,111 @@ func (h *DomainHandler) GetConversionLogs(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": logs})
 }
+
+func (h *DomainHandler) ReclaimDomain(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	providerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的服务商ID"})
+		return
+	}
+	domainNodeID, err := strconv.ParseUint(c.Param("did"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	// Load the node to get old owner before reclaim
+	var node model.DomainNode
+	if err := h.db.First(&node, domainNodeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "节点不存在"})
+		return
+	}
+	oldOwnerID := node.OwnerID
+
+	if err := h.domainService.ForceReclaim(domainNodeID, userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "reclaim_domain", "domain_node", &domainNodeID,
+		map[string]interface{}{"provider_id": providerID, "old_owner_id": oldOwnerID}, c.ClientIP())
+
+	ws.BroadcastToUser(oldOwnerID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "reclaimed",
+		"node_id": domainNodeID,
+	})
+	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "reclaim",
+		"node_id": domainNodeID,
+	})
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "回收成功"})
+}
+
+func (h *DomainHandler) ReactivateDomain(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	var req struct {
+		ProviderID uint64 `json:"provider_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	if err := h.domainService.ReactivateNode(nodeID, req.ProviderID, userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "reactivate_domain", "domain_node", &nodeID,
+		map[string]interface{}{"provider_id": req.ProviderID}, c.ClientIP())
+
+	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
+		"action":  "reactivate",
+		"node_id": nodeID,
+	})
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "重新激活成功"})
+}
+
+func (h *DomainHandler) ArchiveInfo(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	if err := h.permService.RequireLevel(userID, nodeID, 1); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		return
+	}
+
+	var node model.DomainNode
+	if err := h.db.First(&node, nodeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "节点不存在"})
+		return
+	}
+
+	result := gin.H{
+		"status":               node.Status,
+		"archived_provider_id": node.ArchivedProviderID,
+	}
+
+	if node.ArchivedProviderID != nil {
+		var provider model.DNSProvider
+		if err := h.db.First(&provider, *node.ArchivedProviderID).Error; err == nil {
+			result["archived_provider_name"] = provider.Name
+			result["archived_provider_type"] = provider.ProviderType
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": result})
+}
