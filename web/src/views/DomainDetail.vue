@@ -768,11 +768,14 @@ const valuePlaceholder = computed(() => {
 const treeRecords = computed(() => {
   if (recordViewMode.value !== 'tree') return records.value
 
-  // Separate grouped and ungrouped records
+  // Separate provider, grouped, and ungrouped records
   const grouped = new Map()
   const ungrouped = []
+  const providerRecords = []
   for (const rec of records.value) {
-    if (rec.group_tag) {
+    if (rec.source === 'provider') {
+      providerRecords.push(rec)
+    } else if (rec.group_tag) {
       if (!grouped.has(rec.group_tag)) grouped.set(rec.group_tag, [])
       grouped.get(rec.group_tag).push(rec)
     } else {
@@ -793,7 +796,9 @@ const treeRecords = computed(() => {
     const getParent = (host) => {
       if (host === '@') return null
       const parts = host.split('.')
-      return parts.length > 1 ? parts.slice(0, -1).join('.') : '@'
+      // Remove the FIRST segment (leftmost subdomain), keep the rest
+      const parent = parts.slice(1).join('.')
+      return parent || '@'
     }
 
     const ensureNode = (host) => {
@@ -856,7 +861,21 @@ const treeRecords = computed(() => {
 
   const result = []
 
-  // Grouped records first (as group nodes with children)
+  // Provider-imported records as a group
+  if (providerRecords.length > 0) {
+    result.push({
+      treeId: 'group:provider',
+      host: t('domainDetail.sourceProvider'),
+      record_type: '—',
+      value: `${providerRecords.length} records`,
+      virtual: true,
+      isGroup: true,
+      groupTag: '_provider_',
+      children: buildSubdomainTree(providerRecords),
+    })
+  }
+
+  // User-defined groups
   for (const [tag, recs] of grouped) {
     const children = buildSubdomainTree(recs)
     result.push({
@@ -881,7 +900,10 @@ const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
 const sortedRecords = computed(() => {
   const recs = [...records.value]
   recs.sort((a, b) => {
-    // Group-tagged records first
+    // Provider records first
+    if (a.source === 'provider' && b.source !== 'provider') return -1
+    if (a.source !== 'provider' && b.source === 'provider') return 1
+    // Then group-tagged records
     if (a.group_tag && !b.group_tag) return -1
     if (!a.group_tag && b.group_tag) return 1
     if (a.group_tag !== b.group_tag) return (a.group_tag || '').localeCompare(b.group_tag || '')
