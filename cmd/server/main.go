@@ -59,13 +59,23 @@ func main() {
 	syncService.Start()
 	defer syncService.Stop()
 
+	trashService := service.NewTrashService(db, providerService)
+	// Trash purge goroutine — runs daily, deletes records trashed >30 days ago
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			trashService.PurgeExpired()
+		}
+	}()
+
 	wsHub := ws.InitHub()
 
 	if err := authService.EnsureAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
 		log.Fatalf("Failed to ensure admin user: %v", err)
 	}
 
-	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService, syncService, wsHub)
+	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService, syncService, trashService, wsHub)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Server starting on %s", addr)

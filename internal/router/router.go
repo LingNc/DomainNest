@@ -20,7 +20,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	settingsService *service.SettingsService, permissionService *service.PermissionService,
 	ramTokenService *service.RAMTokenService, friendService *service.FriendService,
 	messageService *service.MessageService, providerService *service.ProviderService,
-	syncService *service.SyncService, hub *ws.Hub) *gin.Engine {
+	syncService *service.SyncService, trashService *service.TrashService, hub *ws.Hub) *gin.Engine {
 
 	r := gin.Default()
 
@@ -56,6 +56,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	messageHandler := handler.NewMessageHandler(messageService, friendService, db)
 	providerHandler := handler.NewProviderHandler(providerService, db)
 	syncHandler := handler.NewSyncHandler(syncService, recordService, db)
+	trashHandler := handler.NewTrashHandler(trashService)
 
 	v1 := r.Group("/api/v1")
 
@@ -222,6 +223,18 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		providers.GET("/:id/domains", providerHandler.ListDomains)
 		providers.POST("/:id/claim", providerHandler.ClaimDomain)
 		providers.POST("/:id/domains/:did/reclaim", domainHandler.ReclaimDomain)
+	}
+
+	trash := v1.Group("/trash")
+	trash.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
+	{
+		trash.GET("", trashHandler.List)
+		trash.POST("/empty", trashHandler.Empty)
+		trash.POST("/batch-trash", trashHandler.BatchTrash)
+		trash.POST("/batch-restore", trashHandler.BatchRestore)
+		trash.POST("/:id/trash", trashHandler.Trash)
+		trash.POST("/:id/restore", trashHandler.Restore)
+		trash.DELETE("/:id", trashHandler.Delete)
 	}
 
 	return r
