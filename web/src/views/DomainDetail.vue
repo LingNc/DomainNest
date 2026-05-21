@@ -1,18 +1,32 @@
 <!-- web/src/views/DomainDetail.vue -->
 <template>
   <div>
-    <div class="page-header">
-      <div>
-        <el-button text @click="$router.push('/dashboard')">
-          <el-icon><component :is="'ArrowLeft'" /></el-icon>
-          {{ $t('common.back') }}
-        </el-button>
-        <h2>{{ domain?.full_domain || $t('common.loading') }}</h2>
-      </div>
-    </div>
+    <el-button text @click="$router.push('/dashboard')" style="margin-bottom:12px">
+      <el-icon><component :is="'ArrowLeft'" /></el-icon>
+      {{ $t('common.back') }}
+    </el-button>
 
-    <el-row :gutter="20">
-      <el-col :xs="24" :lg="17">
+    <!-- Domain info bar -->
+    <el-card v-if="domain" class="domain-info-bar" shadow="never">
+      <div class="info-bar-content">
+        <div class="info-bar-left">
+          <span class="info-bar-domain">{{ domain.full_domain }}</span>
+          <el-tag size="small" type="info">#{{ domain.id }}</el-tag>
+          <el-tag v-if="domain.is_materialized" size="small" type="success">{{ $t('domainDetail.materialized') }}</el-tag>
+          <span class="info-bar-meta">{{ $t('common.createdAt') }}: {{ domain.created_at }}</span>
+        </div>
+        <div class="info-bar-right" v-if="domain.owner_id === auth.user?.id">
+          <el-button size="small" type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
+          <el-button size="small" type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
+          <el-button v-if="domain.is_materialized" size="small" type="warning" plain @click="handleDemoteNode">{{ $t('domainDetail.demoteNode') }}</el-button>
+        </div>
+      </div>
+    </el-card>
+
+    <!-- Tabbed content -->
+    <el-tabs v-model="activeTab" class="domain-detail-tabs">
+      <!-- DNS Records Tab -->
+      <el-tab-pane :label="$t('domainDetail.tabRecords')" name="records">
         <el-card>
           <template #header>
             <div class="card-header">
@@ -105,7 +119,7 @@
           </el-table>
           <el-empty v-if="!loading && records.length === 0" :description="$t('domainDetail.noRecords')" />
 
-          <!-- 分页 -->
+          <!-- pagination -->
           <div class="pagination-bar" v-if="total > 0">
             <el-pagination
               v-model:current-page="pagination.page"
@@ -118,24 +132,12 @@
             />
           </div>
         </el-card>
-      </el-col>
+      </el-tab-pane>
 
-      <el-col :xs="24" :lg="7" class="right-col">
-        <el-card v-if="domain">
-          <template #header>{{ $t('domainDetail.domainInfo') }}</template>
-          <el-descriptions :column="1" size="small">
-            <el-descriptions-item :label="$t('domainDetail.fullDomain')">{{ domain.full_domain }}</el-descriptions-item>
-            <el-descriptions-item :label="$t('domainDetail.domainId')">{{ domain.id }}</el-descriptions-item>
-            <el-descriptions-item :label="$t('common.createdAt')">{{ domain.created_at }}</el-descriptions-item>
-          </el-descriptions>
-          <div class="domain-actions" v-if="domain.owner_id === auth.user?.id">
-            <el-button size="small" type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
-            <el-button size="small" type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
-            <el-button v-if="domain.is_materialized" size="small" type="warning" plain @click="handleDemoteNode">{{ $t('domainDetail.demoteNode') }}</el-button>
-          </div>
-        </el-card>
-
-        <el-card style="margin-top:16px">
+      <!-- Authorization Tab -->
+      <el-tab-pane :label="$t('domainDetail.tabAuthorization')" name="authorization">
+        <!-- Permission list -->
+        <el-card>
           <template #header>
             <div class="card-header">
               <span>{{ $t('domainDetail.permManagement') }}</span>
@@ -166,7 +168,7 @@
           </div>
         </el-card>
 
-        <!-- 待分配记录 -->
+        <!-- Pending records -->
         <el-card style="margin-top:16px" v-if="pendingRecords.length > 0">
           <template #header>
             <div class="card-header">
@@ -191,8 +193,8 @@
             </el-table-column>
           </el-table>
         </el-card>
-      </el-col>
-    </el-row>
+      </el-tab-pane>
+    </el-tabs>
 
     <!-- grant permission dialog -->
     <el-dialog v-model="showGrantPerm" :title="$t('domainDetail.grantUser')" width="520px" destroy-on-close>
@@ -563,6 +565,7 @@ const recordTypes = [
   { label: t('domainDetail.recordTypeSRV'), value: 'SRV' },
 ]
 
+const activeTab = ref('records')
 const domain = ref(null)
 const records = ref([])
 const total = ref(0)
@@ -1139,13 +1142,40 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-header {
-  margin-bottom: 20px;
+.domain-info-bar {
+  margin-bottom: 16px;
 }
-.page-header h2 {
-  font-size: 22px;
+.domain-info-bar :deep(.el-card__body) {
+  padding: 12px 20px;
+}
+.info-bar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.info-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.info-bar-domain {
+  font-size: 18px;
   font-weight: 600;
-  margin-top: 4px;
+}
+.info-bar-meta {
+  color: #909399;
+  font-size: 13px;
+}
+.info-bar-right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.domain-detail-tabs {
+  margin-top: 0;
 }
 .card-header {
   display: flex;
@@ -1175,11 +1205,6 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
-}
-@media (max-width: 1200px) {
-  .right-col {
-    margin-top: 16px;
-  }
 }
 .perm-item {
   display: flex;
@@ -1228,15 +1253,5 @@ onMounted(() => {
   background: #f5f7fa;
   border-radius: 4px;
   margin-bottom: 6px;
-}
-.domain-actions {
-  margin-top: 16px;
-  padding: 12px;
-  background: #fafafa;
-  border: 1px solid #ebeef5;
-  border-radius: 6px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 </style>

@@ -404,6 +404,8 @@ export default {
     conflictCreateNew: '仍然创建（覆盖）',
     conflictCancel: '取消',
     conflictImported: '已导入服务商记录',
+    tabRecords: 'DNS 记录',
+    tabAuthorization: '授权管理',
   },
   settings: {
     title: '系统设置',

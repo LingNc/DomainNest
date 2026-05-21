@@ -404,6 +404,8 @@ export default {
     conflictCreateNew: 'Create New (Override)',
     conflictCancel: 'Cancel',
     conflictImported: 'Provider record imported',
+    tabRecords: 'DNS Records',
+    tabAuthorization: 'Authorization',
   },
   settings: {
     title: 'System Settings',
