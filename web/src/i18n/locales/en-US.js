@@ -468,6 +468,12 @@ export default {
     adoptConfirm: 'Adopt this record? You can edit and delete it after adoption.',
     adoptSuccess: 'Record adopted',
     adoptFailed: 'Adopt failed',
+    ungrouped: 'Ungrouped',
+    batchGroup: 'Group',
+    batchGroupTitle: 'Batch Group',
+    groupTagRequired: 'Please enter a group name',
+    batchGroupSuccess: 'Grouped successfully',
+    batchGroupFailed: 'Group failed',
   },
   settings: {
     title: 'System Settings',

@@ -468,6 +468,12 @@ export default {
     adoptConfirm: '确定接管此记录？接管后可编辑和删除。',
     adoptSuccess: '接管成功',
     adoptFailed: '接管失败',
+    ungrouped: '未分组',
+    batchGroup: '分组',
+    batchGroupTitle: '批量分组',
+    groupTagRequired: '请输入分组名称',
+    batchGroupSuccess: '分组成功',
+    batchGroupFailed: '分组失败',
   },
   settings: {
     title: '系统设置',

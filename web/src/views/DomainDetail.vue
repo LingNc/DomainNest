@@ -81,6 +81,7 @@
             <el-button size="small" type="warning" @click="handleBatchToggle(false)">{{ $t('domainDetail.batchDisable') }}</el-button>
             <el-button size="small" type="danger" @click="handleBatchDelete">{{ $t('domainDetail.batchDelete') }}</el-button>
             <el-button size="small" type="warning" @click="showBatchTransfer = true">{{ $t('domainDetail.batchTransfer') }}</el-button>
+            <el-button size="small" type="primary" @click="openBatchGroupDialog">{{ $t('domainDetail.batchGroup') }}</el-button>
           </div>
 
           <!-- view toggle -->
@@ -200,38 +201,64 @@
           </el-table>
 
           <!-- flat view -->
-          <el-table v-else :data="sortedRecords" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id" :row-class-name="flatRowClass">
-            <el-table-column type="selection" width="40" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" width="180">
+          <el-table v-else :data="groupedFlatRecords" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id" :row-class-name="flatRowClass" :span-method="flatSpanMethod">
+            <el-table-column type="selection" width="40" :selectable="(row) => !row.isGroupHeader" />
+            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="180">
               <template #default="{ row }">
-                <span>{{ row.host }}</span>
-                <template v-if="row.own_node_id">
-                  <el-tag type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
-                  <el-button link type="warning" size="small" @click="handleCancelIndependence(row)" style="margin-left:4px">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                <template v-if="row.isGroupHeader">
+                  <div class="group-header-content">
+                    <strong>{{ row.groupLabel }}</strong>
+                    <el-tag size="small" type="info" style="margin-left:8px">{{ row.count }}</el-tag>
+                  </div>
                 </template>
-                <template v-else-if="row.host !== '@'">
-                  <el-button link type="primary" size="small" @click="handleMakeIndependent(row)" style="margin-left:4px">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                <template v-else>
+                  <span>{{ row.host }}</span>
+                  <template v-if="row.own_node_id">
+                    <el-tag type="success" size="small" style="margin-left:4px">{{ $t('domainDetail.materialized') }}</el-tag>
+                    <el-button link type="warning" size="small" @click="handleCancelIndependence(row)" style="margin-left:4px">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                  </template>
+                  <template v-else-if="row.host !== '@'">
+                    <el-button link type="primary" size="small" @click="handleMakeIndependent(row)" style="margin-left:4px">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                  </template>
                 </template>
               </template>
             </el-table-column>
-            <el-table-column prop="record_type" :label="$t('domainDetail.type')" width="80" />
-            <el-table-column prop="value" :label="$t('domainDetail.value')" show-overflow-tooltip />
-            <el-table-column prop="priority" :label="$t('domainDetail.priority')" width="70">
-              <template #default="{ row }">{{ row.priority ?? '-' }}</template>
+            <el-table-column prop="record_type" :label="$t('domainDetail.type')" width="80">
+              <template #default="{ row }">
+                <span v-if="!row.isGroupHeader">{{ row.record_type }}</span>
+              </template>
             </el-table-column>
-            <el-table-column prop="ttl" :label="$t('domainDetail.ttl')" width="70" />
+            <el-table-column prop="value" :label="$t('domainDetail.value')" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span v-if="!row.isGroupHeader">{{ row.value }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="priority" :label="$t('domainDetail.priority')" width="70">
+              <template #default="{ row }">
+                <span v-if="!row.isGroupHeader">{{ row.priority ?? '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="ttl" :label="$t('domainDetail.ttl')" width="70">
+              <template #default="{ row }">
+                <span v-if="!row.isGroupHeader">{{ row.ttl }}</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="line" :label="$t('domainDetail.line')" width="80">
-              <template #default="{ row }">{{ row.line || $t('common.default') }}</template>
+              <template #default="{ row }">
+                <span v-if="!row.isGroupHeader">{{ row.line || $t('common.default') }}</span>
+              </template>
             </el-table-column>
             <el-table-column :label="$t('common.enabled')" width="70">
               <template #default="{ row }">
-                <el-switch v-if="row.source !== 'provider'" v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
-                <el-tag v-else :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? $t('common.enabled') : $t('common.disabled') }}</el-tag>
+                <template v-if="!row.isGroupHeader">
+                  <el-switch v-if="row.source !== 'provider'" v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
+                  <el-tag v-else :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? $t('common.enabled') : $t('common.disabled') }}</el-tag>
+                </template>
               </template>
             </el-table-column>
             <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="100">
               <template #default="{ row }">
-                <el-tag
+                <el-tag v-if="!row.isGroupHeader"
                   :type="statusType(row.sync_status)"
                   size="small"
                   :class="{ 'clickable-tag': row.sync_status === 'pending' || row.sync_status === 'failed' }"
@@ -241,32 +268,38 @@
             </el-table-column>
             <el-table-column prop="last_resolved_at" :label="$t('domainDetail.lastResolved')" width="160" show-overflow-tooltip>
               <template #default="{ row }">
-                {{ row.last_resolved_at || '—' }}
+                <span v-if="!row.isGroupHeader">{{ row.last_resolved_at || '—' }}</span>
               </template>
             </el-table-column>
             <el-table-column :label="$t('domainDetail.source')" width="90">
               <template #default="{ row }">
-                <el-tag v-if="row.source === 'provider'" size="small" type="warning">{{ $t('domainDetail.sourceProvider') }}</el-tag>
-                <el-tag v-else size="small" type="success">{{ $t('domainDetail.sourcePlatform') }}</el-tag>
+                <template v-if="!row.isGroupHeader">
+                  <el-tag v-if="row.source === 'provider'" size="small" type="warning">{{ $t('domainDetail.sourceProvider') }}</el-tag>
+                  <el-tag v-else size="small" type="success">{{ $t('domainDetail.sourcePlatform') }}</el-tag>
+                </template>
               </template>
             </el-table-column>
             <el-table-column :label="$t('domainDetail.groupTag')" width="120">
               <template #default="{ row }">
-                <el-tag v-if="row.group_tag" size="small" closable @close="clearGroupTag(row)">{{ row.group_tag }}</el-tag>
-                <template v-else-if="row.source !== 'provider'">
-                  <el-button link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
+                <template v-if="!row.isGroupHeader">
+                  <el-tag v-if="row.group_tag" size="small" closable @close="clearGroupTag(row)">{{ row.group_tag }}</el-tag>
+                  <template v-else-if="row.source !== 'provider'">
+                    <el-button link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
+                  </template>
                 </template>
               </template>
             </el-table-column>
             <el-table-column :label="$t('common.actions')" min-width="160" fixed="right">
               <template #default="{ row }">
-                <template v-if="row.source === 'provider'">
-                  <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
-                </template>
-                <template v-else>
-                  <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
-                  <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
-                  <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
+                <template v-if="!row.isGroupHeader">
+                  <template v-if="row.source === 'provider'">
+                    <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
+                  </template>
+                  <template v-else>
+                    <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
+                    <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
+                    <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
+                  </template>
                 </template>
               </template>
             </el-table-column>
@@ -667,6 +700,19 @@
         <el-button type="primary" @click="handleSetTag">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- batch group dialog -->
+    <el-dialog v-model="showBatchGroupDialog" :title="$t('domainDetail.batchGroupTitle')" width="400px" destroy-on-close>
+      <el-form>
+        <el-form-item :label="$t('domainDetail.groupTag')">
+          <el-input v-model="batchGroupForm.group_tag" :placeholder="$t('domainDetail.groupTagPlaceholder')" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showBatchGroupDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleBatchGroup">{{ $t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -742,6 +788,10 @@ const returnTargetUserId = ref(null)
 
 const showBatchTransfer = ref(false)
 const batchTransferForm = ref({ target_user_id: null })
+
+// Batch group state
+const showBatchGroupDialog = ref(false)
+const batchGroupForm = ref({ group_tag: '' })
 
 // Conflict detection state
 const showConflictDialog = ref(false)
@@ -897,23 +947,64 @@ const treeRecords = computed(() => {
 
 const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
 
-const sortedRecords = computed(() => {
+const groupedFlatRecords = computed(() => {
   const recs = [...records.value]
+
+  // Sort: provider first, then by group_tag, then by host
   recs.sort((a, b) => {
-    // Provider records first
     if (a.source === 'provider' && b.source !== 'provider') return -1
     if (a.source !== 'provider' && b.source === 'provider') return 1
-    // Then group-tagged records
-    if (a.group_tag && !b.group_tag) return -1
-    if (!a.group_tag && b.group_tag) return 1
-    if (a.group_tag !== b.group_tag) return (a.group_tag || '').localeCompare(b.group_tag || '')
-    // Then by host
-    return (a.host || '').localeCompare(b.host || '')
+    const tagA = a.source === 'provider' ? '___provider___' : (a.group_tag || '___ungrouped___')
+    const tagB = b.source === 'provider' ? '___provider___' : (b.group_tag || '___ungrouped___')
+    if (tagA !== tagB) return tagA.localeCompare(tagB)
+    return a.host.localeCompare(b.host)
   })
-  return recs
+
+  // Insert group header rows
+  const result = []
+  let lastGroup = null
+  for (const rec of recs) {
+    const currentGroup = rec.source === 'provider' ? '__provider__' : (rec.group_tag || '__ungrouped__')
+    if (currentGroup !== lastGroup) {
+      let label
+      if (currentGroup === '__provider__') {
+        label = t('domainDetail.sourceProvider')
+      } else if (currentGroup === '__ungrouped__') {
+        label = t('domainDetail.ungrouped')
+      } else {
+        label = rec.group_tag
+      }
+      result.push({
+        id: `header_${currentGroup}`,
+        isGroupHeader: true,
+        groupLabel: label,
+        groupKey: currentGroup,
+        count: recs.filter(r => {
+          const g = r.source === 'provider' ? '__provider__' : (r.group_tag || '__ungrouped__')
+          return g === currentGroup
+        }).length,
+      })
+      lastGroup = currentGroup
+    }
+    result.push(rec)
+  }
+
+  return result
 })
 
-const flatRowClass = ({ row }) => row.group_tag ? 'group-row' : ''
+const flatSpanMethod = ({ row, columnIndex }) => {
+  if (row.isGroupHeader) {
+    if (columnIndex === 0) return { rowspan: 1, colspan: 1 }
+    if (columnIndex === 1) return { rowspan: 1, colspan: 99 }
+    return { rowspan: 0, colspan: 0 }
+  }
+}
+
+const flatRowClass = ({ row }) => {
+  if (row.isGroupHeader) return 'group-header-row'
+  if (row.group_tag) return 'group-row'
+  return ''
+}
 
 const loadRecords = async () => {
   loading.value = true
@@ -1498,6 +1589,26 @@ const handleBatchTransfer = async () => {
 }
 
 
+const openBatchGroupDialog = () => {
+  batchGroupForm.value = { group_tag: '' }
+  showBatchGroupDialog.value = true
+}
+
+const handleBatchGroup = async () => {
+  if (!batchGroupForm.value.group_tag) {
+    ElMessage.warning(t('domainDetail.groupTagRequired'))
+    return
+  }
+  try {
+    await batchTagRecords({ record_ids: selectedIds.value, group_tag: batchGroupForm.value.group_tag })
+    ElMessage.success(t('domainDetail.batchGroupSuccess'))
+    showBatchGroupDialog.value = false
+    await loadRecords()
+  } catch (e) {
+    showError(e.response?.data?.message || t('domainDetail.batchGroupFailed'))
+  }
+}
+
 onMounted(() => {
   loadData()
 })
@@ -1624,6 +1735,17 @@ onMounted(() => {
 }
 :deep(.group-row) {
   background-color: #fafafa;
+}
+:deep(.group-header-row) {
+  background-color: #f0f9eb !important;
+}
+:deep(.group-header-row td) {
+  background-color: #f0f9eb !important;
+  font-weight: bold;
+}
+.group-header-content {
+  display: flex;
+  align-items: center;
 }
 .clickable-tag {
   cursor: pointer;
