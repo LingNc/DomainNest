@@ -20,7 +20,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	settingsService *service.SettingsService, permissionService *service.PermissionService,
 	ramTokenService *service.RAMTokenService, friendService *service.FriendService,
 	messageService *service.MessageService, providerService *service.ProviderService,
-	syncService *service.SyncService, trashService *service.TrashService, hub *ws.Hub) *gin.Engine {
+	syncService *service.SyncService, trashService *service.TrashService,
+	filterPresetService *service.FilterPresetService, hub *ws.Hub) *gin.Engine {
 
 	r := gin.Default()
 
@@ -57,6 +58,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	providerHandler := handler.NewProviderHandler(providerService, db)
 	syncHandler := handler.NewSyncHandler(syncService, recordService, db)
 	trashHandler := handler.NewTrashHandler(trashService)
+	filterPresetHandler := handler.NewFilterPresetHandler(filterPresetService, db)
 
 	v1 := r.Group("/api/v1")
 
@@ -169,6 +171,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		admin.GET("/domains", adminHandler.ListDomains)
 		admin.GET("/domains/tree", adminHandler.GetDomainTree)
 		admin.GET("/domains/:id/detail", adminHandler.GetDomainDetail)
+		admin.GET("/domains/:id/records", adminHandler.ListDomainRecords)
+		admin.DELETE("/domains/:id/records/:rid", adminHandler.AdminDeleteRecord)
+		admin.POST("/domains/:id/records/:rid/toggle", adminHandler.AdminToggleRecord)
 		admin.POST("/domains/:id/change-owner", adminHandler.AssignDomain)
 		admin.DELETE("/domains/:id/permissions/:userId", adminHandler.RevokePermission)
 		admin.GET("/users", adminHandler.ListUsers)
@@ -235,6 +240,14 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		trash.POST("/:id/trash", trashHandler.Trash)
 		trash.POST("/:id/restore", trashHandler.Restore)
 		trash.DELETE("/:id", trashHandler.Delete)
+	}
+
+	filterPresets := v1.Group("/filter-presets")
+	filterPresets.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
+	{
+		filterPresets.GET("", filterPresetHandler.List)
+		filterPresets.POST("", filterPresetHandler.Save)
+		filterPresets.DELETE("/:id", filterPresetHandler.Delete)
 	}
 
 	return r

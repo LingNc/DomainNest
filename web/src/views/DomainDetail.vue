@@ -55,24 +55,7 @@
           </template>
 
           <!-- search / filter bar -->
-          <div class="filter-bar">
-            <el-input v-model="filters.host" :placeholder="$t('domainDetail.host')" clearable size="small" style="width:140px" @clear="loadRecords" @keyup.enter="loadRecords" />
-            <el-select v-model="filters.record_type" :placeholder="$t('domainDetail.recordType')" clearable size="small" style="width:120px" @change="loadRecords">
-              <el-option v-for="t in recordTypes" :key="t.value" :label="t.label" :value="t.value" />
-            </el-select>
-            <el-input v-model="filters.value" :placeholder="$t('domainDetail.value')" clearable size="small" style="width:160px" @clear="loadRecords" @keyup.enter="loadRecords" />
-            <el-select v-model="filters.enabled" :placeholder="$t('domainDetail.enabledStatus')" clearable size="small" style="width:100px" @change="loadRecords">
-              <el-option :label="$t('common.enabled')" :value="true" />
-              <el-option :label="$t('common.disabled')" :value="false" />
-            </el-select>
-            <el-select v-model="filters.sync_status" :placeholder="$t('domainDetail.syncStatus')" clearable size="small" style="width:110px" @change="loadRecords">
-              <el-option :label="$t('common.synced')" value="synced" />
-              <el-option :label="$t('domainDetail.pendingSync')" value="pending" />
-              <el-option :label="$t('domainDetail.syncFailed')" value="failed" />
-              <el-option :label="$t('domainDetail.disabled')" value="disabled" />
-            </el-select>
-            <el-button size="small" type="primary" @click="loadRecords">{{ $t('common.search') }}</el-button>
-          </div>
+          <RecordFilterBar v-model="filters" :record-types="recordTypes" />
 
           <!-- batch action bar -->
           <div class="batch-bar" v-if="selectedIds.length > 0">
@@ -309,7 +292,7 @@
               </template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="!loading && records.length === 0" :description="$t('domainDetail.noRecords')" />
+          <el-empty v-if="!loading && filteredRecords.length === 0" :description="$t('domainDetail.noRecords')" />
 
           <!-- pagination -->
           <div class="pagination-bar" v-if="false && total > 0">
@@ -734,6 +717,7 @@ import { useAuthStore } from '../stores/auth'
 import { searchAllUsers } from '../api/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useError } from '../composables/useError'
+import RecordFilterBar from '../components/RecordFilterBar.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -777,7 +761,7 @@ const grantForm = ref({ target_user_ids: [], level: 'read', allowed_types: [], a
 const selectableUsers = ref([])
 const searchingUsers = ref(false)
 
-const filters = reactive({ host: '', record_type: '', value: '', enabled: undefined, sync_status: '' })
+const filters = reactive({ host: '', recordType: [], value: '', status: '', source: '' })
 const pagination = reactive({ page: 1, pageSize: 20 })
 
 const recordForm = ref({ host: '', record_type: 'A', value: '', ttl: 600, priority: null, line: 'default' })
@@ -830,14 +814,38 @@ const valuePlaceholder = computed(() => {
   return m[recordForm.value.record_type] || t('domainDetail.placeholderValue')
 })
 
+const filteredRecords = computed(() => {
+  let recs = records.value
+  if (filters.host) {
+    const q = filters.host.toLowerCase()
+    recs = recs.filter(r => r.host.toLowerCase().includes(q))
+  }
+  if (filters.recordType && filters.recordType.length > 0) {
+    const types = new Set(filters.recordType)
+    recs = recs.filter(r => types.has(r.record_type))
+  }
+  if (filters.value) {
+    const q = filters.value.toLowerCase()
+    recs = recs.filter(r => r.value.toLowerCase().includes(q))
+  }
+  if (filters.status) {
+    const enabled = filters.status === 'enabled'
+    recs = recs.filter(r => r.enabled === enabled)
+  }
+  if (filters.source) {
+    recs = recs.filter(r => r.source === filters.source)
+  }
+  return recs
+})
+
 const treeRecords = computed(() => {
-  if (recordViewMode.value !== 'tree') return records.value
+  if (recordViewMode.value !== 'tree') return filteredRecords.value
 
   // Separate provider, grouped, and ungrouped records
   const grouped = new Map()
   const ungrouped = []
   const providerRecords = []
-  for (const rec of records.value) {
+  for (const rec of filteredRecords.value) {
     if (rec.source === 'provider') {
       providerRecords.push(rec)
     } else if (rec.group_tag) {
@@ -963,7 +971,7 @@ const treeRecords = computed(() => {
 const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
 
 const groupedFlatRecords = computed(() => {
-  const recs = [...records.value]
+  const recs = [...filteredRecords.value]
 
   // Sort: provider first, then by group_tag, then by host
   recs.sort((a, b) => {
@@ -1027,15 +1035,8 @@ const loadRecords = async () => {
   loading.value = true
   collapsedGroups.clear()
   try {
-    const params = {}
-    if (filters.host) params.host = filters.host
-    if (filters.record_type) params.record_type = filters.record_type
-    if (filters.value) params.value = filters.value
-    if (filters.enabled !== undefined && filters.enabled !== '') params.enabled = filters.enabled
-    if (filters.sync_status) params.sync_status = filters.sync_status
-
-    // Both views load all records (group collapsing needs all records client-side)
-    params.page_size = 9999
+    // Load all records; filtering is done client-side via filteredRecords
+    const params = { page_size: 9999 }
 
     const res = await getRecords(domainId, params)
     records.value = res.data.items

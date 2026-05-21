@@ -54,6 +54,7 @@ func main() {
 	ramTokenService := service.NewRAMTokenService(db)
 	friendService := service.NewFriendService(db)
 	messageService := service.NewMessageService(db)
+	filterPresetService := service.NewFilterPresetService(db)
 
 	syncService := service.NewSyncService(db, ddnsService, &cfg.Sync)
 	syncService.Start()
@@ -75,7 +76,7 @@ func main() {
 		log.Fatalf("Failed to ensure admin user: %v", err)
 	}
 
-	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService, syncService, trashService, wsHub)
+	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService, syncService, trashService, filterPresetService, wsHub)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Server starting on %s", addr)
