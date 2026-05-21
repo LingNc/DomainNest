@@ -175,6 +175,7 @@ export default {
     subtitle: 'Manage your domain nodes and subdomains',
     tabMyDomains: 'My Domains',
     tabManaged: 'Managed',
+    noManagedDomains: 'No managed domains',
     createRootDomain: 'Create Root Domain',
     noDomains: 'No domains yet',
     recordsCount: '{count} records',
