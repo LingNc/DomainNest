@@ -30,6 +30,11 @@ func NewRecordService(db *gorm.DB, perm *PermissionService, dom *DomainService) 
 	return &RecordService{db: db, perm: perm, dom: dom}
 }
 
+// CheckPermission verifies the user has at least the given permission level on the node.
+func (s *RecordService) CheckPermission(userID, nodeID uint64, level int) error {
+	return s.perm.RequireLevel(userID, nodeID, level)
+}
+
 type RecordQuery struct {
 	Host       string
 	RecordType string
@@ -85,7 +90,7 @@ func (s *RecordService) ListRecords(nodeID, userID uint64, q RecordQuery) (*Reco
 	return &RecordListResult{Items: records, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
 }
 
-func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, value string, ttl int, priority *int, line string) (*model.DNSRecord, error) {
+func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, value string, ttl int, priority *int, line string, extraArgs ...interface{}) (*model.DNSRecord, error) {
 	if !IsValidRecordType(recordType) {
 		return nil, fmt.Errorf("不支持的记录类型: %s", recordType)
 	}
@@ -130,17 +135,31 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		line = "default"
 	}
 
+	// Extract optional providerRecordID from extraArgs
+	var providerRecordID string
+	if len(extraArgs) > 0 {
+		if prid, ok := extraArgs[0].(string); ok {
+			providerRecordID = prid
+		}
+	}
+
+	syncStatus := "pending"
+	if providerRecordID != "" {
+		syncStatus = "synced"
+	}
+
 	record := &model.DNSRecord{
-		NodeID:     nodeID,
-		Host:       host,
-		RecordType: recordType,
-		Value:      value,
-		TTL:        ttl,
-		Priority:   priority,
-		Line:       line,
-		Enabled:    true,
-		SyncStatus: "pending",
-		CreatedBy:  userID,
+		NodeID:           nodeID,
+		Host:             host,
+		RecordType:       recordType,
+		Value:            value,
+		TTL:              ttl,
+		Priority:         priority,
+		Line:             line,
+		Enabled:          true,
+		SyncStatus:       syncStatus,
+		ProviderRecordID: providerRecordID,
+		CreatedBy:        userID,
 	}
 
 	if err := s.db.Create(record).Error; err != nil {

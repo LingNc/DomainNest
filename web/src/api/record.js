@@ -16,3 +16,6 @@ export const importRecords = (nodeId, data, format) => {
   }
   return request.post(`/domains/${nodeId}/records/import`, data)
 }
+
+export const checkRecordConflict = (nodeId, data) =>
+  request.post(`/domains/${nodeId}/records/check-conflict`, data)

@@ -478,6 +478,25 @@
       </template>
     </el-dialog>
 
+    <!-- conflict detection dialog -->
+    <el-dialog v-model="showConflictDialog" :title="$t('domainDetail.conflictTitle')" width="520px" destroy-on-close>
+      <el-alert type="warning" :closable="false" style="margin-bottom:16px">
+        {{ $t('domainDetail.conflictDesc') }}
+      </el-alert>
+      <el-descriptions v-if="conflictRecord" :column="2" size="small" border style="margin-bottom:16px">
+        <el-descriptions-item :label="$t('domainDetail.host')">{{ conflictRecord.host }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('domainDetail.type')">{{ conflictRecord.type }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('domainDetail.value')" :span="2">{{ conflictRecord.value }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('domainDetail.ttl')">{{ conflictRecord.ttl }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('domainDetail.line')">{{ conflictRecord.line || 'default' }}</el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="showConflictDialog = false">{{ $t('domainDetail.conflictCancel') }}</el-button>
+        <el-button type="warning" @click="handleConflictCreateNew">{{ $t('domainDetail.conflictCreateNew') }}</el-button>
+        <el-button type="primary" @click="handleConflictImport">{{ $t('domainDetail.conflictImport') }}</el-button>
+      </template>
+    </el-dialog>
+
     <!-- revoke permission - record handling -->
     <el-dialog v-model="showReturnDialog" :title="$t('domainDetail.returnDialogTitle')" width="480px" destroy-on-close>
       <el-alert type="warning" :closable="false" style="margin-bottom:16px">
@@ -517,7 +536,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost } from '../api/domain'
-import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords } from '../api/record'
+import { getRecords, createRecord, updateRecord, deleteRecord, toggleRecord, batchDeleteRecords, batchToggleRecords, exportRecords, importRecords, checkRecordConflict } from '../api/record'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
@@ -585,6 +604,11 @@ const showBatchTransfer = ref(false)
 const batchTransferForm = ref({ target_user_id: null })
 const showTransferRecord = ref(false)
 const transferRecordForm = ref({ host: '', recordCount: 0, target_user_id: null })
+
+// Conflict detection state
+const showConflictDialog = ref(false)
+const conflictRecord = ref(null)
+const pendingCreateData = ref(null)
 
 const statusType = (s) => s === 'synced' ? 'success' : s === 'failed' ? 'danger' : s === 'disabled' ? 'info' : 'warning'
 const statusLabel = (s) => ({ synced: t('common.synced'), failed: t('domainDetail.syncFailed'), pending: t('domainDetail.pendingSync'), disabled: t('domainDetail.disabled') }[s] || s)
@@ -656,9 +680,41 @@ const handleAddRecord = async () => {
   if (recordForm.value.record_type === 'MX' && recordForm.value.priority != null) {
     data.priority = recordForm.value.priority
   }
+
+  // Check for provider conflict first
+  try {
+    const res = await checkRecordConflict(domainId, { host: data.host, record_type: data.record_type })
+    if (res.data?.has_conflict) {
+      conflictRecord.value = res.data.existing_record
+      pendingCreateData.value = data
+      showAddRecord.value = false
+      showConflictDialog.value = true
+      return
+    }
+  } catch {
+    // Conflict check failed -- proceed with creation anyway
+  }
+
   await createRecord(domainId, data)
   ElMessage.success(t('domainDetail.addRecordSuccess'))
   showAddRecord.value = false
+  loadRecords()
+}
+
+const handleConflictImport = async () => {
+  const data = pendingCreateData.value
+  data.value = conflictRecord.value.value
+  data.provider_record_id = conflictRecord.value.record_id
+  await createRecord(domainId, data)
+  ElMessage.success(t('domainDetail.conflictImported'))
+  showConflictDialog.value = false
+  loadRecords()
+}
+
+const handleConflictCreateNew = async () => {
+  await createRecord(domainId, pendingCreateData.value)
+  ElMessage.success(t('domainDetail.addRecordSuccess'))
+  showConflictDialog.value = false
   loadRecords()
 }
 

@@ -398,6 +398,12 @@ export default {
     transferCompleted: 'Transfer Complete',
     transferPartial: 'Partial Transfer',
     transferBatchSuccess: '{count} subdomains transferred',
+    conflictTitle: 'DNS Record Conflict Detected',
+    conflictDesc: 'The DNS provider already has a record with the same host and type.',
+    conflictImport: 'Import Existing Record',
+    conflictCreateNew: 'Create New (Override)',
+    conflictCancel: 'Cancel',
+    conflictImported: 'Provider record imported',
   },
   settings: {
     title: 'System Settings',

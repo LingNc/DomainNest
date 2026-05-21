@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"domainnest/internal/middleware"
+	"domainnest/internal/model"
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -14,12 +16,13 @@ import (
 )
 
 type RecordHandler struct {
-	recordService *service.RecordService
-	db            *gorm.DB
+	recordService   *service.RecordService
+	providerService *service.ProviderService
+	db              *gorm.DB
 }
 
-func NewRecordHandler(recordService *service.RecordService, db *gorm.DB) *RecordHandler {
-	return &RecordHandler{recordService: recordService, db: db}
+func NewRecordHandler(recordService *service.RecordService, providerService *service.ProviderService, db *gorm.DB) *RecordHandler {
+	return &RecordHandler{recordService: recordService, providerService: providerService, db: db}
 }
 
 func (h *RecordHandler) List(c *gin.Context) {
@@ -67,12 +70,13 @@ func (h *RecordHandler) Create(c *gin.Context) {
 	}
 
 	var req struct {
-		Host       string `json:"host" binding:"required"`
-		RecordType string `json:"record_type" binding:"required"`
-		Value      string `json:"value" binding:"required"`
-		TTL        int    `json:"ttl"`
-		Priority   *int   `json:"priority"`
-		Line       string `json:"line"`
+		Host             string `json:"host" binding:"required"`
+		RecordType       string `json:"record_type" binding:"required"`
+		Value            string `json:"value" binding:"required"`
+		TTL              int    `json:"ttl"`
+		Priority         *int   `json:"priority"`
+		Line             string `json:"line"`
+		ProviderRecordID string `json:"provider_record_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -80,7 +84,7 @@ func (h *RecordHandler) Create(c *gin.Context) {
 		return
 	}
 
-	record, err := h.recordService.CreateRecord(nodeID, userID, req.Host, req.RecordType, req.Value, req.TTL, req.Priority, req.Line)
+	record, err := h.recordService.CreateRecord(nodeID, userID, req.Host, req.RecordType, req.Value, req.TTL, req.Priority, req.Line, req.ProviderRecordID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -372,4 +376,104 @@ func (h *RecordHandler) Import(c *gin.Context) {
 		map[string]interface{}{"created": result.Created, "skipped": result.Skipped}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": result})
+}
+
+func (h *RecordHandler) CheckConflict(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	var req struct {
+		Host       string `json:"host" binding:"required"`
+		RecordType string `json:"record_type" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	// Verify user has at least read access
+	if err := h.recordService.CheckPermission(userID, nodeID, 1); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		return
+	}
+
+	// Get the domain node
+	var node model.DomainNode
+	if err := h.db.First(&node, nodeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "节点不存在"})
+		return
+	}
+
+	// Find the provider: check this node, then walk up parents
+	providerID := node.ProviderID
+	if providerID == nil && node.ParentID != nil {
+		var parent model.DomainNode
+		pid := *node.ParentID
+		if err := h.db.First(&parent, pid).Error; err == nil {
+			providerID = parent.ProviderID
+		}
+	}
+	if providerID == nil {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"has_conflict": false}})
+		return
+	}
+
+	// Get the provider's DNS client
+	provider, err := h.providerService.GetDNSProvider(*providerID)
+	if err != nil {
+		// Can't reach provider -- assume no conflict
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"has_conflict": false}})
+		return
+	}
+
+	// Find the root domain by walking up the parent chain
+	rootDomain := node.FullDomain
+	{
+		cur := node
+		for cur.ParentID != nil {
+			var p model.DomainNode
+			if err := h.db.First(&p, *cur.ParentID).Error; err != nil {
+				break
+			}
+			rootDomain = p.FullDomain
+			cur = p
+		}
+	}
+
+	// List provider records for the root domain
+	providerRecords, err := provider.ListRecords(rootDomain)
+	if err != nil {
+		// Provider doesn't support listing or API error -- assume no conflict
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"has_conflict": false}})
+		return
+	}
+
+	// Map provider RR to DomainNest host and check for match
+	for _, pr := range providerRecords {
+		host := mapProviderRRToHost(pr.Host, rootDomain)
+		if host == req.Host && strings.EqualFold(pr.Type, req.RecordType) {
+			c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{
+				"has_conflict":    true,
+				"existing_record": pr,
+			}})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"has_conflict": false}})
+}
+
+func mapProviderRRToHost(rr, domainName string) string {
+	if rr == domainName || rr == "@" {
+		return "@"
+	}
+	suffix := "." + domainName
+	if strings.HasSuffix(rr, suffix) {
+		return strings.TrimSuffix(rr, suffix)
+	}
+	return rr
 }

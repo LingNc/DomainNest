@@ -398,6 +398,12 @@ export default {
     transferCompleted: '转让完成',
     transferPartial: '部分转让成功',
     transferBatchSuccess: '{count} 个子域名已转让',
+    conflictTitle: '检测到 DNS 记录冲突',
+    conflictDesc: '该域名服务商已存在相同主机记录类型的 DNS 记录。',
+    conflictImport: '导入已有记录',
+    conflictCreateNew: '仍然创建（覆盖）',
+    conflictCancel: '取消',
+    conflictImported: '已导入服务商记录',
   },
   settings: {
     title: '系统设置',
