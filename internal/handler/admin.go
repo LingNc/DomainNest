@@ -621,7 +621,7 @@ func (h *AdminHandler) GetDomainDetail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": gin.H{
-			"node":             node,
+			"domain":           node,
 			"permissions":      permissions,
 			"transfer_history": transferHistory,
 		},

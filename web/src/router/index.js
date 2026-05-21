@@ -18,6 +18,7 @@ const routes = [
   { path: '/my-logs', name: 'MyLogs', component: () => import('../views/MyLogs.vue'), meta: { requiresAuth: true } },
   { path: '/providers', name: 'Providers', component: () => import('../views/Providers.vue'), meta: { requiresAuth: true } },
   { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/admin/domains/:id', name: 'AdminDomainDetail', component: () => import('../views/AdminDomainDetail.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/', redirect: '/dashboard' },
 ]
 

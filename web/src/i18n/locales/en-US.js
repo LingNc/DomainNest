@@ -806,6 +806,7 @@ export default {
     domainPermissions: 'Permissions',
     noPermissions: 'No permissions',
     noDetailData: 'Select a domain to view details',
+    viewDetail: 'View',
   },
   chat: {
     loadMore: 'Load More',

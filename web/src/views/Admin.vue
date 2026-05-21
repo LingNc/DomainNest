@@ -81,107 +81,40 @@
           </div>
 
           <div class="domain-tree-layout">
-            <!-- Tree panel -->
-            <div class="domain-tree-panel">
-              <el-table :data="filteredDomainTree" stripe v-loading="loading" style="width:100%"
-                row-key="id" :tree-props="{ children: 'children' }"
-                highlight-current-row @row-click="handleDomainTreeRowClick"
-                :row-class-name="(row) => selectedDomainDetail?.domain?.id === row.row?.id ? 'current-row' : ''"
-                @selection-change="handleDomainSelectionChange"
-              >
-                <el-table-column type="selection" width="40" :selectable="() => true" />
-                <el-table-column prop="full_domain" :label="$t('admin.fullDomain')" min-width="200" show-overflow-tooltip />
-                <el-table-column :label="$t('admin.currentOwner')" min-width="130">
-                  <template #default="{ row }">
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <el-avatar v-if="row.owner?.avatar" :src="row.owner.avatar" :size="22" />
-                      <el-avatar v-else :size="22">{{ (row.owner?.username || '?')[0]?.toUpperCase() }}</el-avatar>
-                      <span style="font-size:13px">{{ row.owner?.username || row.owner_id }}</span>
-                    </div>
-                  </template>
-                </el-table-column>
-                <el-table-column :label="$t('common.status')" width="80">
-                  <template #default="{ row }">
-                    <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-                      {{ row.status === 'active' ? $t('admin.statusNormal') : $t('dashboard.archived') }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column :label="$t('admin.permissionsCount', { count: '' })" width="80">
-                  <template #default="{ row }">
-                    <el-tag size="small" type="info">{{ row.permission_count ?? 0 }}</el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
-              </el-table>
-            </div>
-
-            <!-- Detail panel -->
-            <div class="domain-detail-panel" v-loading="loadingDomainDetail">
-              <template v-if="selectedDomainDetail">
-                <!-- Domain info -->
-                <el-card shadow="never" style="margin-bottom:12px">
-                  <template #header>
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                      <span style="font-weight:600">{{ $t('admin.domainInfoSection') }}</span>
-                      <el-button size="small" type="primary" @click="handleAdminChangeOwner(selectedDomainDetail.domain)">{{ $t('admin.changeOwner') }}</el-button>
-                    </div>
-                  </template>
-                  <el-descriptions :column="1" size="small">
-                    <el-descriptions-item :label="$t('admin.fullDomain')">{{ selectedDomainDetail.domain?.full_domain }}</el-descriptions-item>
-                    <el-descriptions-item :label="$t('admin.currentOwner')">
-                      <div style="display:flex;align-items:center;gap:6px">
-                        <el-avatar v-if="selectedDomainDetail.domain?.owner?.avatar" :src="selectedDomainDetail.domain.owner.avatar" :size="20" />
-                        <span>{{ selectedDomainDetail.domain?.owner?.username || selectedDomainDetail.domain?.owner_id }}</span>
-                      </div>
-                    </el-descriptions-item>
-                    <el-descriptions-item :label="$t('common.status')">
-                      <el-tag :type="selectedDomainDetail.domain?.status === 'active' ? 'success' : 'info'" size="small">
-                        {{ selectedDomainDetail.domain?.status === 'active' ? $t('admin.statusNormal') : $t('dashboard.archived') }}
-                      </el-tag>
-                    </el-descriptions-item>
-                    <el-descriptions-item :label="$t('common.createdAt')">{{ selectedDomainDetail.domain?.created_at }}</el-descriptions-item>
-                  </el-descriptions>
-                </el-card>
-
-                <!-- Permissions list -->
-                <el-card shadow="never" style="margin-bottom:12px">
-                  <template #header>
-                    <span style="font-weight:600">{{ $t('admin.domainPermissions') }}</span>
-                  </template>
-                  <div v-if="!selectedDomainDetail.permissions?.length" style="color:#909399;font-size:13px">{{ $t('admin.noPermissions') }}</div>
-                  <div v-for="p in selectedDomainDetail.permissions" :key="p.id" class="perm-item-admin">
-                    <div style="display:flex;align-items:center;gap:8px">
-                      <el-avatar v-if="p.user?.avatar" :src="p.user.avatar" :size="22" />
-                      <el-avatar v-else :size="22">{{ (p.user?.username || '?')[0]?.toUpperCase() }}</el-avatar>
-                      <span style="font-size:13px">{{ p.user?.username || ('User #' + p.user_id) }}</span>
-                      <el-tag :type="p.permission_level === 'read' ? 'info' : p.permission_level === 'write' ? 'success' : 'warning'" size="small">
-                        {{ p.permission_level }}
-                      </el-tag>
-                    </div>
-                    <el-button link type="danger" size="small" @click="handleAdminRevokePermission(selectedDomainDetail.domain.id, p.user_id)">{{ $t('admin.revokePermissionAction') }}</el-button>
+            <el-table :data="filteredDomainTree" stripe v-loading="loading" style="width:100%"
+              row-key="id" :tree-props="{ children: 'children' }"
+              @selection-change="handleDomainSelectionChange"
+            >
+              <el-table-column type="selection" width="40" :selectable="() => true" />
+              <el-table-column prop="full_domain" :label="$t('admin.fullDomain')" min-width="200" show-overflow-tooltip />
+              <el-table-column :label="$t('admin.currentOwner')" min-width="130">
+                <template #default="{ row }">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <el-avatar v-if="row.owner?.avatar" :src="row.owner.avatar" :size="22" />
+                    <el-avatar v-else :size="22">{{ (row.owner?.username || '?')[0]?.toUpperCase() }}</el-avatar>
+                    <span style="font-size:13px">{{ row.owner?.username || row.owner_id }}</span>
                   </div>
-                </el-card>
-
-                <!-- Transfer history -->
-                <el-card shadow="never">
-                  <template #header>
-                    <span style="font-weight:600">{{ $t('admin.transferHistory') }}</span>
-                  </template>
-                  <div v-if="!selectedDomainDetail.transfer_history?.length" style="color:#909399;font-size:13px">{{ $t('admin.noTransferHistory') }}</div>
-                  <el-timeline v-else>
-                    <el-timeline-item v-for="log in selectedDomainDetail.transfer_history" :key="log.id" :timestamp="log.created_at" placement="top">
-                      <div style="font-size:13px">
-                        <span>{{ log.from_user?.username || ('User #' + log.from_user_id) }}</span>
-                        <span style="margin:0 6px">&rarr;</span>
-                        <span>{{ log.to_user?.username || ('User #' + log.to_user_id) }}</span>
-                      </div>
-                    </el-timeline-item>
-                  </el-timeline>
-                </el-card>
-              </template>
-              <el-empty v-else :description="$t('admin.noDetailData')" :image-size="80" />
-            </div>
+                </template>
+              </el-table-column>
+              <el-table-column :label="$t('common.status')" width="80">
+                <template #default="{ row }">
+                  <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
+                    {{ row.status === 'active' ? $t('admin.statusNormal') : $t('dashboard.archived') }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column :label="$t('admin.permissionsCount', { count: '' })" width="80">
+                <template #default="{ row }">
+                  <el-tag size="small" type="info">{{ row.permission_count ?? 0 }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+              <el-table-column :label="$t('common.action')" width="80" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" @click.stop="$router.push(`/admin/domains/${row.id}`)">{{ $t('admin.viewDetail') }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
           </div>
         </el-tab-pane>
 
@@ -344,32 +277,6 @@
       </el-tabs>
     </el-card>
 
-    <!-- 分配域名对话框 -->
-    <el-dialog v-model="showAssign" :title="$t('admin.assignDomain')" width="420px" destroy-on-close>
-      <p class="assign-info">
-        {{ $t('admin.assignTo', { domain: assignTarget?.full_domain }) }}
-      </p>
-      <el-select v-model="assignUserId" :placeholder="$t('admin.selectUser')" style="width:100%">
-        <el-option
-          v-for="u in users"
-          :key="u.id"
-          :label="`${u.nickname || u.username} (@${u.username})`"
-          :value="u.id"
-        >
-          <div style="display:flex;align-items:center;gap:8px">
-            <el-avatar v-if="u.avatar" :src="u.avatar" :size="24" />
-            <el-avatar v-else :size="24">{{ (u.username || '?')[0]?.toUpperCase() }}</el-avatar>
-            <span>{{ u.nickname || u.username }}</span>
-            <span style="color:#909399;font-size:12px">@{{ u.username }}</span>
-          </div>
-        </el-option>
-      </el-select>
-      <template #footer>
-        <el-button @click="showAssign = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleAssign">{{ $t('admin.confirmAssign') }}</el-button>
-      </template>
-    </el-dialog>
-
     <!-- 编辑用户对话框 -->
     <el-dialog v-model="showEditUser" :title="$t('admin.editUser')" width="480px" destroy-on-close>
       <el-form :model="editForm" label-width="80px">
@@ -455,8 +362,9 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, getAdminDomainDetail, adminChangeOwner, adminRevokePermission, adminBatchDeleteDomains } from '../api/admin'
+import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, adminBatchDeleteDomains } from '../api/admin'
 import { listProviders, listProviderDomains } from '../api/provider'
 import { grantInviteQuota, revokeInviteQuota } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
@@ -466,17 +374,16 @@ import { useAvatar } from '../composables/useAvatar'
 import { useError } from '../composables/useError'
 
 const auth = useAuthStore()
+const route = useRoute()
 const { t } = useI18n()
 const { getSrc, firstLetter } = useAvatar()
 const { showError } = useError()
 
-const activeTab = ref('users')
+const activeTab = ref(route.query.tab || 'users')
 const users = ref([])
 const logs = ref([])
 const domainTree = ref([])
 const domainTreeSearch = ref('')
-const selectedDomainDetail = ref(null)
-const loadingDomainDetail = ref(false)
 const loading = ref(false)
 
 const adminProviders = ref([])
@@ -484,10 +391,6 @@ const adminDomains = ref([])
 const selectedProviderId = ref(null)
 const selectedDomain = ref('')
 const loadingAdminDomains = ref(false)
-
-const showAssign = ref(false)
-const assignTarget = ref(null)
-const assignUserId = ref(null)
 
 const showEditUser = ref(false)
 const editTarget = ref(null)
@@ -688,32 +591,6 @@ const filteredDomainTree = computed(() => {
   return filterNode(domainTree.value)
 })
 
-const loadDomainDetail = async (id) => {
-  loadingDomainDetail.value = true
-  try {
-    const res = await getAdminDomainDetail(id)
-    selectedDomainDetail.value = res.data
-  } catch { /* ignore */ }
-  loadingDomainDetail.value = false
-}
-
-const handleDomainTreeRowClick = (row) => {
-  loadDomainDetail(row.id)
-}
-
-const handleAdminChangeOwner = async (row) => {
-  assignTarget.value = row
-  assignUserId.value = null
-  showAssign.value = true
-}
-
-const handleAdminRevokePermission = async (domainId, userId) => {
-  await ElMessageBox.confirm(t('domainDetail.confirmRevoke'), t('domainDetail.revokePermTitle'), { type: 'warning' })
-  await adminRevokePermission(domainId, userId)
-  ElMessage.success(t('domainDetail.revokeSuccess'))
-  loadDomainDetail(domainId)
-}
-
 const loadAdminProviders = async () => {
   try {
     const res = await listProviders()
@@ -844,26 +721,6 @@ const handleCreateRoot = async () => {
     selectedDomain.value = ''
     loadData()
   } catch { /* error shown by interceptor */ }
-}
-
-const openAssign = (row) => {
-  assignTarget.value = row
-  assignUserId.value = null
-  showAssign.value = true
-}
-
-const handleAssign = async () => {
-  if (!assignUserId.value) {
-    ElMessage.warning(t('admin.selectTargetUser'))
-    return
-  }
-  await adminChangeOwner(assignTarget.value.id, assignUserId.value)
-  ElMessage.success(t('admin.domainAssigned'))
-  showAssign.value = false
-  loadData()
-  if (selectedDomainDetail.value?.domain?.id === assignTarget.value.id) {
-    loadDomainDetail(assignTarget.value.id)
-  }
 }
 
 const openEditUser = (row) => {
@@ -1048,11 +905,6 @@ onMounted(loadData)
 .domain-actions {
   margin-bottom: 16px;
 }
-.assign-info {
-  margin-bottom: 16px;
-  color: #303133;
-  font-size: 14px;
-}
 .filter-bar {
   display: flex;
   gap: 8px;
@@ -1075,36 +927,8 @@ onMounted(loadData)
   gap: 16px;
   flex-wrap: wrap;
 }
-.domain-tree-panel {
-  flex: 1;
-  min-width: 0;
-  min-width: 480px;
-}
-.domain-detail-panel {
-  width: 380px;
-  flex-shrink: 0;
-}
-.perm-item-admin {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-.perm-item-admin:last-child {
-  border-bottom: none;
-}
-:deep(.current-row) {
-  background-color: #ecf5ff !important;
-}
 
 @media (max-width: 768px) {
-  .domain-tree-panel {
-    min-width: 100%;
-  }
-  .domain-detail-panel {
-    width: 100%;
-  }
   .domain-tree-layout {
     flex-direction: column;
   }

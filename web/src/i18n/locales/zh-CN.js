@@ -806,6 +806,7 @@ export default {
     domainPermissions: '权限列表',
     noPermissions: '暂无权限',
     noDetailData: '请选择域名查看详情',
+    viewDetail: '查看',
   },
   chat: {
     loadMore: '加载更多',
