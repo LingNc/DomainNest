@@ -115,6 +115,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.POST("/:id/records/check-conflict", recordHandler.CheckConflict)
 		domains.GET("/:id/records/export", recordHandler.Export)
 		domains.POST("/:id/records/import", recordHandler.Import)
+		domains.PUT("/:id/records/rename-tag", recordHandler.RenameTag)
+		domains.PUT("/:id/records/delete-tag", recordHandler.DeleteTag)
 		domains.POST("/:id/reactivate", domainHandler.ReactivateDomain)
 		domains.GET("/:id/archive-info", domainHandler.ArchiveInfo)
 		domains.GET("/:id/permissions", permissionHandler.List)

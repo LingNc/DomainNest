@@ -519,6 +519,42 @@ func (s *RecordService) transferSingleHost(parent model.DomainNode, currentUserI
 	}
 }
 
+// RenameGroupTag renames all records' group_tag from oldTag to newTag for a given node.
+func (s *RecordService) RenameGroupTag(nodeID, userID uint64, oldTag, newTag string) (int64, error) {
+	if err := s.perm.RequireLevel(userID, nodeID, 2); err != nil {
+		return 0, err
+	}
+	if oldTag == "" || newTag == "" {
+		return 0, fmt.Errorf("分组名称不能为空")
+	}
+	if oldTag == newTag {
+		return 0, fmt.Errorf("新旧分组名称相同")
+	}
+	var count int64
+	s.db.Model(&model.DNSRecord{}).Where("node_id = ? AND group_tag = ?", nodeID, newTag).Count(&count)
+	if count > 0 {
+		return 0, fmt.Errorf("分组 '%s' 已存在", newTag)
+	}
+	result := s.db.Model(&model.DNSRecord{}).
+		Where("node_id = ? AND group_tag = ?", nodeID, oldTag).
+		Update("group_tag", newTag)
+	return result.RowsAffected, result.Error
+}
+
+// DeleteGroupTag removes the group_tag from all records in the specified group.
+func (s *RecordService) DeleteGroupTag(nodeID, userID uint64, tag string) (int64, error) {
+	if err := s.perm.RequireLevel(userID, nodeID, 2); err != nil {
+		return 0, err
+	}
+	if tag == "" {
+		return 0, fmt.Errorf("分组名称不能为空")
+	}
+	result := s.db.Model(&model.DNSRecord{}).
+		Where("node_id = ? AND group_tag = ?", nodeID, tag).
+		Update("group_tag", "")
+	return result.RowsAffected, result.Error
+}
+
 func validateRecordValue(recordType, value string, priority *int) error {
 	switch recordType {
 	case "MX":

@@ -276,6 +276,63 @@ func (h *RecordHandler) TransferByHost(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"results": results}})
 }
 
+func (h *RecordHandler) RenameTag(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	var req struct {
+		OldTag string `json:"old_tag" binding:"required"`
+		NewTag string `json:"new_tag" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	affected, err := h.recordService.RenameGroupTag(nodeID, userID, req.OldTag, req.NewTag)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "rename_group_tag", "dns_record", nil,
+		map[string]interface{}{"old_tag": req.OldTag, "new_tag": req.NewTag, "affected": affected}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"affected": affected}})
+}
+
+func (h *RecordHandler) DeleteTag(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	var req struct {
+		Tag string `json:"tag" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	affected, err := h.recordService.DeleteGroupTag(nodeID, userID, req.Tag)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "delete_group_tag", "dns_record", nil,
+		map[string]interface{}{"tag": req.Tag, "affected": affected}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"affected": affected}})
+}
+
 func (h *RecordHandler) Export(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)

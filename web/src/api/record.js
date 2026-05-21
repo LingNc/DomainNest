@@ -22,3 +22,5 @@ export const batchTagRecords = (data) => request.put('/records/batch-tag', data)
 
 export const syncRecord = (id) => request.post(`/records/${id}/sync`)
 export const adoptRecord = (id) => request.put(`/records/${id}/adopt`)
+export const renameGroupTag = (nodeId, data) => request.put(`/domains/${nodeId}/records/rename-tag`, data)
+export const deleteGroupTag = (nodeId, data) => request.put(`/domains/${nodeId}/records/delete-tag`, data)

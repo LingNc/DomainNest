@@ -186,7 +186,7 @@
           </el-table>
 
           <!-- flat view -->
-          <el-table v-else :data="groupedFlatRecords" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id" :row-class-name="flatRowClass" :span-method="flatSpanMethod">
+          <el-table v-else :data="paginatedFlatRecords" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id" :row-class-name="flatRowClass" :span-method="flatSpanMethod">
             <el-table-column type="selection" width="40" :selectable="(row) => !row.isGroupHeader" />
             <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="180">
               <template #default="{ row }">
@@ -195,6 +195,14 @@
                     <el-icon class="group-chevron"><component :is="isGroupCollapsed(row.groupKey) ? 'ArrowRight' : 'ArrowDown'" /></el-icon>
                     <strong>{{ row.groupLabel }}</strong>
                     <el-tag size="small" type="info" style="margin-left:8px">{{ row.count }}</el-tag>
+                    <template v-if="!row.groupKey.startsWith('__')">
+                      <el-button link type="primary" size="small" style="margin-left:8px" @click.stop="openRenameGroupDialog(row)">
+                        <el-icon><component :is="'Edit'" /></el-icon>
+                      </el-button>
+                      <el-button link type="danger" size="small" @click.stop="handleDeleteGroup(row)">
+                        <el-icon><component :is="'Delete'" /></el-icon>
+                      </el-button>
+                    </template>
                   </div>
                 </template>
                 <template v-else>
@@ -295,15 +303,14 @@
           <el-empty v-if="!loading && filteredRecords.length === 0" :description="$t('domainDetail.noRecords')" />
 
           <!-- pagination -->
-          <div class="pagination-bar" v-if="false && total > 0">
+          <div class="pagination-bar" v-if="recordViewMode === 'flat' && groupedFlatRecords.length > 0">
             <el-pagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.pageSize"
-              :total="total"
-              :page-sizes="[10, 20, 50, 100]"
+              v-model:current-page="flatPage"
+              v-model:page-size="flatPageSize"
+              :total="groupedFlatRecords.length"
+              :page-sizes="flatPageSizeOptions"
+              :pager-count="5"
               layout="total, sizes, prev, pager, next"
-              @current-change="loadRecords"
-              @size-change="loadRecords"
             />
           </div>
         </el-card>
@@ -693,6 +700,17 @@
     <el-dialog v-model="showBatchGroupDialog" :title="$t('domainDetail.batchGroupTitle')" width="400px" destroy-on-close>
       <el-form>
         <el-form-item :label="$t('domainDetail.groupTag')">
+          <el-radio-group v-model="batchGroupForm.mode">
+            <el-radio value="existing">{{ $t('domainDetail.moveToExistingGroup') }}</el-radio>
+            <el-radio value="new">{{ $t('domainDetail.createNewGroup') }}</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="batchGroupForm.mode === 'existing'" :label="$t('domainDetail.selectGroup')">
+          <el-select v-model="batchGroupForm.group_tag" :placeholder="$t('domainDetail.selectGroup')" style="width:100%">
+            <el-option v-for="g in existingGroupNames" :key="g" :label="g" :value="g" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-else :label="$t('domainDetail.groupTag')">
           <el-input v-model="batchGroupForm.group_tag" :placeholder="$t('domainDetail.groupTagPlaceholder')" />
         </el-form-item>
       </el-form>
@@ -701,15 +719,28 @@
         <el-button type="primary" @click="handleBatchGroup">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- rename group dialog -->
+    <el-dialog v-model="showRenameGroupDialog" :title="$t('domainDetail.renameGroupTitle')" width="400px" destroy-on-close>
+      <el-form label-width="80px">
+        <el-form-item :label="$t('domainDetail.groupTag')">
+          <el-input v-model="renameGroupForm.new_tag" :placeholder="$t('domainDetail.groupTagPlaceholder')" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showRenameGroupDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleRenameGroup">{{ $t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomain, transferDomain, deleteDomain, convertToNode, demoteNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
-import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord } from '../api/record'
+import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag } from '../api/record'
 import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
@@ -768,6 +799,8 @@ const grantPermSelectRef = ref(null)
 const filters = reactive({ host: '', recordType: [], value: '', status: '', source: '' })
 const pagination = reactive({ page: 1, pageSize: 20 })
 
+watch(filters, () => { flatPage.value = 1 }, { deep: true })
+
 const recordForm = ref({ host: '', record_type: 'A', value: '', ttl: 600, priority: null, line: 'default' })
 const editForm = ref({ id: null, host: '', record_type: '', value: '', ttl: 600, priority: null })
 const srvForm = ref({ priority: 0, weight: 0, port: 0, target: '' })
@@ -785,7 +818,27 @@ const batchTransferForm = ref({ target_user_id: null })
 
 // Batch group state
 const showBatchGroupDialog = ref(false)
-const batchGroupForm = ref({ group_tag: '' })
+const batchGroupForm = ref({ mode: 'new', group_tag: '' })
+
+// Rename group state
+const showRenameGroupDialog = ref(false)
+const renameGroupForm = ref({ old_tag: '', new_tag: '' })
+
+// Existing groups for batch dialog
+const existingGroupNames = computed(() => {
+  const names = new Set()
+  for (const rec of records.value) {
+    if (rec.group_tag && rec.source !== 'provider') {
+      names.add(rec.group_tag)
+    }
+  }
+  return [...names].sort()
+})
+
+// Flat view pagination
+const flatPage = ref(1)
+const flatPageSize = ref(50)
+const flatPageSizeOptions = [20, 50, 100, 0]
 
 // Conflict detection state
 const showConflictDialog = ref(false)
@@ -1021,6 +1074,13 @@ const groupedFlatRecords = computed(() => {
   return result
 })
 
+const paginatedFlatRecords = computed(() => {
+  const all = groupedFlatRecords.value
+  if (flatPageSize.value === 0) return all
+  const start = (flatPage.value - 1) * flatPageSize.value
+  return all.slice(start, start + flatPageSize.value)
+})
+
 const flatSpanMethod = ({ row, columnIndex }) => {
   if (row.isGroupHeader) {
     if (columnIndex === 0) return { rowspan: 1, colspan: 1 }
@@ -1038,6 +1098,7 @@ const flatRowClass = ({ row }) => {
 const loadRecords = async () => {
   loading.value = true
   collapsedGroups.clear()
+  flatPage.value = 1
   try {
     // Load all records; filtering is done client-side via filteredRecords
     const params = { page_size: 9999 }
@@ -1620,7 +1681,7 @@ const handleBatchTransfer = async () => {
 
 
 const openBatchGroupDialog = () => {
-  batchGroupForm.value = { group_tag: '' }
+  batchGroupForm.value = { mode: existingGroupNames.value.length > 0 ? 'existing' : 'new', group_tag: '' }
   showBatchGroupDialog.value = true
 }
 
@@ -1636,6 +1697,42 @@ const handleBatchGroup = async () => {
     await loadRecords()
   } catch (e) {
     showError(e.response?.data?.message || t('domainDetail.batchGroupFailed'))
+  }
+}
+
+const openRenameGroupDialog = (row) => {
+  renameGroupForm.value = { old_tag: row.groupKey, new_tag: '' }
+  showRenameGroupDialog.value = true
+}
+
+const handleRenameGroup = async () => {
+  if (!renameGroupForm.value.new_tag) {
+    ElMessage.warning(t('domainDetail.groupTagRequired'))
+    return
+  }
+  try {
+    await renameGroupTag(domainId, renameGroupForm.value)
+    ElMessage.success(t('domainDetail.renameGroupSuccess'))
+    showRenameGroupDialog.value = false
+    loadRecords()
+  } catch (e) {
+    showError(e.response?.data?.message || t('common.error'))
+  }
+}
+
+const handleDeleteGroup = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      t('domainDetail.deleteGroupConfirm', { group: row.groupLabel }),
+      t('domainDetail.deleteGroup'),
+      { type: 'warning' }
+    )
+    await deleteGroupTag(domainId, { tag: row.groupKey })
+    ElMessage.success(t('domainDetail.deleteGroupSuccess'))
+    loadRecords()
+  } catch (e) {
+    if (e === 'cancel') return
+    showError(e.response?.data?.message || t('common.error'))
   }
 }
 
