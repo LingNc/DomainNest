@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"domainnest/internal/middleware"
+	"domainnest/internal/model"
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -13,11 +14,12 @@ import (
 
 type DomainHandler struct {
 	domainService *service.DomainService
+	permService   *service.PermissionService
 	db            *gorm.DB
 }
 
-func NewDomainHandler(domainService *service.DomainService, db *gorm.DB) *DomainHandler {
-	return &DomainHandler{domainService: domainService, db: db}
+func NewDomainHandler(domainService *service.DomainService, permService *service.PermissionService, db *gorm.DB) *DomainHandler {
+	return &DomainHandler{domainService: domainService, permService: permService, db: db}
 }
 
 func (h *DomainHandler) List(c *gin.Context) {
@@ -123,4 +125,99 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 		nil, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
+}
+
+func (h *DomainHandler) ConvertToNode(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	parentID, err := strconv.ParseUint(c.Param("parentId"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的父节点ID"})
+		return
+	}
+
+	var req struct {
+		Host string `json:"host" binding:"required,min=1,max=64"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	// Require write permission on the parent node
+	if err := h.permService.RequireLevel(userID, parentID, 2); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		return
+	}
+
+	node, err := h.domainService.MaterializeNode(parentID, req.Host, userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	// Count records that were linked to this node
+	var affectedRecords int64
+	h.db.Model(&model.DNSRecord{}).Where("own_node_id = ? AND deleted_at IS NULL", node.ID).Count(&affectedRecords)
+
+	middleware.LogOperation(h.db, userID, "convert_to_node", "domain_node", &node.ID,
+		map[string]interface{}{"full_domain": node.FullDomain, "host": req.Host}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"node":             node,
+			"affected_records": affectedRecords,
+		},
+	})
+}
+
+func (h *DomainHandler) DemoteNode(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	nodeID, err := strconv.ParseUint(c.Param("nodeId"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	// Require owner permission (level 4) or super admin (level 5)
+	if err := h.permService.RequireLevel(userID, nodeID, 4); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		return
+	}
+
+	if err := h.domainService.DemoteNode(nodeID, userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	middleware.LogOperation(h.db, userID, "demote_node", "domain_node", &nodeID,
+		nil, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "降级成功"})
+}
+
+func (h *DomainHandler) GetConversionLogs(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	nodeID, err := strconv.ParseUint(c.Param("nodeId"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+
+	// Require read permission on the node
+	if err := h.permService.RequireLevel(userID, nodeID, 1); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		return
+	}
+
+	logs, err := h.domainService.GetConversionLogs(nodeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": logs})
 }

@@ -43,7 +43,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 
 	emailVerifySvc := service.NewEmailVerifyService(db, emailService)
 	authHandler := handler.NewAuthHandler(authService, emailService, emailVerifySvc, settingsService, db, &cfg.JWT)
-	domainHandler := handler.NewDomainHandler(domainService, db)
+	domainHandler := handler.NewDomainHandler(domainService, permissionService, db)
 	recordHandler := handler.NewRecordHandler(recordService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
 	adminHandler := handler.NewAdminHandler(db)
@@ -96,6 +96,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.GET("/:id", domainHandler.Get)
 		domains.POST("/:id/transfer", domainHandler.Transfer)
 		domains.DELETE("/:id", domainHandler.Delete)
+		domains.POST("/:parentId/nodes/convert", domainHandler.ConvertToNode)
+		domains.POST("/:nodeId/nodes/demote", domainHandler.DemoteNode)
+		domains.GET("/:nodeId/nodes/conversion-logs", domainHandler.GetConversionLogs)
 		domains.GET("/:id/records", recordHandler.List)
 		domains.POST("/:id/records", recordHandler.Create)
 		domains.GET("/:id/records/export", recordHandler.Export)
