@@ -1,4 +1,4 @@
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 
 export function useError() {
@@ -6,7 +6,7 @@ export function useError() {
 
   const showError = (msg) => {
     if (msg.length > 100) {
-      ElMessageBox.alert(msg, t('common.error'), { type: 'error', confirmButtonText: t('common.confirm') })
+      ElNotification({ type: 'error', title: t('common.error'), message: msg, duration: 0 })
     } else {
       ElMessage.error(msg)
     }
