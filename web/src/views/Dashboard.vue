@@ -36,7 +36,7 @@
               {{ permLabel(permMap[data.id]) }}
             </el-tag>
             <el-tag size="small" type="info">{{ $t('dashboard.recordsCount', { count: data.records?.length || 0 }) }}</el-tag>
-            <div class="node-actions" @click.stop>
+            <div class="node-actions" @click.stop v-if="data.owner_id === auth.user?.id">
               <el-button size="small" text type="warning" @click="handleTransferDomain(data)">{{ $t('dashboard.transferDomain') }}</el-button>
               <el-button size="small" text type="danger" @click="handleDeleteDomain(data)">{{ $t('dashboard.deleteDomain') }}</el-button>
             </div>

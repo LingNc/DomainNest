@@ -128,7 +128,7 @@
             <el-descriptions-item :label="$t('domainDetail.domainId')">{{ domain.id }}</el-descriptions-item>
             <el-descriptions-item :label="$t('common.createdAt')">{{ domain.created_at }}</el-descriptions-item>
           </el-descriptions>
-          <div class="domain-actions">
+          <div class="domain-actions" v-if="domain.owner_id === auth.user?.id">
             <el-button size="small" type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
             <el-button size="small" type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
             <el-button v-if="domain.is_materialized" size="small" type="warning" plain @click="handleDemoteNode">{{ $t('domainDetail.demoteNode') }}</el-button>
