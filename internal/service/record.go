@@ -269,12 +269,12 @@ func (s *RecordService) GetRecordByID(recordID uint64) (*model.DNSRecord, error)
 	return &record, nil
 }
 
-func (s *RecordService) UpdateSyncStatus(recordID uint64, status, aliyunRecordID string) error {
+func (s *RecordService) UpdateSyncStatus(recordID uint64, status, providerRecordID string) error {
 	updates := map[string]interface{}{
 		"sync_status": status,
 	}
-	if aliyunRecordID != "" {
-		updates["aliyun_record_id"] = aliyunRecordID
+	if providerRecordID != "" {
+		updates["provider_record_id"] = providerRecordID
 	}
 	return s.db.Model(&model.DNSRecord{}).Where("id = ?", recordID).Updates(updates).Error
 }

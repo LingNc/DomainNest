@@ -10,6 +10,16 @@ type Config struct {
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Admin    AdminConfig    `mapstructure:"admin"`
 	SMTP     SMTPConfig     `mapstructure:"smtp"`
+	Sync     SyncConfig     `mapstructure:"sync"`
+}
+
+type SyncConfig struct {
+	Enabled      bool `mapstructure:"enabled"`
+	Interval     int  `mapstructure:"interval"`
+	BatchSize    int  `mapstructure:"batch_size"`
+	MaxRetries   int  `mapstructure:"max_retries"`
+	BaseBackoff  int  `mapstructure:"base_backoff"`
+	MaxBackoff   int  `mapstructure:"max_backoff"`
 }
 
 type ServerConfig struct {

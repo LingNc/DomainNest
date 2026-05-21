@@ -15,6 +15,7 @@ type DomainNode struct {
 	ProviderID       *uint64        `gorm:"index" json:"provider_id,omitempty"`
 	MaterializedFrom *uint64        `gorm:"index" json:"materialized_from,omitempty"`
 	IsMaterialized   bool           `gorm:"default:false" json:"is_materialized"`
+	RecordsImported  bool           `gorm:"default:false" json:"records_imported"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`

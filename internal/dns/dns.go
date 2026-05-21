@@ -31,12 +31,14 @@ type Domain struct {
 
 // Record represents a DNS record.
 type Record struct {
-	RecordID   string `json:"record_id"`
-	Host       string `json:"host"`
-	Type       string `json:"type"`
-	Value      string `json:"value"`
-	TTL        int64  `json:"ttl"`
-	Priority   *int64 `json:"priority,omitempty"`
+	RecordID string `json:"record_id"`
+	Host     string `json:"host"`
+	Type     string `json:"type"`
+	Value    string `json:"value"`
+	TTL      int64  `json:"ttl"`
+	Priority *int64 `json:"priority,omitempty"`
+	Line     string `json:"line,omitempty"`
+	Enabled  bool   `json:"enabled,omitempty"`
 }
 
 // ProviderFactory creates a Provider from credentials.

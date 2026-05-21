@@ -34,13 +34,25 @@ func (p *AliyunProvider) ListDomains() ([]Domain, error) {
 }
 
 func (p *AliyunProvider) ListRecords(domainName string) ([]Record, error) {
-	// Use the aliyun client's DescribeDomainRecords to verify access
-	// For full record listing, we'd need a new method on the aliyun client
-	// For now, just verify access (returns nil error = accessible)
-	if err := p.client.DescribeDomainRecords(domainName); err != nil {
+	aliyunRecords, err := p.client.ListAllRecords(domainName)
+	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	records := make([]Record, 0, len(aliyunRecords))
+	for _, r := range aliyunRecords {
+		rec := Record{
+			RecordID: r.RecordID,
+			Host:     r.RR,
+			Type:     r.Type,
+			Value:    r.Value,
+			TTL:      r.TTL,
+			Priority: r.Priority,
+			Line:     r.Line,
+			Enabled:  r.Status == "Enable",
+		}
+		records = append(records, rec)
+	}
+	return records, nil
 }
 
 func (p *AliyunProvider) AddRecord(domainName, rr, recordType, value string, ttl int64, priority *int64) (string, error) {
