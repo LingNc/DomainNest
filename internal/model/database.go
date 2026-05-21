@@ -54,5 +54,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&EmailVerification{},
 		&NodeConversionLog{},
 		&SyncLog{},
+		&DomainTransferLog{},
 	)
 }
