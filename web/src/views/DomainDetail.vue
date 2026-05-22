@@ -359,9 +359,8 @@
               <span v-if="p.source_filter" class="perm-restrict">{{ $t('domainDetail.sourceFilterLabel') }} {{ sourceFilterLabel(p.source_filter) }}</span>
             </div>
             <div class="perm-actions">
-              <el-button v-if="p.status === 'active'" link type="danger" size="small" @click="handleRevokePerm(p.user_id)">{{ $t('domainDetail.revoke') }}</el-button>
-              <el-button v-if="p.status === 'active' && p.permission_level !== 'read'" link type="warning" size="small" @click="handleRevokeRequest(p.user_id)">{{ $t('domainDetail.revokeRequest') }}</el-button>
-            </div>
+              <el-button v-if="p.status === 'active' && p.user_id !== auth.user?.id" link type="danger" size="small" @click="handleRevokePerm(p.user_id)">{{ $t('domainDetail.revoke') }}</el-button>
+                          </div>
           </div>
         </el-card>
 
@@ -766,7 +765,7 @@ import { getDomain, transferDomain, deleteDomain, demoteNode, convertToNode, tra
 import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag } from '../api/record'
 import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
-import { getPermissions, grantPermission, batchGrantPermission, revokePermission, revokeRequest, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
+import { getPermissions, grantPermission, batchGrantPermission, revokePermission, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
 import { useAuthStore } from '../stores/auth'
 import { searchAllUsers } from '../api/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -1604,16 +1603,6 @@ const handleRevokePerm = async (userId) => {
   loadPermissions()
 }
 
-const handleRevokeRequest = async (userId) => {
-  await ElMessageBox.confirm(t('domainDetail.confirmRevokeRequest'), t('domainDetail.revokeRequestTitle'), { type: 'warning' })
-  try {
-    await revokeRequest(domainId, userId, { skipErrorToast: true })
-    ElMessage.success(t('domainDetail.revokeRequestSent'))
-    loadPermissions()
-  } catch (e) {
-    showError(e.response?.data?.message || t('domainDetail.requestFailed'))
-  }
-}
 
 const loadPendingRecords = async () => {
   try {
