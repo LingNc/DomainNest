@@ -58,6 +58,10 @@
 
         <!-- 域名管理 -->
         <el-tab-pane :label="$t('admin.domainManagement')" name="domains">
+          <div v-if="!loadingAdminProviders && adminProviders.length === 0" style="padding:40px 0">
+            <el-empty :description="$t('admin.noProvidersHint')" :image-size="60" />
+          </div>
+          <template v-else>
           <div class="domain-actions">
             <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
               <el-select v-model="selectedProviderId" :placeholder="$t('admin.selectProvider')" style="width:200px" size="default">
@@ -66,9 +70,8 @@
               <el-select v-model="selectedDomain" :placeholder="$t('admin.selectDomain')" style="width:240px" size="default" :loading="loadingAdminDomains" :disabled="!selectedProviderId">
                 <el-option v-for="d in adminDomains" :key="d.domain_name" :label="getDomainLabel(d)" :value="d.domain_name" />
               </el-select>
-              <el-button type="primary" size="default" :disabled="adminProviders.length === 0" @click="handleCreateRoot">{{ $t('admin.createRootDomain') }}</el-button>
+              <el-button type="primary" size="default" @click="handleCreateRoot">{{ $t('admin.createRootDomain') }}</el-button>
             </div>
-            <el-empty v-if="!loadingAdminProviders && adminProviders.length === 0" :description="$t('admin.noProvidersHint')" :image-size="60" />
           </div>
 
           <el-input v-model="domainTreeSearch" :placeholder="$t('admin.domainTreeSearch')" clearable style="margin-bottom:12px;width:300px" />
@@ -116,6 +119,7 @@
               </el-table-column>
             </el-table>
           </div>
+          </template>
         </el-tab-pane>
 
         <!-- 操作日志 -->
