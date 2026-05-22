@@ -359,7 +359,7 @@
               <span v-if="p.source_filter" class="perm-restrict">{{ $t('domainDetail.sourceFilterLabel') }} {{ sourceFilterLabel(p.source_filter) }}</span>
             </div>
             <div class="perm-actions">
-              <el-button v-if="p.status === 'active' && p.user_id !== auth.user?.id" link type="danger" size="small" @click="handleRevokePerm(p.user_id)">{{ $t('domainDetail.revoke') }}</el-button>
+              <el-button v-if="p.status === 'active' && (p.user_id !== auth.user?.id || domain?.owner_id === auth.user?.id)" link type="danger" size="small" @click="handleRevokePerm(p.user_id)">{{ $t('domainDetail.revoke') }}</el-button>
                           </div>
           </div>
         </el-card>
