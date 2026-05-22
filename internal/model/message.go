@@ -6,7 +6,7 @@ import (
 
 type Message struct {
 	ID         uint64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	SenderID   uint64     `gorm:"index;not null" json:"sender_id"`
+	SenderID   *uint64    `gorm:"index" json:"sender_id,omitempty"`
 	ReceiverID uint64     `gorm:"index:idx_receiver_category;not null" json:"receiver_id"`
 	Type       string     `gorm:"type:varchar(20);default:'user';index" json:"type"`
 	Title      string     `gorm:"type:varchar(255)" json:"title"`

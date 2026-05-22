@@ -42,7 +42,7 @@ func (s *MessageService) SendMessage(senderID, receiverID uint64, content string
 	}
 
 	msg := &model.Message{
-		SenderID:   senderID,
+		SenderID:   &senderID,
 		ReceiverID: receiverID,
 		Content:    content,
 		Type:       "user",
@@ -190,7 +190,7 @@ func (s *MessageService) MarkAllNotificationsAsRead(userID uint64) error {
 // SendSystemNotification creates a system notification (sender_id = 0).
 func (s *MessageService) SendSystemNotification(receiverID uint64, title, content string, actionType string, actionData string) error {
 	msg := &model.Message{
-		SenderID:     0,
+		SenderID:     nil,
 		ReceiverID:   receiverID,
 		Content:      content,
 		Type:         "system",

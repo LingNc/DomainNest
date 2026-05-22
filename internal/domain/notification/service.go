@@ -20,7 +20,7 @@ func NewService(db *gorm.DB, hub *ws.Hub) *Service {
 // Send creates a system notification for a single user and broadcasts via WebSocket.
 func (s *Service) Send(receiverID uint64, n Notification) error {
 	msg := &model.Message{
-		SenderID:   0, // system
+		SenderID:   nil, // system
 		ReceiverID: receiverID,
 		Type:       "system",
 		Category:   n.Category,
