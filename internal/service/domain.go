@@ -72,7 +72,7 @@ func (s *DomainService) GetUserNodes(userID uint64) ([]model.DomainNode, error) 
 			return db.Where("id IN ?", accessibleIDs)
 		}).
 		Preload("Owner").
-		Preload("Claimer").
+		Preload("Claimer", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname") }).
 		Find(&nodes).Error
 
 	if err != nil {
@@ -227,7 +227,11 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 		if node.Status != "archived" {
 			return errors.New("根域名请先归档后再删除")
 		}
-		if userID != node.ClaimerID {
+		claimerID := node.OwnerID
+		if node.ClaimerID != nil {
+			claimerID = *node.ClaimerID
+		}
+		if userID != claimerID {
 			// Non-claimer deleting: return ownership to claimer, un-archive
 			return s.db.Transaction(func(tx *gorm.DB) error {
 				// Platform records: move to trash
@@ -249,8 +253,12 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 					return fmt.Errorf("禁用同步失败: %w", err)
 				}
 				// Return domain to claimer, restore to active
+				claimerID := node.OwnerID
+				if node.ClaimerID != nil {
+					claimerID = *node.ClaimerID
+				}
 				return tx.Model(&node).Updates(map[string]interface{}{
-					"owner_id": node.ClaimerID,
+					"owner_id": claimerID,
 					"status":   "active",
 				}).Error
 			})

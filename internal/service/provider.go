@@ -175,9 +175,10 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 		Host:       host,
 		FullDomain: domainName,
 		OwnerID:    userID,
-		ClaimerID:  userID,
 		ProviderID: &providerID,
 	}
+	uid := userID
+	node.ClaimerID = &uid
 	if err := s.db.Create(node).Error; err != nil {
 		return nil, err
 	}

@@ -66,6 +66,10 @@ func AutoMigrate(db *gorm.DB) error {
 		return fmt.Errorf("migrateDomainNodesUniqueIndex: %w", err)
 	}
 
+	if err := dropForeignKeyClaimerID(db); err != nil {
+		return fmt.Errorf("dropForeignKeyClaimerID: %w", err)
+	}
+
 	return nil
 }
 
@@ -98,5 +102,23 @@ func migrateDomainNodesUniqueIndex(db *gorm.DB) error {
 		}
 	}
 
+	return nil
+}
+
+// dropForeignKeyClaimerID drops the foreign key constraint on claimer_id if it exists.
+// ClaimerID references users(id) but users are soft-deleted (status=0) rather than hard deleted,
+// so a hard FK would cause constraint violations when a user account is deactivated.
+func dropForeignKeyClaimerID(db *gorm.DB) error {
+	var count int64
+	db.Raw(`SELECT COUNT(*) FROM information_schema.table_constraints
+		WHERE table_schema = DATABASE() AND table_name = 'domain_nodes'
+		AND constraint_name = 'fk_domain_nodes_claimer'`).Scan(&count)
+	if count == 0 {
+		return nil
+	}
+	log.Println("[Migration] Dropping foreign key fk_domain_nodes_claimer...")
+	if err := db.Exec("ALTER TABLE domain_nodes DROP FOREIGN KEY fk_domain_nodes_claimer").Error; err != nil {
+		return fmt.Errorf("drop foreign key: %w", err)
+	}
 	return nil
 }

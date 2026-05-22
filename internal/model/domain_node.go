@@ -12,7 +12,7 @@ type DomainNode struct {
 	FullDomain       string         `gorm:"type:varchar(255);index;not null" json:"full_domain"`
 	ParentID         *uint64        `gorm:"index" json:"parent_id"`
 	OwnerID          uint64         `gorm:"index;not null" json:"owner_id"`
-	ClaimerID        uint64         `gorm:"index" json:"claimer_id"`
+	ClaimerID        *uint64        `gorm:"index" json:"claimer_id,omitempty"`
 	ProviderID       *uint64        `gorm:"index" json:"provider_id,omitempty"`
 	MaterializedFrom *uint64        `gorm:"index" json:"materialized_from,omitempty"`
 	IsMaterialized   bool           `gorm:"default:false" json:"is_materialized"`

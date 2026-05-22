@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"domainnest/internal/dns"
@@ -229,6 +230,19 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 	} else {
 		providerRecordID, err := client.AddRecord(rootDomain, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
 		if err != nil {
+			if strings.Contains(err.Error(), "DomainRecordDuplicate") {
+				// Record already exists on provider — find its ID and update local record
+				records, listErr := client.ListRecords(rootDomain)
+				if listErr == nil {
+					for _, r := range records {
+						if r.Host == rrForAliyun && r.Type == record.RecordType && r.Value == record.Value {
+							s.recordService.UpdateSyncStatus(record.ID, "synced", r.RecordID)
+							s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
+							return nil
+						}
+					}
+				}
+			}
 			s.recordService.UpdateSyncStatus(record.ID, "failed", "")
 			return err
 		}
