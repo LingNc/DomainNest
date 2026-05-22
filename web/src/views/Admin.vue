@@ -47,9 +47,9 @@
               <template #default="{ row }">
                 <el-button link type="success" size="small" :disabled="row.is_super_admin && !auth.isSuperAdmin" @click="openGrantDialog(row)">{{ $t('admin.grantInviteAction') }}</el-button>
                 <el-button link type="danger" size="small" :disabled="row.is_super_admin && !auth.isSuperAdmin" @click="openRevokeDialog(row)">{{ $t('admin.revokeInviteAction') }}</el-button>
-                <el-button link type="primary" size="small" @click="openEditUser(row)">{{ $t('common.edit') }}</el-button>
+                <el-button link type="primary" size="small" :disabled="row.is_super_admin || (row.is_admin && !auth.isSuperAdmin)" @click="openEditUser(row)">{{ $t('common.edit') }}</el-button>
                 <el-button link type="warning" size="small" :disabled="row.is_super_admin && row.id !== auth.user?.id" @click="openResetPwd(row)">{{ $t('admin.resetPassword') }}</el-button>
-                <el-button v-if="row.status === 1" link type="danger" size="small" :disabled="row.is_super_admin" @click="handleDisable(row)">{{ $t('admin.disable') }}</el-button>
+                <el-button v-if="row.status === 1" link type="danger" size="small" :disabled="row.is_super_admin || (row.is_admin && !auth.isSuperAdmin)" @click="handleDisable(row)">{{ $t('admin.disable') }}</el-button>
                 <el-button v-else link type="success" size="small" @click="handleEnable(row)">{{ $t('admin.enable') }}</el-button>
               </template>
             </el-table-column>
@@ -68,7 +68,7 @@
               </el-select>
               <el-button type="primary" size="default" :disabled="adminProviders.length === 0" @click="handleCreateRoot">{{ $t('admin.createRootDomain') }}</el-button>
             </div>
-            <el-empty v-if="adminProviders.length === 0" :description="$t('admin.noProvidersHint')" :image-size="60" />
+            <el-empty v-if="!loadingAdminProviders && adminProviders.length === 0" :description="$t('admin.noProvidersHint')" :image-size="60" />
           </div>
 
           <el-input v-model="domainTreeSearch" :placeholder="$t('admin.domainTreeSearch')" clearable style="margin-bottom:12px;width:300px" />
@@ -435,6 +435,7 @@ const domainTreeSearch = ref('')
 const loading = ref(false)
 
 const adminProviders = ref([])
+const loadingAdminProviders = ref(false)
 const adminDomains = ref([])
 const selectedProviderId = ref(null)
 const selectedDomain = ref('')
@@ -681,10 +682,13 @@ const filteredInviteCodes = computed(() => {
 })
 
 const loadAdminProviders = async () => {
+  loadingAdminProviders.value = true
   try {
     const res = await listProviders()
     adminProviders.value = res.data || []
-  } catch { /* ignore */ }
+  } catch { /* ignore */ } finally {
+    loadingAdminProviders.value = false
+  }
 }
 
 watch(selectedProviderId, async (id) => {

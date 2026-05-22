@@ -279,6 +279,24 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	var caller model.User
 	h.db.First(&caller, callerID)
 
+	// Fetch target user for permission checks
+	var targetUser model.User
+	if err := h.db.First(&targetUser, userID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
+		return
+	}
+
+	// Non-superadmin cannot edit superadmin
+	if targetUser.IsSuperAdmin && !caller.IsSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可编辑超级管理员账号"})
+		return
+	}
+	// Non-superadmin cannot edit other admins
+	if targetUser.Role == "admin" && !caller.IsSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可编辑其他管理员账号"})
+		return
+	}
+
 	updates := map[string]interface{}{}
 	if req.Role != "" {
 		if !caller.IsSuperAdmin {
@@ -305,11 +323,6 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 			return
 		}
 		// Cannot decrease below current invite_count (skip for superadmin)
-		var targetUser model.User
-		if err := h.db.First(&targetUser, userID).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
-			return
-		}
 		if !caller.IsSuperAdmin && *req.InviteLimit < targetUser.InviteCount {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("邀请额度上限不能低于已使用数量 (%d)", targetUser.InviteCount)})
 			return
@@ -424,6 +437,13 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	tx := h.db.Begin()
 	defer tx.Rollback()
 
+	var caller model.User
+	if err := tx.First(&caller, callerID).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "内部错误"})
+		return
+	}
+
 	// Handle invite pool cleanup: free the registration slot from the inviter
 	var user model.User
 	if err := tx.First(&user, userID).Error; err != nil {
@@ -432,11 +452,15 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	}
 
 	if user.IsSuperAdmin {
-		var caller model.User
-		if err := tx.First(&caller, callerID).Error; err != nil || !caller.IsSuperAdmin {
+		if !caller.IsSuperAdmin {
 			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅超级管理员可禁用超级管理员账号"})
 			return
 		}
+	}
+	// Non-superadmin cannot disable other admins
+	if user.Role == "admin" && !caller.IsSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可禁用其他管理员账号"})
+		return
 	}
 
 	if user.InvitedBy != nil {
