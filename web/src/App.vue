@@ -87,10 +87,13 @@
             <span class="divider">/</span>
             <span :class="{ active: locale === 'en-US' }" @click="switchLang('en-US')">En</span>
           </div>
+          <el-button v-if="sidebarCollapsed" text size="small" @click="handleLogout" class="logout-btn" :title="$t('common.logout')">
+            <el-icon><component :is="'SwitchButton'" /></el-icon>
+          </el-button>
+          <el-button v-if="!sidebarCollapsed" text size="small" @click="handleLogout" class="logout-btn">{{ $t('common.logout') }}</el-button>
           <el-button text size="small" @click="sidebarCollapsed = !sidebarCollapsed" class="collapse-btn">
             <el-icon><component :is="sidebarCollapsed ? 'DArrowRight' : 'DArrowLeft'" /></el-icon>
           </el-button>
-          <el-button v-if="!sidebarCollapsed" text size="small" @click="handleLogout" class="logout-btn">{{ $t('common.logout') }}</el-button>
         </div>
       </div>
     </aside>
@@ -283,6 +286,12 @@ body {
   padding: 16px 8px;
 }
 .sidebar.collapsed .footer-top-row {
+  justify-content: center;
+  width: 100%;
+}
+.sidebar.collapsed .footer-top-row > * {
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 .sidebar.collapsed .footer-actions {
