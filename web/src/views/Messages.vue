@@ -34,12 +34,8 @@
                   <span class="notif-time">{{ formatTime(notif.created_at) }}</span>
                 </div>
                 <div class="notif-content">{{ notif.content }}</div>
-                <!-- Pending tag for pending actionable notifications -->
-                <div v-if="isPendingActionable(notif)" class="notif-pending-tag">
-                  <el-tag type="warning" size="small">{{ $t('messages.pendingAccept') }}</el-tag>
-                </div>
-                <!-- Action buttons for non-pending actionable notifications -->
-                <div v-if="notif.action_type && !notif.action_status && !isPendingActionable(notif)" class="notif-actions">
+                <!-- Action buttons for actionable notifications -->
+                <div v-if="notif.action_type && !notif.action_status" class="notif-actions">
                   <el-button type="success" size="small" @click.stop="handleAction(notif.id, 'accepted')">
                     {{ $t('messages.accept') }}
                   </el-button>
@@ -340,13 +336,6 @@ const handleAction = async (notifId, action) => {
   }
 }
 
-// --- Pending actionable notifications ---
-const pendingActionTypes = ['permission_grant', 'domain_transfer', 'friend_request']
-
-const isPendingActionable = (notif) => {
-  return notif.action_type && pendingActionTypes.includes(notif.action_type) && !notif.action_status
-}
-
 // --- Shared ---
 const formatTime = (t) => {
   if (!t) return ''
@@ -609,9 +598,6 @@ onUnmounted(() => {
   gap: 8px;
 }
 .notif-action-status {
-  margin-top: 6px;
-}
-.notif-pending-tag {
   margin-top: 6px;
 }
 </style>

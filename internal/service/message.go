@@ -1,9 +1,7 @@
 package service
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"domainnest/internal/model"
@@ -12,22 +10,11 @@ import (
 )
 
 type MessageService struct {
-	db    *gorm.DB
-	deps  *NotificationActionDeps
-}
-
-type NotificationActionDeps struct {
-	PermissionService *PermissionService
-	DomainService     *DomainService
-	FriendService     *FriendService
+	db *gorm.DB
 }
 
 func NewMessageService(db *gorm.DB) *MessageService {
 	return &MessageService{db: db}
-}
-
-func (s *MessageService) WithDeps(deps *NotificationActionDeps) *MessageService {
-	return &MessageService{db: s.db, deps: deps}
 }
 
 // Conversation represents a conversation summary with another user.
@@ -254,7 +241,6 @@ func (s *MessageService) DeleteNotification(userID, notifID uint64) error {
 }
 
 // HandleNotificationAction processes an accept/reject action on a notification.
-// For pending workflow notifications, this executes or rejects the actual business logic.
 func (s *MessageService) HandleNotificationAction(userID, notifID uint64, action string) error {
 	if action != "accepted" && action != "rejected" {
 		return errors.New("无效的操作")
@@ -271,86 +257,5 @@ func (s *MessageService) HandleNotificationAction(userID, notifID uint64, action
 		return errors.New("该通知已处理")
 	}
 
-	// For pending workflow notifications, execute the actual business logic on accept
-	if action == "accepted" && s.deps != nil {
-		switch msg.ActionType {
-		case "permission_grant":
-			return s.executePendingPermissionGrant(&msg)
-		case "domain_transfer":
-			return s.executePendingDomainTransfer(&msg)
-		case "friend_request":
-			return s.executePendingFriendRequest(&msg)
-		}
-	}
-
-	// For rejected or non-pending types, just update the status
 	return s.db.Model(&msg).Update("action_status", action).Error
-}
-
-type pendingGrantData struct {
-	TargetUserID uint64  `json:"target_user_id"`
-	Level        string `json:"level"`
-	AllowedTypes string `json:"allowed_types"`
-	AllowedIPs   string `json:"allowed_ips"`
-	HostPrefix   string `json:"host_prefix"`
-	HostRules    string `json:"host_rules"`
-	MaxDepth     *int   `json:"max_depth"`
-	SourceFilter *string `json:"source_filter"`
-	CreatedBy    uint64 `json:"created_by"`
-}
-
-func (s *MessageService) executePendingPermissionGrant(msg *model.Message) error {
-	var data pendingGrantData
-	if err := json.Unmarshal([]byte(msg.ActionData), &data); err != nil {
-		return fmt.Errorf("无效的权限授予数据: %v", err)
-	}
-	// Unmarshal HostRules from JSON string
-	var hostRules []model.HostRule
-	if data.HostRules != "" {
-		if err := json.Unmarshal([]byte(data.HostRules), &hostRules); err != nil {
-			return fmt.Errorf("无效的host_rules数据: %v", err)
-		}
-	}
-	err := s.deps.PermissionService.Grant(
-		msg.ReceiverID, // target_user_id
-		msg.TargetID,   // domain_node_id
-		data.Level,
-		data.AllowedTypes,
-		data.AllowedIPs,
-		data.HostPrefix,
-		hostRules,
-		data.MaxDepth,
-		data.SourceFilter,
-		data.CreatedBy,
-	)
-	if err != nil {
-		return err
-	}
-	// Update action_status after successful grant
-	return s.db.Model(msg).Update("action_status", "accepted").Error
-}
-
-type pendingTransferData struct {
-	FromUserID uint64 `json:"from_user_id"`
-}
-
-func (s *MessageService) executePendingDomainTransfer(msg *model.Message) error {
-	var data pendingTransferData
-	if err := json.Unmarshal([]byte(msg.ActionData), &data); err != nil {
-		// Backward compat: from_user_id defaults to 0 (use node's current owner)
-		data.FromUserID = 0
-	}
-	_, err := s.deps.DomainService.TransferNode(msg.TargetID, data.FromUserID, msg.ReceiverID)
-	if err != nil {
-		return err
-	}
-	return s.db.Model(msg).Update("action_status", "accepted").Error
-}
-
-func (s *MessageService) executePendingFriendRequest(msg *model.Message) error {
-	err := s.deps.FriendService.AcceptRequest(msg.TargetID, msg.ReceiverID)
-	if err != nil {
-		return err
-	}
-	return s.db.Model(msg).Update("action_status", "accepted").Error
 }

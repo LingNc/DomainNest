@@ -17,19 +17,6 @@ func PermissionGranted(node *model.DomainNode, level string) Notification {
 	}
 }
 
-func PendingPermissionGrant(node *model.DomainNode, level string, actionData string) Notification {
-	return Notification{
-		Category:   CatPermissionGranted,
-		Title:      "权限授予请求",
-		Content:    fmt.Sprintf("%s 申请授予你 %s 的 %s 权限", "管理员", node.FullDomain, level),
-		ActionType: "permission_grant",
-		TargetType: "domain_node",
-		TargetID:   node.ID,
-		Priority:   PriorityInfo,
-		ActionData: actionData,
-	}
-}
-
 func PermissionRevoked(node *model.DomainNode) Notification {
 	return Notification{
 		Category: CatPermissionRevoked,
@@ -74,24 +61,10 @@ func DomainTransferredTo(node *model.DomainNode, fromUsername string) Notificati
 		Category:   CatDomainTransferred,
 		Title:      "域名转让",
 		Content:    fmt.Sprintf("%s 将 %s 转让给你", fromUsername, node.FullDomain),
-		ActionType: "domain_transfer",
+		ActionType: "view_domain",
 		TargetType: "domain_node",
 		TargetID:   node.ID,
 		Priority:   PriorityInfo,
-	}
-}
-
-func PendingDomainTransfer(node *model.DomainNode, fromUsername string, fromUserID uint64) Notification {
-	actionData := fmt.Sprintf(`{"from_user_id":%d}`, fromUserID)
-	return Notification{
-		Category:   CatDomainTransferred,
-		Title:      "域名转让请求",
-		Content:    fmt.Sprintf("%s 申请将 %s 转让给你", fromUsername, node.FullDomain),
-		ActionType: "domain_transfer",
-		TargetType: "domain_node",
-		TargetID:   node.ID,
-		Priority:   PriorityInfo,
-		ActionData: actionData,
 	}
 }
 

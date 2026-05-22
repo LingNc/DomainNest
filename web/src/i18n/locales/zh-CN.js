@@ -148,7 +148,6 @@ export default {
     actionAccepted: '已接受',
     actionRejected: '已拒绝',
     actionFailed: '操作失败',
-    pendingAccept: '待接受',
   },
   friends: {
     title: '好友管理',

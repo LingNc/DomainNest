@@ -65,12 +65,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	permissionHandler := handler.NewPermissionHandler(permissionService, notificationService, db)
 	ramTokenHandler := handler.NewRAMTokenHandler(ramTokenService, db)
 	friendHandler := handler.NewFriendHandler(friendService, notificationService, db)
-	messageServiceWithDeps := messageService.WithDeps(&service.NotificationActionDeps{
-		PermissionService: permissionService,
-		DomainService:     domainService,
-		FriendService:     friendService,
-	})
-	messageHandler := handler.NewMessageHandler(messageServiceWithDeps, friendService, db)
+	messageHandler := handler.NewMessageHandler(messageService, friendService, db)
 	providerHandler := handler.NewProviderHandler(providerService, notificationService, db)
 	syncHandler := handler.NewSyncHandler(syncService, recordService, db)
 	trashHandler := handler.NewTrashHandler(trashService, notificationService, db)
