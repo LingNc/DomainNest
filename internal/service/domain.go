@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"domainnest/internal/model"
 
@@ -664,4 +665,157 @@ func (s *DomainService) GetTransferHistory(nodeID uint64) ([]model.DomainTransfe
 		Order("created_at ASC").
 		Find(&logs).Error
 	return logs, err
+}
+
+// ArchiveDomainTree archives a domain node and all its subtree owned by the user.
+func (s *DomainService) ArchiveDomainTree(nodeID, userID uint64) error {
+	if err := s.perm.RequireLevel(userID, nodeID, 3); err != nil {
+		return err
+	}
+
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err != nil {
+		return errors.New("节点不存在")
+	}
+	if node.Status == "archived" {
+		return errors.New("域名已归档")
+	}
+
+	// Collect subtree node IDs owned by this user (recursive CTE)
+	var nodeIDs []uint64
+	s.db.Raw(`
+		WITH RECURSIVE subtree AS (
+			SELECT id FROM domain_nodes WHERE id = ? AND deleted_at IS NULL
+			UNION ALL
+			SELECT dn.id FROM domain_nodes dn
+			JOIN subtree s ON dn.parent_id = s.id
+			WHERE dn.deleted_at IS NULL AND dn.owner_id = ?
+		) SELECT id FROM subtree
+	`, nodeID, userID).Scan(&nodeIDs)
+
+	now := time.Now()
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Archive all nodes in subtree
+		if err := tx.Model(&model.DomainNode{}).
+			Where("id IN ?", nodeIDs).
+			Updates(map[string]interface{}{
+				"status":               "archived",
+				"archived_by":          userID,
+				"archived_at":          now,
+				"archived_provider_id": gorm.Expr("provider_id"),
+				"provider_id":          nil,
+			}).Error; err != nil {
+			return err
+		}
+
+		// Freeze permissions on these nodes
+		if err := tx.Model(&model.DomainPermission{}).
+			Where("domain_node_id IN ?", nodeIDs).
+			Update("status", "frozen").Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// RestoreDomainTree restores an archived domain tree back to active status.
+func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
+	if err := s.perm.RequireLevel(userID, nodeID, 3); err != nil {
+		return err
+	}
+
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err != nil {
+		return errors.New("节点不存在")
+	}
+	if node.Status != "archived" {
+		return errors.New("域名未归档")
+	}
+
+	// Collect archived subtree nodes owned by this user
+	var nodeIDs []uint64
+	s.db.Raw(`
+		WITH RECURSIVE subtree AS (
+			SELECT id FROM domain_nodes WHERE id = ? AND deleted_at IS NULL AND status = 'archived'
+			UNION ALL
+			SELECT dn.id FROM domain_nodes dn
+			JOIN subtree s ON dn.parent_id = s.id
+			WHERE dn.deleted_at IS NULL AND dn.status = 'archived' AND dn.owner_id = ?
+		) SELECT id FROM subtree
+	`, nodeID, userID).Scan(&nodeIDs)
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Restore nodes
+		if err := tx.Model(&model.DomainNode{}).
+			Where("id IN ?", nodeIDs).
+			Updates(map[string]interface{}{
+				"status":               "active",
+				"archived_by":          0,
+				"archived_at":          nil,
+				"provider_id":          gorm.Expr("archived_provider_id"),
+				"archived_provider_id": nil,
+			}).Error; err != nil {
+			return err
+		}
+
+		// Unfreeze permissions
+		if err := tx.Model(&model.DomainPermission{}).
+			Where("domain_node_id IN ? AND status = 'frozen'", nodeIDs).
+			Update("status", "active").Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// GetArchivedDomains returns all archived domain nodes owned by the user.
+func (s *DomainService) GetArchivedDomains(userID uint64) ([]model.DomainNode, error) {
+	var nodes []model.DomainNode
+	err := s.db.Where("owner_id = ? AND status = 'archived' AND deleted_at IS NULL", userID).
+		Order("archived_at DESC").Find(&nodes).Error
+	return nodes, err
+}
+
+// ReturnSubdomainToClaimer returns a subdomain to its parent owner and trashes the user's DNS records.
+func (s *DomainService) ReturnSubdomainToClaimer(nodeID, userID uint64) error {
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err != nil {
+		return errors.New("节点不存在")
+	}
+	if node.OwnerID != userID {
+		return errors.New("你不是该子域名的所有者")
+	}
+	if node.ParentID == nil || *node.ParentID == 0 {
+		return errors.New("根域名不能归还，请使用删除功能")
+	}
+
+	// Find parent to get claimer
+	var parent model.DomainNode
+	if err := s.db.First(&parent, *node.ParentID).Error; err != nil {
+		return errors.New("父节点不存在")
+	}
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Transfer ownership back to parent's owner
+		if err := tx.Model(&model.DomainNode{}).Where("id = ?", nodeID).Update("owner_id", parent.OwnerID).Error; err != nil {
+			return err
+		}
+
+		// Move user's records on this node to trash
+		now := time.Now()
+		if err := tx.Model(&model.DNSRecord{}).
+			Where("node_id = ? AND created_by = ? AND deleted_at IS NULL", nodeID, userID).
+			Updates(map[string]interface{}{
+				"trashed_at":  now,
+				"deleted_at":  now,
+				"sync_status": "disabled",
+			}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

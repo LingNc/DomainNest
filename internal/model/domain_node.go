@@ -18,6 +18,8 @@ type DomainNode struct {
 	RecordsImported    bool           `gorm:"default:false" json:"records_imported"`
 	Status             string         `gorm:"type:varchar(16);default:'active';index" json:"status"`
 	ArchivedProviderID *uint64        `gorm:"index" json:"archived_provider_id,omitempty"`
+	ArchivedBy         uint64         `gorm:"index" json:"archived_by,omitempty"`
+	ArchivedAt         *time.Time     `gorm:"index" json:"archived_at,omitempty"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`

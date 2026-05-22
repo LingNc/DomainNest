@@ -31,7 +31,7 @@ type DomainPermission struct {
 	HostPrefix      string    `gorm:"type:varchar(128)" json:"host_prefix,omitempty"`          // e.g. "test-" only allows test-*.domain
 	HostRules       string    `gorm:"type:text" json:"host_rules,omitempty"`                   // JSON array of HostRule, e.g. [{"type":"prefix","value":"test-"}]
 	MaxDepth        *int      `json:"max_depth,omitempty"`                                     // max subdomain levels allowed, nil=unlimited
-	Status          string    `gorm:"type:varchar(16);default:'active'" json:"status"`         // active/pending_return/returned
+	Status          string    `gorm:"type:varchar(20);default:'active';index" json:"status"`             // active/frozen/pending_return/returned
 	CreatedBy       uint64    `gorm:"not null" json:"created_by"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
