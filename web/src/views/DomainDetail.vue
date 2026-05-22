@@ -196,7 +196,7 @@
                   </template>
                   <el-button v-if="!row.group_tag && row.source !== 'provider'" link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
                   <el-button v-if="row.group_tag" link type="warning" size="small" @click="clearGroupTag(row)">{{ $t('domainDetail.removeFromGroup') }}</el-button>
-                  <el-button v-if="!row.own_node_id && row.host !== '@'" link type="success" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.convertToNode') }}</el-button>
+                  <el-button v-if="!row.own_node_id && row.host !== '@'" link type="primary" size="small" @click="handleMakeIndependent(row)">独立</el-button>
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                   <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
@@ -305,7 +305,7 @@
                     </template>
                     <el-button v-if="!row.group_tag && row.source !== 'provider'" link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
                     <el-button v-if="row.group_tag" link type="warning" size="small" @click="clearGroupTag(row)">{{ $t('domainDetail.removeFromGroup') }}</el-button>
-                    <el-button v-if="!row.own_node_id && row.host !== '@'" link type="success" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.convertToNode') }}</el-button>
+                    <el-button v-if="!row.own_node_id && row.host !== '@'" link type="primary" size="small" @click="handleMakeIndependent(row)">独立</el-button>
                     <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                     <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
                     <el-button link type="danger" size="small" @click="handleDeleteRecord(row.id)">{{ $t('common.delete') }}</el-button>
