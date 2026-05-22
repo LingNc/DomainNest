@@ -210,24 +210,42 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 		return err
 	}
 
-	var childCount int64
-	s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL", nodeID).Count(&childCount)
-	if childCount > 0 {
-		return errors.New("无法删除含有子节点的节点，请先删除所有子域名")
+	// Root domain (claimer) must archive before deleting
+	if node.ParentID == nil && node.Status != "archived" {
+		return errors.New("根域名请先归档后再删除")
 	}
 
+	// Non-root: block if has children
+	if node.ParentID != nil {
+		var childCount int64
+		s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL", nodeID).Count(&childCount)
+		if childCount > 0 {
+			return errors.New("无法删除含有子节点的节点，请先删除所有子域名")
+		}
+	}
+
+	now := time.Now()
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Cascade-delete DNS records belonging to this node
-		if err := tx.Where("node_id = ?", nodeID).Delete(&model.DNSRecord{}).Error; err != nil {
-			return fmt.Errorf("删除DNS记录失败: %w", err)
+		// Move DNS records to trash (not hard delete)
+		if err := tx.Model(&model.DNSRecord{}).
+			Where("node_id = ? AND deleted_at IS NULL", nodeID).
+			Updates(map[string]interface{}{
+				"trashed_at":  now,
+				"deleted_at":  now,
+				"sync_status": "disabled",
+			}).Error; err != nil {
+			return fmt.Errorf("移入回收站失败: %w", err)
 		}
 
-		// Delete permission records for this node
-		if err := tx.Where("domain_node_id = ?", nodeID).Delete(&model.DomainPermission{}).Error; err != nil {
-			return fmt.Errorf("删除权限记录失败: %w", err)
+		// Soft-delete permission records
+		if err := tx.Model(&model.DomainPermission{}).
+			Where("domain_node_id = ?", nodeID).
+			Update("status", "frozen").Error; err != nil {
+			return fmt.Errorf("冻结权限失败: %w", err)
 		}
 
-		// Delete the node itself
+		// Soft-delete the node itself
 		return tx.Delete(&node).Error
 	})
 }
@@ -681,7 +699,7 @@ func (s *DomainService) ArchiveDomainTree(nodeID, userID uint64) error {
 		return errors.New("域名已归档")
 	}
 
-	// Collect subtree node IDs owned by this user (recursive CTE)
+	// Collect ALL subtree node IDs (recursive CTE, regardless of owner)
 	var nodeIDs []uint64
 	s.db.Raw(`
 		WITH RECURSIVE subtree AS (
@@ -689,9 +707,9 @@ func (s *DomainService) ArchiveDomainTree(nodeID, userID uint64) error {
 			UNION ALL
 			SELECT dn.id FROM domain_nodes dn
 			JOIN subtree s ON dn.parent_id = s.id
-			WHERE dn.deleted_at IS NULL AND dn.owner_id = ?
+			WHERE dn.deleted_at IS NULL
 		) SELECT id FROM subtree
-	`, nodeID, userID).Scan(&nodeIDs)
+	`, nodeID).Scan(&nodeIDs)
 
 	now := time.Now()
 
@@ -734,7 +752,7 @@ func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
 		return errors.New("域名未归档")
 	}
 
-	// Collect archived subtree nodes owned by this user
+	// Collect ALL archived subtree nodes (regardless of owner)
 	var nodeIDs []uint64
 	s.db.Raw(`
 		WITH RECURSIVE subtree AS (
@@ -742,9 +760,9 @@ func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
 			UNION ALL
 			SELECT dn.id FROM domain_nodes dn
 			JOIN subtree s ON dn.parent_id = s.id
-			WHERE dn.deleted_at IS NULL AND dn.status = 'archived' AND dn.owner_id = ?
+			WHERE dn.deleted_at IS NULL AND dn.status = 'archived'
 		) SELECT id FROM subtree
-	`, nodeID, userID).Scan(&nodeIDs)
+	`, nodeID).Scan(&nodeIDs)
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// Restore nodes
