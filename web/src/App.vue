@@ -16,7 +16,7 @@
     <!-- 侧边栏 -->
     <aside class="sidebar" :class="{ open: sidebarOpen, collapsed: sidebarCollapsed }">
       <div class="sidebar-logo">
-        <img v-if="sidebarCollapsed" src="/favicon.svg" class="sidebar-logo-img" />
+        <img v-if="sidebarCollapsed" :src="faviconUrl" class="sidebar-logo-img" alt="logo" />
         <h1 v-else>DomainNest</h1>
       </div>
       <el-menu
@@ -130,6 +130,7 @@ import { setLang } from './i18n/utils'
 import { useWebSocket, disconnect } from './composables/useWebSocket'
 import NotificationBell from './components/NotificationBell.vue'
 import NotificationToast from './components/NotificationToast.vue'
+import faviconUrl from '/favicon.svg?url'
 
 const { locale } = useI18n()
 const elLocaleMap = { 'zh-CN': zhCn, 'en-US': en }

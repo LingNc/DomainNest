@@ -239,8 +239,52 @@ func (s *PermissionService) ValidateDepth(userID, domainNodeID uint64, host stri
 	return nil
 }
 
+// ValidateSourceFilter checks if the record source is allowed by the permission's SourceFilter.
+// If SourceFilter is nil, all sources are allowed.
+func (s *PermissionService) ValidateSourceFilter(userID, domainNodeID uint64, recordSource string) error {
+	level, _ := s.AccessLevel(userID, domainNodeID)
+	if level >= 4 { // owner or super_admin
+		return nil
+	}
+
+	var perm model.DomainPermission
+	if err := s.db.Where("user_id = ? AND domain_node_id = ?", userID, domainNodeID).First(&perm).Error; err != nil {
+		return nil
+	}
+
+	if perm.SourceFilter == nil || *perm.SourceFilter == "" {
+		return nil // no filter
+	}
+
+	if *perm.SourceFilter == recordSource {
+		return nil
+	}
+
+	return fmt.Errorf("无权操作来源为 %s 的记录", recordSource)
+}
+
+// FilterBySourceFilter adds a WHERE clause to filter records by source_filter if set.
+// Returns the updated query.
+func (s *PermissionService) FilterBySourceFilter(userID, domainNodeID uint64, query *gorm.DB) (*gorm.DB, error) {
+	level, _ := s.AccessLevel(userID, domainNodeID)
+	if level >= 4 { // owner or super_admin
+		return query, nil
+	}
+
+	var perm model.DomainPermission
+	if err := s.db.Where("user_id = ? AND domain_node_id = ?", userID, domainNodeID).First(&perm).Error; err != nil {
+		return query, nil
+	}
+
+	if perm.SourceFilter == nil || *perm.SourceFilter == "" {
+		return query, nil
+	}
+
+	return query.Where("source = ?", *perm.SourceFilter), nil
+}
+
 // Grant creates or updates a permission entry.
-func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTypes, allowedIPs, hostPrefix string, hostRules []model.HostRule, maxDepth *int, createdBy uint64) error {
+func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTypes, allowedIPs, hostPrefix string, hostRules []model.HostRule, maxDepth *int, sourceFilter *string, createdBy uint64) error {
 	if PermLevelValue(level) == 0 && level != "read" {
 		return fmt.Errorf("无效的权限级别: %s", level)
 	}
@@ -288,6 +332,7 @@ func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTyp
 			"host_prefix":      compatPrefix,
 			"host_rules":       hostRulesJSON,
 			"max_depth":        maxDepth,
+			"source_filter":    sourceFilter,
 		}).Error
 	}
 
@@ -300,6 +345,7 @@ func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTyp
 		HostPrefix:      compatPrefix,
 		HostRules:       hostRulesJSON,
 		MaxDepth:        maxDepth,
+		SourceFilter:    sourceFilter,
 		CreatedBy:       createdBy,
 	}
 	return s.db.Create(perm).Error

@@ -39,6 +39,12 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 
 	// SPA fallback: serve index.html for all non-API routes
 	staticRootFS, _ := fs.Sub(static.StaticFiles, "dist")
+	r.GET("/favicon.svg", func(c *gin.Context) {
+		c.FileFromFS("/favicon.svg", http.FS(staticRootFS))
+	})
+	r.GET("/favicon.ico", func(c *gin.Context) {
+		c.FileFromFS("/favicon.ico", http.FS(staticRootFS))
+	})
 	r.NoRoute(func(c *gin.Context) {
 		if len(c.Request.URL.Path) > 4 && c.Request.URL.Path[:4] == "/api" {
 			c.JSON(404, gin.H{"code": 404, "message": "not found"})
