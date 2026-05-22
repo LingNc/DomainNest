@@ -7,19 +7,20 @@ import (
 )
 
 type DomainNode struct {
-	ID         uint64         `gorm:"primaryKey;autoIncrement" json:"id"`
-	Host       string         `gorm:"type:varchar(64);not null" json:"host"`
-	FullDomain string         `gorm:"type:varchar(255);index;not null" json:"full_domain"`
-	ParentID   *uint64        `gorm:"index" json:"parent_id"`
-	OwnerID    uint64         `gorm:"index;not null" json:"owner_id"`
+	ID               uint64         `gorm:"primaryKey;autoIncrement" json:"id"`
+	Host             string         `gorm:"type:varchar(64);not null" json:"host"`
+	FullDomain       string         `gorm:"type:varchar(255);index;not null" json:"full_domain"`
+	ParentID         *uint64        `gorm:"index" json:"parent_id"`
+	OwnerID          uint64         `gorm:"index;not null" json:"owner_id"`
 	ProviderID       *uint64        `gorm:"index" json:"provider_id,omitempty"`
 	MaterializedFrom *uint64        `gorm:"index" json:"materialized_from,omitempty"`
-	IsMaterialized     bool           `gorm:"default:false" json:"is_materialized"`
-	RecordsImported    bool           `gorm:"default:false" json:"records_imported"`
-	Status             string         `gorm:"type:varchar(16);default:'active';index" json:"status"`
-	ArchivedProviderID *uint64        `gorm:"index" json:"archived_provider_id,omitempty"`
-	ArchivedBy         uint64         `gorm:"index" json:"archived_by,omitempty"`
-	ArchivedAt         *time.Time     `gorm:"index" json:"archived_at,omitempty"`
+	IsMaterialized   bool           `gorm:"default:false" json:"is_materialized"`
+	RecordsImported  bool           `gorm:"default:false" json:"records_imported"`
+	Status           string         `gorm:"type:varchar(16);default:'active';index" json:"status"`
+	ArchivedProviderID *uint64      `gorm:"index" json:"archived_provider_id,omitempty"`
+	ArchivedBy       uint64         `gorm:"index" json:"archived_by,omitempty"`
+	ArchivedAt       *time.Time     `gorm:"index" json:"archived_at,omitempty"`
+	RecordsCount     int64          `gorm:"-" json:"records_count"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`

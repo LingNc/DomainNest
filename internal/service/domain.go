@@ -12,12 +12,17 @@ import (
 )
 
 type DomainService struct {
-	db   *gorm.DB
-	perm *PermissionService
+	db         *gorm.DB
+	perm       *PermissionService
+	recordSvc  *RecordService
 }
 
 func NewDomainService(db *gorm.DB, perm *PermissionService) *DomainService {
 	return &DomainService{db: db, perm: perm}
+}
+
+func (s *DomainService) SetRecordService(recordSvc *RecordService) {
+	s.recordSvc = recordSvc
 }
 
 func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64) (*model.DomainNode, error) {
@@ -66,9 +71,18 @@ func (s *DomainService) GetUserNodes(userID uint64) ([]model.DomainNode, error) 
 		Preload("Children", func(db *gorm.DB) *gorm.DB {
 			return db.Where("id IN ?", accessibleIDs)
 		}).
-		Preload("Records").
 		Preload("Owner").
 		Find(&nodes).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate RecordsCount using permission-filtered record count
+	for i := range nodes {
+		cnt, _ := s.recordSvc.CountAccessibleRecords(nodes[i].ID, userID)
+		nodes[i].RecordsCount = cnt
+	}
 
 	var roots []model.DomainNode
 	for _, n := range nodes {

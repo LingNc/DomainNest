@@ -55,7 +55,7 @@
                   <el-tag v-if="permMap[data.id]" :type="permTagType(permMap[data.id])" size="small" class="perm-badge">
                     {{ permLabel(permMap[data.id]) }}
                   </el-tag>
-                  <el-tag size="small" type="info">{{ $t('dashboard.recordsCount', { count: data.records?.length || 0 }) }}</el-tag>
+                  <el-tag size="small" type="info">{{ $t('dashboard.recordsCount', { count: data.records_count || 0 }) }}</el-tag>
                   <div class="node-actions" @click.stop v-if="data.owner_id === auth.user?.id">
                     <el-button size="small" text type="warning" @click="handleTransferDomain(data)">{{ $t('dashboard.transferDomain') }}</el-button>
                     <el-button v-if="!data.parent_id" size="small" text type="danger" @click="handleArchiveDomain(data)">{{ $t('dashboard.archiveDomain') }}</el-button>

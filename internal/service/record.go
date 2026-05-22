@@ -120,6 +120,39 @@ func (s *RecordService) ListRecords(nodeID, userID uint64, q RecordQuery) (*Reco
 	return &RecordListResult{Items: records, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
 }
 
+// CountAccessibleRecords returns the number of records visible to a user on a given node,
+// applying the same permission filters as ListRecords.
+func (s *RecordService) CountAccessibleRecords(nodeID, userID uint64) (int64, error) {
+	query := s.db.Model(&model.DNSRecord{}).Where("node_id = ?", nodeID)
+
+	var perm model.DomainPermission
+	isOwner := false
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err == nil && node.OwnerID == userID {
+		isOwner = true
+	}
+	if !isOwner {
+		if err := s.db.Where("user_id = ? AND domain_node_id = ? AND status = 'active'", userID, nodeID).First(&perm).Error; err == nil {
+			if perm.AllowedTypes != "" && perm.AllowedTypes != "[]" {
+				var types []string
+				if jsonUnmarshal(perm.AllowedTypes, &types); len(types) > 0 {
+					query = query.Where("record_type IN ?", types)
+				}
+			}
+			if perm.HostPrefix != "" {
+				query = query.Where("host LIKE ?", perm.HostPrefix+"%")
+			}
+			if perm.SourceFilter != nil && *perm.SourceFilter != "" {
+				query = query.Where("source = ?", *perm.SourceFilter)
+			}
+		}
+	}
+
+	var total int64
+	query.Count(&total)
+	return total, nil
+}
+
 // jsonUnmarshal is a helper to unmarshal JSON strings.
 func jsonUnmarshal(s string, v interface{}) error {
 	b := []byte(s)

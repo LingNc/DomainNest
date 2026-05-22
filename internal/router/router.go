@@ -72,6 +72,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	filterPresetHandler := handler.NewFilterPresetHandler(filterPresetService, db)
 	inviteCodeHandler := handler.NewInviteCodeHandler(inviteCodeService)
 
+	domainService.SetRecordService(recordService)
+
 	v1 := r.Group("/api/v1")
 
 	// WebSocket endpoint (JWT via query param)
