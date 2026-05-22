@@ -46,6 +46,9 @@
                 <el-button size="small" @click="handleExport('json')">{{ $t('domainDetail.exportJson') }}</el-button>
                 <el-button size="small" @click="handleExport('csv')">{{ $t('domainDetail.exportCsv') }}</el-button>
                 <el-button size="small" @click="showImport = true">{{ $t('domainDetail.import') }}</el-button>
+                <el-button :type="selectMode ? 'success' : 'default'" size="small" @click="toggleSelectMode">
+                  <el-icon><component :is="selectMode ? 'Finished' : 'Select'" /></el-icon>
+                </el-button>
                 <el-button type="primary" size="small" @click="openAddRecord" :disabled="domain?.status === 'archived'">
                   <el-icon><component :is="'Plus'" /></el-icon>
                   {{ $t('domainDetail.addRecord') }}
@@ -58,7 +61,7 @@
           <RecordFilterBar v-model="filters" :record-types="recordTypes" />
 
           <!-- batch action bar -->
-          <div class="batch-bar" v-if="selectedIds.length > 0">
+          <div class="batch-bar" v-if="selectMode && selectedIds.length > 0">
             <span>{{ $t('domainDetail.selectedCount', { count: selectedIds.length }) }}</span>
             <el-button size="small" type="success" @click="handleBatchToggle(true)">{{ $t('domainDetail.batchEnable') }}</el-button>
             <el-button size="small" type="warning" @click="handleBatchToggle(false)">{{ $t('domainDetail.batchDisable') }}</el-button>
@@ -97,7 +100,7 @@
             @selection-change="handleSelectionChange"
             :row-class-name="treeRowClass"
           >
-            <el-table-column type="selection" width="40" :selectable="(row) => !row.virtual" />
+            <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.virtual" />
             <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="140">
               <template #default="{ row }">
                 <template v-if="row.isGroup">
@@ -181,15 +184,13 @@
               <template #default="{ row }">
                 <template v-if="row.isGroup" />
                 <template v-else-if="row.virtual" />
-                <template v-else-if="row.source === 'provider'">
-                  <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
+                <template v-else-if="row.source === 'provider' && !row.own_node_id">
+                  <el-button link type="primary" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.makeIndependent') }}</el-button>
                 </template>
                 <template v-else>
                   <template v-if="row.own_node_id">
-                    <el-tag type="success" size="small" style="margin-right:4px">{{ $t('domainDetail.materialized') }}</el-tag>
-                    <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                    <el-button link type="primary" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
                   </template>
-                  <el-button v-if="!row.own_node_id && row.host !== '@'" link type="success" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
                   <el-button v-if="row.group_tag" link type="warning" size="small" @click="clearGroupTag(row)">{{ $t('domainDetail.removeFromGroup') }}</el-button>
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
@@ -201,14 +202,15 @@
 
           <!-- flat view -->
           <el-table v-else :data="paginatedFlatRecords" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id" :row-class-name="flatRowClass" :span-method="flatSpanMethod">
-            <el-table-column type="selection" width="40" :selectable="(row) => !row.isGroupHeader" />
+            <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.isGroupHeader" />
             <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="180">
               <template #default="{ row }">
                 <template v-if="row.isGroupHeader">
-                  <div class="group-header-content" @click="toggleGroup(row.groupKey)">
-                    <el-icon class="group-chevron"><component :is="isGroupCollapsed(row.groupKey) ? 'ArrowRight' : 'ArrowDown'" /></el-icon>
-                    <strong>{{ row.groupLabel }}</strong>
-                    <el-tag size="small" type="info" style="margin-left:8px">{{ row.count }}</el-tag>
+                  <div class="group-header-content">
+                    <el-checkbox v-if="selectMode" :model-value="isGroupFullySelected(row.groupKey)" :indeterminate="isGroupPartiallySelected(row.groupKey)" @change="handleSelectGroup(row.groupKey)" @click.stop style="margin-right:8px" />
+                    <el-icon class="group-chevron" @click="toggleGroup(row.groupKey)"><component :is="isGroupCollapsed(row.groupKey) ? 'ArrowRight' : 'ArrowDown'" /></el-icon>
+                    <strong @click="toggleGroup(row.groupKey)">{{ row.groupLabel }}</strong>
+                    <el-tag size="small" type="info" style="margin-left:8px" @click="toggleGroup(row.groupKey)">{{ row.count }}</el-tag>
                     <template v-if="!row.groupKey.startsWith('__')">
                       <el-button link type="primary" size="small" style="margin-left:8px" @click.stop="openRenameGroupDialog(row)">
                         <el-icon><component :is="'Edit'" /></el-icon>
@@ -299,15 +301,13 @@
             <el-table-column :label="$t('common.actions')" min-width="200" fixed="right">
               <template #default="{ row }">
                 <template v-if="!row.isGroupHeader">
-                  <template v-if="row.source === 'provider'">
-                    <el-button link type="warning" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
+                  <template v-if="row.source === 'provider' && !row.own_node_id">
+                    <el-button link type="primary" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.makeIndependent') }}</el-button>
                   </template>
                   <template v-else>
                     <template v-if="row.own_node_id">
-                      <el-tag type="success" size="small" style="margin-right:4px">{{ $t('domainDetail.materialized') }}</el-tag>
-                      <el-button link type="warning" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
+                      <el-button link type="primary" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
                     </template>
-                    <el-button v-if="!row.own_node_id && row.host !== '@'" link type="success" size="small" @click="handleMakeIndependent(row)">{{ $t('domainDetail.makeIndependent') }}</el-button>
                     <el-button v-if="row.group_tag" link type="warning" size="small" @click="clearGroupTag(row)">{{ $t('domainDetail.removeFromGroup') }}</el-button>
                     <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                     <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
@@ -793,6 +793,7 @@ const total = ref(0)
 const loading = ref(false)
 const selectedIds = ref([])
 const selectedRows = ref([])
+const selectMode = ref(false)
 
 const showAddRecord = ref(false)
 const showEditRecord = ref(false)
@@ -1351,6 +1352,51 @@ const handleDeleteRecord = async (id) => {
 const handleSelectionChange = (rows) => {
   selectedIds.value = rows.map(r => r.id)
   selectedRows.value = rows
+}
+
+const toggleSelectMode = () => {
+  if (selectMode.value) {
+    selectMode.value = false
+    selectedIds.value = []
+    selectedRows.value = []
+  } else {
+    selectMode.value = true
+  }
+}
+
+const handleSelectGroup = (groupKey) => {
+  const groupRecords = sortedRecords.value.filter(r => {
+    if (groupKey === '__provider__') return r.source === 'provider'
+    return r.group_tag === groupKey
+  })
+  const allSelected = groupRecords.every(r => selectedIds.value.includes(r.id))
+  if (allSelected) {
+    selectedIds.value = selectedIds.value.filter(id => !groupRecords.some(r => r.id === id))
+    selectedRows.value = selectedRows.value.filter(r => !groupRecords.some(gr => gr.id === r.id))
+  } else {
+    for (const rec of groupRecords) {
+      if (!selectedIds.value.includes(rec.id)) {
+        selectedIds.value.push(rec.id)
+        selectedRows.value.push(rec)
+      }
+    }
+  }
+}
+
+const isGroupFullySelected = (groupKey) => {
+  const groupRecords = sortedRecords.value.filter(r => {
+    if (groupKey === '__provider__') return r.source === 'provider'
+    return r.group_tag === groupKey
+  })
+  return groupRecords.length > 0 && groupRecords.every(r => selectedIds.value.includes(r.id))
+}
+
+const isGroupPartiallySelected = (groupKey) => {
+  const groupRecords = sortedRecords.value.filter(r => {
+    if (groupKey === '__provider__') return r.source === 'provider'
+    return r.group_tag === groupKey
+  })
+  return groupRecords.some(r => selectedIds.value.includes(r.id)) && !groupRecords.every(r => selectedIds.value.includes(r.id))
 }
 
 const handleBatchDelete = async () => {

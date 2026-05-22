@@ -14,9 +14,9 @@
     <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false" />
 
     <!-- 侧边栏 -->
-    <aside class="sidebar" :class="{ open: sidebarOpen }">
+    <aside class="sidebar" :class="{ open: sidebarOpen, collapsed: sidebarCollapsed }">
       <div class="sidebar-logo">
-        <h1>DomainNest</h1>
+        <h1>{{ sidebarCollapsed ? 'D' : 'DomainNest' }}</h1>
       </div>
       <el-menu
         :default-active="activeMenu"
@@ -24,15 +24,16 @@
         background-color="#1d1e2c"
         text-color="#a3a6b4"
         active-text-color="#409eff"
+        :collapse="sidebarCollapsed"
         @select="sidebarOpen = false"
       >
         <el-menu-item index="/dashboard">
           <el-icon><component :is="'HomeFilled'" /></el-icon>
-          <span>{{ $t('sidebar.domainManagement') }}</span>
+          <template #title>{{ $t('sidebar.domainManagement') }}</template>
         </el-menu-item>
         <el-menu-item index="/friends">
           <el-icon><component :is="'Avatar'" /></el-icon>
-          <span>{{ $t('sidebar.friends') }}</span>
+          <template #title>{{ $t('sidebar.friends') }}</template>
         </el-menu-item>
         <el-menu-item index="/messages">
           <el-icon><component :is="'ChatDotRound'" /></el-icon>
@@ -43,31 +44,31 @@
         </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><component :is="'Tools'" /></el-icon>
-          <span>{{ $t('sidebar.settings') }}</span>
+          <template #title>{{ $t('sidebar.settings') }}</template>
         </el-menu-item>
         <el-menu-item index="/providers">
           <el-icon><component :is="'Connection'" /></el-icon>
-          <span>{{ $t('sidebar.providers') }}</span>
+          <template #title>{{ $t('sidebar.providers') }}</template>
         </el-menu-item>
         <el-menu-item index="/profile">
           <el-icon><component :is="'User'" /></el-icon>
-          <span>{{ $t('sidebar.profile') }}</span>
+          <template #title>{{ $t('sidebar.profile') }}</template>
         </el-menu-item>
         <el-menu-item index="/my-logs">
           <el-icon><component :is="'Document'" /></el-icon>
-          <span>{{ $t('sidebar.logs') }}</span>
+          <template #title>{{ $t('sidebar.logs') }}</template>
         </el-menu-item>
-<el-menu-item index="/ram-tokens">
+        <el-menu-item index="/ram-tokens">
           <el-icon><component :is="'Tickets'" /></el-icon>
-          <span>{{ $t('sidebar.apiTokens') }}</span>
+          <template #title>{{ $t('sidebar.apiTokens') }}</template>
         </el-menu-item>
         <el-menu-item v-if="auth.isAdmin" index="/admin">
           <el-icon><component :is="'UserFilled'" /></el-icon>
-          <span>{{ $t('sidebar.admin') }}</span>
+          <template #title>{{ $t('sidebar.admin') }}</template>
         </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">
-        <div class="footer-top-row">
+        <div class="footer-top-row" v-if="!sidebarCollapsed">
           <div class="user-info" @click="$router.push('/profile')">
             <el-avatar v-if="auth.avatar" :src="auth.avatar" :size="28" />
             <el-icon v-else><component :is="'User'" /></el-icon>
@@ -75,13 +76,21 @@
           </div>
           <NotificationBell />
         </div>
+        <div class="footer-top-row" v-else>
+          <el-avatar v-if="auth.avatar" :src="auth.avatar" :size="28" style="cursor:pointer" @click="$router.push('/profile')" />
+          <el-icon v-else style="cursor:pointer" @click="$router.push('/profile')"><component :is="'User'" /></el-icon>
+          <NotificationBell />
+        </div>
         <div class="footer-actions">
-          <div class="lang-switch">
+          <div class="lang-switch" v-if="!sidebarCollapsed">
             <span :class="{ active: locale === 'zh-CN' }" @click="switchLang('zh-CN')">中</span>
             <span class="divider">/</span>
             <span :class="{ active: locale === 'en-US' }" @click="switchLang('en-US')">En</span>
           </div>
-          <el-button text size="small" @click="handleLogout" class="logout-btn">{{ $t('common.logout') }}</el-button>
+          <el-button text size="small" @click="sidebarCollapsed = !sidebarCollapsed" class="collapse-btn">
+            <el-icon><component :is="sidebarCollapsed ? 'DArrowRight' : 'DArrowLeft'" /></el-icon>
+          </el-button>
+          <el-button v-if="!sidebarCollapsed" text size="small" @click="handleLogout" class="logout-btn">{{ $t('common.logout') }}</el-button>
         </div>
       </div>
     </aside>
@@ -99,7 +108,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
@@ -123,6 +132,8 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const sidebarOpen = ref(false)
+const sidebarCollapsed = ref(localStorage.getItem('sidebarCollapsed') === 'true')
+watch(sidebarCollapsed, (val) => { localStorage.setItem('sidebarCollapsed', val) })
 const unreadCount = ref(0)
 
 let unreadTimer = null
@@ -236,6 +247,15 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  transition: width 0.25s ease;
+  overflow: hidden;
+}
+.sidebar.collapsed {
+  width: 64px;
+}
+.sidebar.collapsed .sidebar-logo h1 {
+  font-size: 20px;
+  letter-spacing: 0;
 }
 
 .sidebar-logo {
@@ -255,6 +275,18 @@ body {
 .sidebar .el-menu {
   border-right: none;
   flex: 1;
+}
+.sidebar.collapsed .el-menu {
+  border-right: none;
+}
+.sidebar.collapsed .sidebar-footer {
+  padding: 16px 8px;
+}
+.sidebar.collapsed .footer-top-row {
+  justify-content: center;
+}
+.sidebar.collapsed .footer-actions {
+  justify-content: center;
 }
 
 .sidebar-footer {
@@ -285,6 +317,12 @@ body {
 }
 .logout-btn {
   color: #f56c6c !important;
+}
+.collapse-btn {
+  color: #a3a6b4 !important;
+}
+.collapse-btn:hover {
+  color: #409eff !important;
 }
 .footer-actions {
   display: flex;
@@ -376,10 +414,14 @@ body {
     z-index: 1003;
     transition: transform 0.25s ease;
     transform: translateX(-220px);
+    width: 220px;
     will-change: transform;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+  }
+  .sidebar.collapsed {
+    width: 220px;
   }
   .sidebar.open {
     transform: translateX(0);
