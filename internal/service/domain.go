@@ -161,7 +161,7 @@ func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) error
 			return fmt.Errorf("failed to find subtree: %w", err)
 		}
 
-		if err := tx.Model(&model.DomainNode{}).Where("id IN ?", nodeIDs).Update("owner_id", targetUserID).Error; err != nil {
+		if err := tx.Model(&model.DomainNode{}).Where("id IN ? AND owner_id = ?", nodeIDs, ownerID).Update("owner_id", targetUserID).Error; err != nil {
 			return fmt.Errorf("failed to transfer nodes: %w", err)
 		}
 
