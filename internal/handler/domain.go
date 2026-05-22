@@ -277,8 +277,8 @@ func (h *DomainHandler) DemoteNode(c *gin.Context) {
 		return
 	}
 
-	// Require owner permission (level 4) or super admin (level 5)
-	if err := h.permService.RequireLevel(userID, nodeID, 4); err != nil {
+	// Require write permission (level 2) or above, matching ConvertToNode
+	if err := h.permService.RequireLevel(userID, nodeID, 2); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
 		return
 	}

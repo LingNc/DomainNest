@@ -245,7 +245,7 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 		// Hard-delete any soft-deleted row that still occupies the unique index
 		var stale model.DomainNode
 		if tx.Unscoped().Where("full_domain = ?", fullDomain).First(&stale).Error == nil {
-			tx.Unscoped().Delete(&stale)
+			tx.Exec("DELETE FROM domain_nodes WHERE id = ?", stale.ID)
 		}
 		if err := tx.Create(node).Error; err != nil {
 			return err
