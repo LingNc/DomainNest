@@ -911,6 +911,7 @@ export default {
     codeUsed: '已使用',
     codeUnused: '未使用',
     usedBy: '使用者',
+    usedAt: '使用时间',
     inviteCodesGenerated: '邀请码已生成',
     confirmDeleteInviteCode: '确定删除该邀请码？',
     inviteCodeDeleted: '邀请码已删除',

@@ -275,15 +275,23 @@
           </el-form>
         </el-tab-pane>
         <el-tab-pane :label="$t('admin.inviteCodeManagement')" name="inviteCodes">
-          <el-table :data="inviteCodes" stripe v-loading="inviteCodeLoading" style="width:100%">
-            <el-table-column prop="id" :label="$t('admin.id')" width="60" />
-            <el-table-column prop="code" :label="$t('admin.inviteCode')" min-width="120" />
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+            <el-input v-model="inviteCodeFilter" placeholder="Filter by creator or used-by" clearable style="width:200px" size="default" />
+            <el-select v-model="inviteCodeStatus" style="width:130px" size="default">
+              <el-option :label="$t('common.all')" value="all" />
+              <el-option :label="$t('admin.codeUnused')" value="unused" />
+              <el-option :label="$t('admin.codeUsed')" value="used" />
+            </el-select>
+          </div>
+          <el-table :data="filteredInviteCodes" stripe v-loading="inviteCodeLoading" style="width:100%" @sort-change="handleInviteCodeSortChange">
+            <el-table-column prop="id" :label="$t('admin.id')" width="60" sortable="custom" />
+            <el-table-column prop="code" :label="$t('admin.inviteCode')" min-width="120" sortable="custom" />
             <el-table-column :label="$t('admin.creator')" width="120">
               <template #default="{ row }">
                 {{ row.creator?.username || row.creator_id }}
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" sortable="custom" />
             <el-table-column :label="$t('common.status')" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.used_by ? 'info' : 'success'" size="small">
@@ -434,6 +442,10 @@ const inviteCodeLoading = ref(false)
 const inviteCodePage = ref(1)
 const inviteCodePageSize = ref(20)
 const inviteCodeTotal = ref(0)
+const inviteCodeFilter = ref('')
+const inviteCodeStatus = ref('all')
+const inviteCodeSortBy = ref('created_at')
+const inviteCodeSortOrder = ref('desc')
 
 const showEditUser = ref(false)
 const editTarget = ref(null)
@@ -635,6 +647,34 @@ const filteredDomainTree = computed(() => {
     return result
   }
   return filterNode(domainTree.value)
+})
+
+const filteredInviteCodes = computed(() => {
+  let result = [...inviteCodes.value]
+  const q = inviteCodeFilter.value.toLowerCase()
+  if (q) {
+    result = result.filter(c =>
+      (c.creator?.username || '').toLowerCase().includes(q) ||
+      (c.used_by_user?.username || c.used_by || '').toLowerCase().includes(q)
+    )
+  }
+  if (inviteCodeStatus.value === 'unused') {
+    result = result.filter(c => !c.used_by)
+  } else if (inviteCodeStatus.value === 'used') {
+    result = result.filter(c => !!c.used_by)
+  }
+  result.sort((a, b) => {
+    let aVal = a[inviteCodeSortBy.value]
+    let bVal = b[inviteCodeSortBy.value]
+    if (aVal == null) aVal = ''
+    if (bVal == null) bVal = ''
+    if (typeof aVal === 'string') aVal = aVal.toLowerCase()
+    if (typeof bVal === 'string') bVal = bVal.toLowerCase()
+    if (aVal < bVal) return inviteCodeSortOrder.value === 'asc' ? -1 : 1
+    if (aVal > bVal) return inviteCodeSortOrder.value === 'asc' ? 1 : -1
+    return 0
+  })
+  return result
 })
 
 const loadAdminProviders = async () => {
@@ -966,6 +1006,11 @@ const handleInviteCodeSizeChange = (s) => {
   inviteCodePageSize.value = s
   inviteCodePage.value = 1
   loadInviteCodes()
+}
+
+const handleInviteCodeSortChange = ({ prop, order }) => {
+  inviteCodeSortBy.value = prop || 'created_at'
+  inviteCodeSortOrder.value = order === 'ascending' ? 'asc' : 'desc'
 }
 
 

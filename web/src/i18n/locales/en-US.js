@@ -911,6 +911,7 @@ export default {
     codeUsed: 'Used',
     codeUnused: 'Unused',
     usedBy: 'Used By',
+    usedAt: 'Used At',
     inviteCodesGenerated: 'Invite codes generated',
     confirmDeleteInviteCode: 'Delete this invite code?',
     inviteCodeDeleted: 'Invite code deleted',
