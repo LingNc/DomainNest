@@ -52,6 +52,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	recordHandler := handler.NewRecordHandler(recordService, providerService, ddnsService, notificationService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
 	adminHandler := handler.NewAdminHandler(db, domainService, notificationService)
+	notificationHandler := handler.NewNotificationHandler(messageService)
 	settingsHandler := handler.NewSettingsHandler(db, settingsService)
 	permissionHandler := handler.NewPermissionHandler(permissionService, notificationService, db)
 	ramTokenHandler := handler.NewRAMTokenHandler(ramTokenService, db)
@@ -188,6 +189,11 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		admin.POST("/users/:id/demote", adminHandler.DemoteFromAdmin)
 		admin.GET("/logs", adminHandler.ListLogs)
 		admin.POST("/records/:id/sync", adminHandler.RetrySync)
+		admin.POST("/notifications/broadcast", adminHandler.BroadcastNotification)
+		admin.GET("/notifications", adminHandler.ListAllNotifications)
+		admin.GET("/notifications/stats", adminHandler.GetNotificationStats)
+		admin.DELETE("/notifications/:id", adminHandler.AdminDeleteNotification)
+		admin.POST("/notifications/purge-expired", adminHandler.AdminPurgeExpiredNotifications)
 		admin.GET("/settings/:category", settingsHandler.Get)
 		admin.PUT("/settings/:category", settingsHandler.Set)
 		admin.POST("/settings/smtp/test", settingsHandler.TestSMTP)
@@ -219,6 +225,16 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		messages.POST("/notifications/read-all", messageHandler.MarkAllNotificationsAsRead)
 		messages.GET("/:id", messageHandler.GetMessages)
 		messages.POST("/:id/read", messageHandler.MarkAsRead)
+	}
+
+	notifications := v1.Group("/notifications")
+	notifications.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
+	{
+		notifications.GET("", notificationHandler.List)
+		notifications.GET("/unread-count", notificationHandler.UnreadCount)
+		notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
+		notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
+		notifications.DELETE("/:id", notificationHandler.Delete)
 	}
 
 	providers := v1.Group("/providers")

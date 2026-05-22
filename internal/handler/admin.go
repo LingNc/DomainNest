@@ -779,6 +779,148 @@ func (h *AdminHandler) AdminToggleRecord(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "状态已更新"})
 }
 
+// BroadcastNotification sends a system notification to all users (or a specified list).
+func (h *AdminHandler) BroadcastNotification(c *gin.Context) {
+	var req struct {
+		Title    string   `json:"title" binding:"required"`
+		Content  string   `json:"content" binding:"required"`
+		Category string   `json:"category"`
+		Priority int      `json:"priority"`
+		UserIDs  []uint64 `json:"user_ids"` // optional: send to specific users only
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	targetIDs := req.UserIDs
+	if len(targetIDs) == 0 {
+		// Broadcast to all active users
+		var users []model.User
+		if err := h.db.Where("status = 1").Select("id").Find(&users).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			return
+		}
+		targetIDs = make([]uint64, len(users))
+		for i, u := range users {
+			targetIDs[i] = u.ID
+		}
+	}
+
+	n := notification.Notification{
+		Title:    req.Title,
+		Content:  req.Content,
+		Category: req.Category,
+		Priority: notification.Priority(req.Priority),
+	}
+
+	if err := h.notifSvc.SendToMultiple(targetIDs, n); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "通知已发送", "data": gin.H{"count": len(targetIDs)}})
+}
+
+// ListAllNotifications returns all system notifications with filters (admin view).
+func (h *AdminHandler) ListAllNotifications(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	query := h.db.Model(&model.Message{}).Where("type = ?", "system")
+
+	if category := c.Query("category"); category != "" {
+		query = query.Where("category = ?", category)
+	}
+	if userID := c.Query("user_id"); userID != "" {
+		query = query.Where("receiver_id = ?", userID)
+	}
+	if start := c.Query("start_date"); start != "" {
+		query = query.Where("created_at >= ?", start)
+	}
+	if end := c.Query("end_date"); end != "" {
+		query = query.Where("created_at <= ?", end)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var notifications []model.Message
+	query.Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&notifications)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"items":     notifications,
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
+}
+
+// GetNotificationStats returns notification statistics.
+func (h *AdminHandler) GetNotificationStats(c *gin.Context) {
+	var total int64
+	h.db.Model(&model.Message{}).Where("type = ?", "system").Count(&total)
+
+	var unread int64
+	h.db.Model(&model.Message{}).Where("type = ? AND read_at IS NULL", "system").Count(&unread)
+
+	type categoryCount struct {
+		Category string `json:"category"`
+		Count    int64  `json:"count"`
+	}
+	var byCategory []categoryCount
+	h.db.Model(&model.Message{}).
+		Where("type = ?", "system").
+		Select("category, count(*) as count").
+		Group("category").
+		Scan(&byCategory)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"total":       total,
+			"unread":      unread,
+			"by_category": byCategory,
+		},
+	})
+}
+
+// AdminDeleteNotification permanently deletes a notification (admin, no ownership check).
+func (h *AdminHandler) AdminDeleteNotification(c *gin.Context) {
+	notifID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的通知ID"})
+		return
+	}
+
+	result := h.db.Where("id = ? AND type = ?", notifID, "system").Delete(&model.Message{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "通知不存在"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "通知已删除"})
+}
+
+// AdminPurgeExpiredNotifications manually triggers expired notification purge.
+func (h *AdminHandler) AdminPurgeExpiredNotifications(c *gin.Context) {
+	deleted := h.notifSvc.PurgeExpired()
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已清理过期通知", "data": gin.H{"deleted": deleted}})
+}
+
 func (h *AdminHandler) RevokePermission(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

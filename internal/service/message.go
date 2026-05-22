@@ -202,6 +202,44 @@ func (s *MessageService) SendSystemNotification(receiverID uint64, title, conten
 	return s.db.Create(msg).Error
 }
 
+// NotificationFilter holds optional filters for querying notifications.
+type NotificationFilter struct {
+	Category string
+	IsRead   *bool // nil = don't filter, true = read only, false = unread only
+}
+
+// GetNotificationsFiltered returns system notifications with optional filters.
+func (s *MessageService) GetNotificationsFiltered(userID uint64, page, pageSize int, filter NotificationFilter) ([]model.Message, int64, error) {
+	query := s.db.Model(&model.Message{}).Where("receiver_id = ? AND type = ?", userID, "system")
+	if filter.Category != "" {
+		query = query.Where("category = ?", filter.Category)
+	}
+	if filter.IsRead != nil {
+		if *filter.IsRead {
+			query = query.Where("read_at IS NOT NULL")
+		} else {
+			query = query.Where("read_at IS NULL")
+		}
+	}
+	var total int64
+	query.Count(&total)
+	var messages []model.Message
+	err := query.Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&messages).Error
+	return messages, total, err
+}
+
+// DeleteNotification deletes a specific notification belonging to a user.
+func (s *MessageService) DeleteNotification(userID, notifID uint64) error {
+	result := s.db.Where("id = ? AND receiver_id = ? AND type = ?", notifID, userID, "system").Delete(&model.Message{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("通知不存在")
+	}
+	return nil
+}
+
 // HandleNotificationAction processes an accept/reject action on a notification.
 func (s *MessageService) HandleNotificationAction(userID, notifID uint64, action string) error {
 	if action != "accepted" && action != "rejected" {
