@@ -2,6 +2,7 @@ package router
 
 import (
 	"domainnest/internal/config"
+	"domainnest/internal/domain/notification"
 	"domainnest/internal/handler"
 	"domainnest/internal/middleware"
 	"domainnest/internal/service"
@@ -21,7 +22,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	ramTokenService *service.RAMTokenService, friendService *service.FriendService,
 	messageService *service.MessageService, providerService *service.ProviderService,
 	syncService *service.SyncService, trashService *service.TrashService,
-	filterPresetService *service.FilterPresetService, hub *ws.Hub) *gin.Engine {
+	filterPresetService *service.FilterPresetService, notificationService *notification.Service,
+	hub *ws.Hub) *gin.Engine {
 
 	r := gin.Default()
 

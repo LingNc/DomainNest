@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"domainnest/internal/config"
+	"domainnest/internal/domain/notification"
 	"domainnest/internal/model"
 	"domainnest/internal/router"
 	"domainnest/internal/service"
@@ -72,11 +73,13 @@ func main() {
 
 	wsHub := ws.InitHub()
 
+	notificationService := notification.NewService(db, wsHub)
+
 	if err := authService.EnsureAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
 		log.Fatalf("Failed to ensure admin user: %v", err)
 	}
 
-	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService, syncService, trashService, filterPresetService, wsHub)
+	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService, syncService, trashService, filterPresetService, notificationService, wsHub)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Server starting on %s", addr)
