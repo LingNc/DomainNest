@@ -322,7 +322,7 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('common.status')">
-          <el-select v-model="editForm.status" style="width:100%">
+          <el-select v-model="editForm.status" style="width:100%" :disabled="editTarget?.id === auth.user?.id">
             <el-option :label="$t('admin.statusNormal')" :value="1" />
             <el-option :label="$t('admin.statusDisabled')" :value="0" />
           </el-select>
