@@ -401,7 +401,7 @@ export default {
     users: 'Users',
     searchUsers: 'Search users',
     batchGrantResult: 'Grant Result',
-    convertToNode: 'Make Independent Root',
+    convertToNode: 'Independent',
     convertToNodeConfirm: 'Make {host} an independent root domain?',
     convertSuccess: 'Independence granted, {count} records affected',
     makeIndependent: 'Make Independent',

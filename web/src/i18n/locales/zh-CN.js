@@ -401,7 +401,7 @@ export default {
     users: '授权用户',
     searchUsers: '搜索用户',
     batchGrantResult: '授权结果',
-    convertToNode: '独立为根域名',
+    convertToNode: '独立',
     convertToNodeConfirm: '确定将 {host} 独立为根域名？',
     convertSuccess: '独立成功，已处理 {count} 条记录',
     makeIndependent: '独立',
