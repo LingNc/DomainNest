@@ -277,7 +277,7 @@
         <el-tab-pane :label="$t('admin.inviteCodeManagement')" name="inviteCodes">
           <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
             <el-input v-model="inviteCodeFilter" :placeholder="$t('admin.filterByCreatorOrUsedBy')" clearable style="width:200px" size="default" />
-            <el-select v-model="inviteCodeStatus" :placeholder="$t('common.all')" style="width:130px" size="default">
+            <el-select v-model="inviteCodeStatus" :placeholder="$t('common.all')" clearable style="width:130px" size="default">
               <el-option :label="$t('common.all')" value="all" />
               <el-option :label="$t('admin.codeUnused')" value="unused" />
               <el-option :label="$t('admin.codeUsed')" value="used" />
@@ -446,7 +446,7 @@ const inviteCodePage = ref(1)
 const inviteCodePageSize = ref(20)
 const inviteCodeTotal = ref(0)
 const inviteCodeFilter = ref('')
-const inviteCodeStatus = ref('all')
+const inviteCodeStatus = ref('')
 const inviteCodeSortBy = ref('created_at')
 const inviteCodeSortOrder = ref('desc')
 

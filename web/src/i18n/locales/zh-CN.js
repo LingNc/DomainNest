@@ -37,6 +37,7 @@ export default {
     logout: '退出登录',
     confirmDelete: '确认删除',
     unlimited: '不限',
+    all: '全部',
     unknown: '未知',
     default: '默认',
     copy: '复制',

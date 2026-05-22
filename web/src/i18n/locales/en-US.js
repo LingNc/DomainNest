@@ -37,6 +37,7 @@ export default {
     logout: 'Logout',
     confirmDelete: 'Confirm Delete',
     unlimited: 'Unlimited',
+    all: 'All',
     unknown: 'Unknown',
     default: 'Default',
     copy: 'Copy',
