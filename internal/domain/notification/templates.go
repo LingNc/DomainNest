@@ -47,6 +47,15 @@ func PermissionReturned(node *model.DomainNode) Notification {
 	}
 }
 
+func PermissionReturnRejected(node *model.DomainNode, byUsername string) Notification {
+	return Notification{
+		Category: CatPermissionReturnRejected,
+		Title:    "归还请求被拒绝",
+		Content:  fmt.Sprintf("%s 拒绝了归还 %s 权限的请求", byUsername, node.FullDomain),
+		Priority: PriorityWarning,
+	}
+}
+
 func DomainTransferredTo(node *model.DomainNode, fromUsername string) Notification {
 	return Notification{
 		Category:   CatDomainTransferred,

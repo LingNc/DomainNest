@@ -30,5 +30,6 @@ const (
 	CatProviderClaimed     = "provider_claimed"
 	CatProviderReclaimed   = "provider_reclaimed"
 	CatProviderDeleted     = "provider_deleted"
-	CatAdminBroadcast      = "admin_broadcast"
+	CatPermissionReturnRejected = "permission_return_rejected"
+	CatAdminBroadcast           = "admin_broadcast"
 )

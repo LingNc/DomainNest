@@ -485,10 +485,24 @@ func (h *PermissionHandler) AcceptReturn(c *gin.Context) {
 	middleware.LogOperationUser(h.db, userID, targetUserID, "accept_return", "domain_node", &nodeID,
 		map[string]interface{}{"action": req.Action}, c.ClientIP())
 
-	ws.BroadcastToUser(targetUserID, ws.TypeDomainTreeUpdate, gin.H{
-		"action":  "permission_change",
-		"node_id": nodeID,
-	})
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error == nil {
+			if err := h.notifSvc.Send(targetUserID, notification.PermissionReturned(&node)); err != nil {
+				log.Printf("[Notification] PermissionReturned failed: %v", err)
+				return
+			}
+			svc := service.NewMessageService(h.db)
+			if count, err := svc.GetNotificationUnreadCount(targetUserID); err == nil {
+				ws.BroadcastToUser(targetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
+			ws.BroadcastToUser(targetUserID, ws.TypeDomainTreeUpdate, gin.H{
+				"action":  "permission_change",
+				"node_id": nodeID,
+			})
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限归还已接受"})
 }
@@ -520,6 +534,24 @@ func (h *PermissionHandler) RejectReturn(c *gin.Context) {
 
 	middleware.LogOperationUser(h.db, userID, targetUserID, "reject_return", "domain_node", &nodeID,
 		map[string]interface{}{}, c.ClientIP())
+
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error == nil {
+			var user model.User
+			if h.db.First(&user, targetUserID).Error == nil {
+				if err := h.notifSvc.Send(node.OwnerID, notification.PermissionReturnRejected(&node, user.Username)); err != nil {
+					log.Printf("[Notification] PermissionReturnRejected failed: %v", err)
+					return
+				}
+				svc := service.NewMessageService(h.db)
+				if count, err := svc.GetNotificationUnreadCount(node.OwnerID); err == nil {
+					ws.BroadcastToUser(node.OwnerID, ws.TypeUnreadUpdate, gin.H{"count": count})
+				}
+			}
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "归还请求已拒绝"})
 }

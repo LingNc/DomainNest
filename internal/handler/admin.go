@@ -960,6 +960,25 @@ func (h *AdminHandler) RevokePermission(c *gin.Context) {
 	middleware.LogOperationUser(h.db, callerID, userID, "revoke_permission", "domain_node", &nodeID,
 		map[string]interface{}{"target_user_id": userID}, c.ClientIP())
 
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error == nil {
+			if err := h.notifSvc.Send(userID, notification.PermissionRevoked(&node)); err != nil {
+				log.Printf("[Notification] PermissionRevoked failed: %v", err)
+				return
+			}
+			svc := service.NewMessageService(h.db)
+			if count, err := svc.GetNotificationUnreadCount(userID); err == nil {
+				ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
+			ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
+				"action":  "permission_change",
+				"node_id": nodeID,
+			})
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已撤销"})
 }
 
