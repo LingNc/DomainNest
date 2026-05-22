@@ -82,13 +82,13 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		b, _ := json.Marshal(req.AllowedIPs)
 		allowedIPsJSON = string(b)
 	}
-
-	if err := h.permissionService.Grant(req.TargetUserID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.HostRules, req.MaxDepth, req.SourceFilter, userID); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
-		return
+	hostRulesJSON := ""
+	if len(req.HostRules) > 0 {
+		b, _ := json.Marshal(req.HostRules)
+		hostRulesJSON = string(b)
 	}
 
-	// Load node for notification
+	// Load node for notification and ActionData
 	var node model.DomainNode
 	nodeLoaded := h.db.First(&node, nodeID).Error == nil
 
@@ -97,29 +97,37 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		domain = node.FullDomain
 	}
 
-	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "grant_permission", "domain_node", &nodeID,
+	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "grant_permission_pending", "domain_node", &nodeID,
 		map[string]interface{}{"level": req.Level, "domain": domain}, c.ClientIP())
 
-	// Notify target user
+	// Send pending notification instead of executing immediately
 	if nodeLoaded {
+		pendingData := map[string]interface{}{
+			"target_user_id": req.TargetUserID,
+			"level":          req.Level,
+			"allowed_types": allowedTypesJSON,
+			"allowed_ips":    allowedIPsJSON,
+			"host_prefix":    req.HostPrefix,
+			"host_rules":     hostRulesJSON,
+			"max_depth":      req.MaxDepth,
+			"source_filter":  req.SourceFilter,
+			"created_by":     userID,
+		}
+		pendingDataJSON, _ := json.Marshal(pendingData)
 		go func() {
 			defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
-			if err := h.notifSvc.Send(req.TargetUserID, notification.PermissionGranted(&node, req.Level)); err != nil {
-				log.Printf("[Notification] PermissionGranted failed: %v", err)
+			if err := h.notifSvc.Send(req.TargetUserID, notification.PendingPermissionGrant(&node, req.Level, string(pendingDataJSON))); err != nil {
+				log.Printf("[Notification] PendingPermissionGrant failed: %v", err)
 				return
 			}
 			svc := service.NewMessageService(h.db)
 			if count, err := svc.GetNotificationUnreadCount(req.TargetUserID); err == nil {
 				ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
-			ws.BroadcastToUser(req.TargetUserID, ws.TypeDomainTreeUpdate, gin.H{
-				"action":  "permission_change",
-				"node_id": nodeID,
-			})
 		}()
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已授予"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限授予请求已发送，等待对方接受"})
 }
 
 // BatchGrantResult is the per-user result of a batch grant operation.
@@ -172,6 +180,11 @@ func (h *PermissionHandler) BatchGrant(c *gin.Context) {
 		b, _ := json.Marshal(req.AllowedIPs)
 		allowedIPsJSON = string(b)
 	}
+	hostRulesJSON := ""
+	if len(req.HostRules) > 0 {
+		b, _ := json.Marshal(req.HostRules)
+		hostRulesJSON = string(b)
+	}
 
 	// Load node for notifications
 	var node model.DomainNode
@@ -181,6 +194,9 @@ func (h *PermissionHandler) BatchGrant(c *gin.Context) {
 		domain = node.FullDomain
 	}
 
+	middleware.LogOperationUser(h.db, userID, 0, "grant_permission_pending", "domain_node", &nodeID,
+		map[string]interface{}{"level": req.Level, "domain": domain, "batch": true, "count": len(uniqueIDs)}, c.ClientIP())
+
 	results := make([]BatchGrantResult, len(uniqueIDs))
 	for i, targetID := range uniqueIDs {
 		// Skip self-authorization
@@ -189,38 +205,37 @@ func (h *PermissionHandler) BatchGrant(c *gin.Context) {
 			continue
 		}
 
-		err := h.permissionService.Grant(targetID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.HostRules, req.MaxDepth, req.SourceFilter, userID)
-		if err != nil {
-			results[i] = BatchGrantResult{UserID: targetID, Success: false, Error: err.Error()}
-			continue
-		}
-
-		results[i] = BatchGrantResult{UserID: targetID, Success: true}
-
-		middleware.LogOperationUser(h.db, userID, targetID, "grant_permission", "domain_node", &nodeID,
-			map[string]interface{}{"level": req.Level, "domain": domain, "batch": true}, c.ClientIP())
-
-		// Notify target user
+		// Send pending notification instead of executing immediately
 		if nodeLoaded {
+			pendingData := map[string]interface{}{
+				"target_user_id": targetID,
+				"level":          req.Level,
+				"allowed_types":  allowedTypesJSON,
+				"allowed_ips":    allowedIPsJSON,
+				"host_prefix":    req.HostPrefix,
+				"host_rules":     hostRulesJSON,
+				"max_depth":      req.MaxDepth,
+				"source_filter":  req.SourceFilter,
+				"created_by":     userID,
+			}
+			pendingDataJSON, _ := json.Marshal(pendingData)
 			go func(uid uint64) {
 				defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
-				if err := h.notifSvc.Send(uid, notification.PermissionGranted(&node, req.Level)); err != nil {
-					log.Printf("[Notification] PermissionGranted failed: %v", err)
+				if err := h.notifSvc.Send(uid, notification.PendingPermissionGrant(&node, req.Level, string(pendingDataJSON))); err != nil {
+					log.Printf("[Notification] PendingPermissionGrant failed: %v", err)
 					return
 				}
 				svc := service.NewMessageService(h.db)
 				if count, err := svc.GetNotificationUnreadCount(uid); err == nil {
 					ws.BroadcastToUser(uid, ws.TypeUnreadUpdate, gin.H{"count": count})
 				}
-				ws.BroadcastToUser(uid, ws.TypeDomainTreeUpdate, gin.H{
-					"action":  "permission_change",
-					"node_id": nodeID,
-				})
 			}(targetID)
 		}
+
+		results[i] = BatchGrantResult{UserID: targetID, Success: true}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "data": results})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": results, "message": "权限授予请求已发送，等待对方接受"})
 }
 
 // BatchMultiDomainResult is the per-domain-user result of a batch multi-domain grant operation.
@@ -279,6 +294,11 @@ func (h *PermissionHandler) BatchGrantMultiDomain(c *gin.Context) {
 		b, _ := json.Marshal(req.AllowedIPs)
 		allowedIPsJSON = string(b)
 	}
+	hostRulesJSON := ""
+	if len(req.HostRules) > 0 {
+		b, _ := json.Marshal(req.HostRules)
+		hostRulesJSON = string(b)
+	}
 
 	// Pre-load nodes for notifications
 	nodeMap := make(map[uint64]*model.DomainNode)
@@ -289,13 +309,12 @@ func (h *PermissionHandler) BatchGrantMultiDomain(c *gin.Context) {
 		}
 	}
 
+	middleware.LogOperationUser(h.db, userID, 0, "grant_permission_pending", "domain_node", nil,
+		map[string]interface{}{"level": req.Level, "batch_multi_domain": true, "node_count": len(uniqueNodeIDs), "user_count": len(uniqueUserIDs)}, c.ClientIP())
+
 	results := make([]BatchMultiDomainResult, 0, len(uniqueNodeIDs)*len(uniqueUserIDs))
 	for _, nodeID := range uniqueNodeIDs {
 		node, nodeLoaded := nodeMap[nodeID]
-		domain := ""
-		if nodeLoaded {
-			domain = node.FullDomain
-		}
 
 		for _, targetID := range uniqueUserIDs {
 			// Skip self-authorization
@@ -304,39 +323,38 @@ func (h *PermissionHandler) BatchGrantMultiDomain(c *gin.Context) {
 				continue
 			}
 
-			err := h.permissionService.Grant(targetID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, "", req.HostRules, req.MaxDepth, req.SourceFilter, userID)
-			if err != nil {
-				results = append(results, BatchMultiDomainResult{DomainNodeID: nodeID, UserID: targetID, Success: false, Error: err.Error()})
-				continue
-			}
-
-			results = append(results, BatchMultiDomainResult{DomainNodeID: nodeID, UserID: targetID, Success: true})
-
-			middleware.LogOperationUser(h.db, userID, targetID, "grant_permission", "domain_node", &nodeID,
-				map[string]interface{}{"level": req.Level, "domain": domain, "batch_multi_domain": true}, c.ClientIP())
-
-			// Notify target user
+			// Send pending notification instead of executing immediately
 			if nodeLoaded {
+				pendingData := map[string]interface{}{
+					"target_user_id": targetID,
+					"level":          req.Level,
+					"allowed_types":  allowedTypesJSON,
+					"allowed_ips":    allowedIPsJSON,
+					"host_prefix":    "",
+					"host_rules":     hostRulesJSON,
+					"max_depth":      req.MaxDepth,
+					"source_filter":  req.SourceFilter,
+					"created_by":     userID,
+				}
+				pendingDataJSON, _ := json.Marshal(pendingData)
 				go func(uid uint64, n model.DomainNode, nid uint64) {
 					defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
-					if err := h.notifSvc.Send(uid, notification.PermissionGranted(&n, req.Level)); err != nil {
-						log.Printf("[Notification] PermissionGranted failed: %v", err)
+					if err := h.notifSvc.Send(uid, notification.PendingPermissionGrant(&n, req.Level, string(pendingDataJSON))); err != nil {
+						log.Printf("[Notification] PendingPermissionGrant failed: %v", err)
 						return
 					}
 					svc := service.NewMessageService(h.db)
 					if count, err := svc.GetNotificationUnreadCount(uid); err == nil {
 						ws.BroadcastToUser(uid, ws.TypeUnreadUpdate, gin.H{"count": count})
 					}
-					ws.BroadcastToUser(uid, ws.TypeDomainTreeUpdate, gin.H{
-						"action":  "permission_change",
-						"node_id": nid,
-					})
 				}(targetID, *node, nodeID)
 			}
+
+			results = append(results, BatchMultiDomainResult{DomainNodeID: nodeID, UserID: targetID, Success: true})
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "data": results})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": results, "message": "权限授予请求已发送，等待对方接受"})
 }
 
 func (h *PermissionHandler) Revoke(c *gin.Context) {

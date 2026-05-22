@@ -102,51 +102,35 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 		return
 	}
 
-	transferResult, err := h.domainService.TransferNode(nodeID, userID, req.TargetUserID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
-		return
+	// Load node for notification
+	var node model.DomainNode
+	nodeLoaded := h.db.First(&node, nodeID).Error == nil
+	domain := ""
+	if nodeLoaded {
+		domain = node.FullDomain
 	}
 
-	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "transfer_domain", "domain_node", &nodeID,
-		map[string]interface{}{}, c.ClientIP())
+	fromUsername := c.GetString("username")
 
-	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
-		"action":  "transfer",
-		"node_id": nodeID,
-	})
-	ws.BroadcastToUser(req.TargetUserID, ws.TypeDomainTreeUpdate, gin.H{
-		"action":  "transfer_received",
-		"node_id": nodeID,
-	})
+	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "transfer_domain_pending", "domain_node", &nodeID,
+		map[string]interface{}{"domain": domain}, c.ClientIP())
 
-	// Notify both parties
-	go func() {
-		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
-		var node model.DomainNode
-		if h.db.First(&node, nodeID).Error != nil {
-			return
-		}
-		fromUsername := c.GetString("username")
-		var targetUser model.User
-		if h.db.First(&targetUser, req.TargetUserID).Error == nil {
-			if err := h.notifSvc.Send(req.TargetUserID, notification.DomainTransferredTo(&node, fromUsername)); err != nil {
-				log.Printf("[Notification] DomainTransferredTo failed: %v", err)
+	// Send pending notification instead of executing immediately
+	if nodeLoaded {
+		go func() {
+			defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+			if err := h.notifSvc.Send(req.TargetUserID, notification.PendingDomainTransfer(&node, fromUsername, userID)); err != nil {
+				log.Printf("[Notification] PendingDomainTransfer failed: %v", err)
+				return
 			}
-			if err := h.notifSvc.Send(userID, notification.DomainTransferredAway(&node, targetUser.Username)); err != nil {
-				log.Printf("[Notification] DomainTransferredAway failed: %v", err)
+			svc := service.NewMessageService(h.db)
+			if count, err := svc.GetNotificationUnreadCount(req.TargetUserID); err == nil {
+				ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
-		}
+		}()
+	}
 
-		// Notify new owner about existing delegations
-		if transferResult.DelegationCount > 0 {
-			if err := h.notifSvc.Send(req.TargetUserID, notification.DomainTransferredWithDelegations(&node, transferResult.DelegationCount)); err != nil {
-				log.Printf("[Notification] DomainTransferredWithDelegations failed: %v", err)
-			}
-		}
-	}()
-
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "转移成功"})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "域名转移请求已发送，等待对方接受"})
 }
 
 func (h *DomainHandler) Delete(c *gin.Context) {

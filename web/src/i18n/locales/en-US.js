@@ -148,6 +148,7 @@ export default {
     actionAccepted: 'Accepted',
     actionRejected: 'Rejected',
     actionFailed: 'Action failed',
+    pendingAccept: 'Pending',
   },
   friends: {
     title: 'Friends',
