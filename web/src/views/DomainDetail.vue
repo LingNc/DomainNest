@@ -139,12 +139,18 @@
             <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="100">
               <template #default="{ row }">
                 <template v-if="!row.virtual">
-                  <el-tag
-                    :type="statusType(row.sync_status)"
-                    size="small"
-                    :class="{ 'clickable-tag': row.sync_status === 'pending' || row.sync_status === 'failed' }"
-                    @click="(row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
-                  >{{ statusLabel(row.sync_status) }}</el-tag>
+                  <el-tooltip
+                    :disabled="row.sync_status !== 'failed' || !row.last_sync_error"
+                    :content="row.last_sync_error"
+                    placement="top"
+                  >
+                    <el-tag
+                      :type="statusType(row.sync_status)"
+                      size="small"
+                      :class="{ 'clickable-tag': row.sync_status === 'pending' || row.sync_status === 'failed' }"
+                      @click="(row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
+                    >{{ statusLabel(row.sync_status) }}</el-tag>
+                  </el-tooltip>
                 </template>
               </template>
             </el-table-column>
@@ -253,12 +259,18 @@
             </el-table-column>
             <el-table-column prop="sync_status" :label="$t('domainDetail.syncStatus')" width="100">
               <template #default="{ row }">
-                <el-tag v-if="!row.isGroupHeader"
-                  :type="statusType(row.sync_status)"
-                  size="small"
-                  :class="{ 'clickable-tag': row.sync_status === 'pending' || row.sync_status === 'failed' }"
-                  @click="(row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
-                >{{ statusLabel(row.sync_status) }}</el-tag>
+                <el-tooltip v-if="!row.isGroupHeader"
+                  :disabled="row.sync_status !== 'failed' || !row.last_sync_error"
+                  :content="row.last_sync_error"
+                  placement="top"
+                >
+                  <el-tag
+                    :type="statusType(row.sync_status)"
+                    size="small"
+                    :class="{ 'clickable-tag': row.sync_status === 'pending' || row.sync_status === 'failed' }"
+                    @click="(row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
+                  >{{ statusLabel(row.sync_status) }}</el-tag>
+                </el-tooltip>
               </template>
             </el-table-column>
             <el-table-column prop="last_resolved_at" :label="$t('domainDetail.lastResolved')" width="160" show-overflow-tooltip>
@@ -1075,12 +1087,15 @@ const groupedFlatRecords = computed(() => {
   let lastGroup = null
   for (const rec of recs) {
     const currentGroup = rec.source === 'provider' ? '__provider__' : (rec.group_tag || '__ungrouped__')
+    if (currentGroup === '__ungrouped__') {
+      result.push(rec)
+      lastGroup = currentGroup
+      continue
+    }
     if (currentGroup !== lastGroup) {
       let label
       if (currentGroup === '__provider__') {
         label = t('domainDetail.sourceProvider')
-      } else if (currentGroup === '__ungrouped__') {
-        label = t('domainDetail.ungrouped')
       } else {
         label = rec.group_tag
       }
@@ -1142,8 +1157,6 @@ const loadRecords = async () => {
         collapsedGroups.add('__provider__')
       } else if (rec.group_tag) {
         collapsedGroups.add(rec.group_tag)
-      } else {
-        collapsedGroups.add('__ungrouped__')
       }
     }
   } finally {
@@ -1377,8 +1390,13 @@ const handleRetrySync = async (id) => {
 }
 
 const handleSyncNow = async (id) => {
-  await syncRecord(id)
-  ElMessage.success(t('domainDetail.syncNowSuccess'))
+  const res = await syncRecord(id)
+  const result = res.data?.data
+  if (result?.status === 'failed') {
+    ElMessage.error(result.error || t('domainDetail.syncFailed'))
+  } else {
+    ElMessage.success(t('domainDetail.syncNowSuccess'))
+  }
   loadRecords()
 }
 
