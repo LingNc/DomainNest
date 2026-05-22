@@ -57,11 +57,7 @@
           <el-icon><component :is="'Document'" /></el-icon>
           <span>{{ $t('sidebar.logs') }}</span>
         </el-menu-item>
-        <el-menu-item index="/trash">
-          <el-icon><component :is="'Delete'" /></el-icon>
-          <span>{{ $t('sidebar.trash') }}</span>
-        </el-menu-item>
-        <el-menu-item index="/ram-tokens">
+<el-menu-item index="/ram-tokens">
           <el-icon><component :is="'Tickets'" /></el-icon>
           <span>{{ $t('sidebar.apiTokens') }}</span>
         </el-menu-item>
@@ -164,7 +160,6 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/my-logs')) return '/my-logs'
   if (route.path.startsWith('/messages')) return '/messages'
   if (route.path.startsWith('/friends')) return '/friends'
-  if (route.path.startsWith('/trash')) return '/trash'
   return '/dashboard'
 })
 
