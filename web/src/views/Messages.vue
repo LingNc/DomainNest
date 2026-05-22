@@ -34,20 +34,6 @@
                   <span class="notif-time">{{ formatTime(notif.created_at) }}</span>
                 </div>
                 <div class="notif-content">{{ notif.content }}</div>
-                <!-- Action buttons for actionable notifications -->
-                <div v-if="notif.action_type && !notif.action_status" class="notif-actions">
-                  <el-button type="success" size="small" @click.stop="handleAction(notif.id, 'accepted')">
-                    {{ $t('messages.accept') }}
-                  </el-button>
-                  <el-button type="danger" size="small" @click.stop="handleAction(notif.id, 'rejected')">
-                    {{ $t('messages.reject') }}
-                  </el-button>
-                </div>
-                <!-- Status badge for processed actions -->
-                <div v-if="notif.action_status" class="notif-action-status">
-                  <el-tag v-if="notif.action_status === 'accepted'" type="success" size="small">{{ $t('messages.accepted') }}</el-tag>
-                  <el-tag v-else-if="notif.action_status === 'rejected'" type="danger" size="small">{{ $t('messages.rejected') }}</el-tag>
-                </div>
               </div>
               <div v-if="!notif.read_at" class="notif-dot"></div>
             </div>
@@ -208,7 +194,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Bell, WarningFilled, InfoFilled, Promotion } from '@element-plus/icons-vue'
 import { getConversations } from '../api/message'
-import { getNotifications, getNotificationUnreadCount, markNotificationAsRead, markAllNotificationsAsRead, handleNotificationAction } from '../api/message'
+import { getNotifications, getNotificationUnreadCount, markNotificationAsRead, markAllNotificationsAsRead } from '../api/message'
 import { searchAllUsers } from '../api/auth'
 import { useNotificationStore } from '../stores/notification'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -317,23 +303,6 @@ const handleMarkAllRead = async () => {
     notifications.value.forEach(n => { n.read_at = new Date().toISOString() })
     notifUnread.value = 0
   } catch { /* ignore */ }
-}
-
-const handleAction = async (notifId, action) => {
-  try {
-    await handleNotificationAction(notifId, action, { skipErrorToast: true })
-    const notif = notifications.value.find(n => n.id === notifId)
-    if (notif) {
-      notif.action_status = action
-      if (!notif.read_at) {
-        notif.read_at = new Date().toISOString()
-        notifUnread.value = Math.max(0, notifUnread.value - 1)
-      }
-    }
-    ElMessage.success(action === 'accepted' ? t('messages.actionAccepted') : t('messages.actionRejected'))
-  } catch (e) {
-    showError(e.response?.data?.message || t('messages.actionFailed'))
-  }
 }
 
 // --- Shared ---
@@ -590,14 +559,6 @@ onUnmounted(() => {
   height: 8px;
   border-radius: 50%;
   background: #409eff;
-  margin-top: 6px;
-}
-.notif-actions {
-  margin-top: 8px;
-  display: flex;
-  gap: 8px;
-}
-.notif-action-status {
   margin-top: 6px;
 }
 </style>
