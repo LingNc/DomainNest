@@ -12,6 +12,7 @@ type DomainNode struct {
 	FullDomain       string         `gorm:"type:varchar(255);index;not null" json:"full_domain"`
 	ParentID         *uint64        `gorm:"index" json:"parent_id"`
 	OwnerID          uint64         `gorm:"index;not null" json:"owner_id"`
+	ClaimerID        uint64         `gorm:"index" json:"claimer_id"`
 	ProviderID       *uint64        `gorm:"index" json:"provider_id,omitempty"`
 	MaterializedFrom *uint64        `gorm:"index" json:"materialized_from,omitempty"`
 	IsMaterialized   bool           `gorm:"default:false" json:"is_materialized"`
@@ -28,6 +29,7 @@ type DomainNode struct {
 	Parent   *DomainNode   `gorm:"foreignKey:ParentID" json:"parent,omitempty"`
 	Children []DomainNode  `gorm:"foreignKey:ParentID" json:"children,omitempty"`
 	Owner    User          `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`
+	Claimer  User          `gorm:"foreignKey:ClaimerID" json:"claimer,omitempty"`
 	Provider *DNSProvider  `gorm:"foreignKey:ProviderID" json:"provider,omitempty"`
 	Records  []DNSRecord   `gorm:"foreignKey:NodeID" json:"records,omitempty"`
 }

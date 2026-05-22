@@ -175,6 +175,7 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 		Host:       host,
 		FullDomain: domainName,
 		OwnerID:    userID,
+		ClaimerID:  userID,
 		ProviderID: &providerID,
 	}
 	if err := s.db.Create(node).Error; err != nil {

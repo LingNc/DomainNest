@@ -52,6 +52,7 @@
                   </span>
                   <el-tag v-if="data.is_materialized" size="small" type="success">{{ $t('domainDetail.materialized') }}</el-tag>
                   <el-tag v-if="data.status === 'archived'" size="small" type="info">{{ $t('dashboard.archived') }}</el-tag>
+                  <el-tag v-if="data.claimer_id && data.claimer_id !== data.owner_id" size="small" type="warning">{{ $t('common.claimer') }}: {{ data.claimer?.nickname || data.claimer?.username }}</el-tag>
                   <el-tag v-if="permMap[data.id]" :type="permTagType(permMap[data.id])" size="small" class="perm-badge">
                     {{ permLabel(permMap[data.id]) }}
                   </el-tag>

@@ -72,6 +72,7 @@ func (s *DomainService) GetUserNodes(userID uint64) ([]model.DomainNode, error) 
 			return db.Where("id IN ?", accessibleIDs)
 		}).
 		Preload("Owner").
+		Preload("Claimer").
 		Find(&nodes).Error
 
 	if err != nil {
@@ -219,32 +220,71 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 		return err
 	}
 
-	// Root domain (claimer) must archive before deleting
-	if node.ParentID == nil && node.Status != "archived" {
-		return errors.New("根域名请先归档后再删除")
-	}
-
-	// Non-root: block if has children
-	if node.ParentID != nil {
-		var childCount int64
-		s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL", nodeID).Count(&childCount)
-		if childCount > 0 {
-			return errors.New("无法删除含有子节点的节点，请先删除所有子域名")
-		}
-	}
-
 	now := time.Now()
 
+	// Root domain: non-claimer returns to claimer; claimer proceeds with deletion
+	if node.ParentID == nil {
+		if node.Status != "archived" {
+			return errors.New("根域名请先归档后再删除")
+		}
+		if userID != node.ClaimerID {
+			// Non-claimer deleting: return ownership to claimer, un-archive
+			return s.db.Transaction(func(tx *gorm.DB) error {
+				// Platform records: move to trash
+				if err := tx.Model(&model.DNSRecord{}).
+					Where("node_id = ? AND deleted_at IS NULL AND source = 'platform'", nodeID).
+					Updates(map[string]interface{}{
+						"trashed_at":  now,
+						"deleted_at":  now,
+						"sync_status": "disabled",
+					}).Error; err != nil {
+					return fmt.Errorf("移入回收站失败: %w", err)
+				}
+				// Provider records: just disable sync
+				if err := tx.Model(&model.DNSRecord{}).
+					Where("node_id = ? AND deleted_at IS NULL AND source = 'provider'", nodeID).
+					Updates(map[string]interface{}{
+						"sync_status": "disabled",
+					}).Error; err != nil {
+					return fmt.Errorf("禁用同步失败: %w", err)
+				}
+				// Return domain to claimer, restore to active
+				return tx.Model(&node).Updates(map[string]interface{}{
+					"owner_id": node.ClaimerID,
+					"status":   "active",
+				}).Error
+			})
+		}
+		// Claimer deleting: proceed to soft-delete below
+	} else if node.Status != "archived" {
+		return errors.New("子域名请先归档后再删除")
+	}
+
+	// Block if has children (archived children must be explicitly deleted first)
+	var childCount int64
+	s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL", nodeID).Count(&childCount)
+	if childCount > 0 {
+		return errors.New("无法删除含有子节点的节点，请先删除所有子域名")
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Move DNS records to trash (not hard delete)
+		// Platform records: move to trash
 		if err := tx.Model(&model.DNSRecord{}).
-			Where("node_id = ? AND deleted_at IS NULL", nodeID).
+			Where("node_id = ? AND deleted_at IS NULL AND source = 'platform'", nodeID).
 			Updates(map[string]interface{}{
 				"trashed_at":  now,
 				"deleted_at":  now,
 				"sync_status": "disabled",
 			}).Error; err != nil {
 			return fmt.Errorf("移入回收站失败: %w", err)
+		}
+		// Provider records: just disable sync
+		if err := tx.Model(&model.DNSRecord{}).
+			Where("node_id = ? AND deleted_at IS NULL AND source = 'provider'", nodeID).
+			Updates(map[string]interface{}{
+				"sync_status": "disabled",
+			}).Error; err != nil {
+			return fmt.Errorf("禁用同步失败: %w", err)
 		}
 
 		// Soft-delete permission records
