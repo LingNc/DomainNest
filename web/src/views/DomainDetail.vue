@@ -321,7 +321,7 @@
             <el-pagination
               v-model:current-page="flatPage"
               v-model:page-size="flatPageSize"
-              :total="groupedFlatRecords.length"
+              :total="total || groupedFlatRecords.length"
               :page-sizes="flatPageSizeOptions"
               :pager-count="5"
               layout="total, sizes, prev, pager, next"
