@@ -32,10 +32,21 @@ func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 	if err := s.db.First(&node, nodeID).Error; err != nil {
 		return nil, err
 	}
-	if node.ProviderID != nil && s.providerService != nil {
-		client, err := s.providerService.GetDNSProvider(*node.ProviderID)
-		if err == nil {
-			return client, nil
+	// Walk up the parent chain to find a node with a provider binding.
+	// Independent (materialized) domains inherit the provider from their parent.
+	for {
+		if node.ProviderID != nil && s.providerService != nil {
+			client, err := s.providerService.GetDNSProvider(*node.ProviderID)
+			if err == nil {
+				return client, nil
+			}
+		}
+		if node.ParentID == nil {
+			break
+		}
+		parentID := *node.ParentID
+		if err := s.db.First(&node, parentID).Error; err != nil {
+			break
 		}
 	}
 	return nil, errors.New("该域名没有可用的DNS服务商")

@@ -2,6 +2,7 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 
 	alidns "github.com/alibabacloud-go/alidns-20150109/v5/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/utils"
@@ -27,10 +28,29 @@ func (c *Client) AddRecord(domainName, rr, recordType, value string, ttl int64, 
 
 	resp, err := c.client.AddDomainRecordWithOptions(req, c.runtime)
 	if err != nil {
+		// DomainRecordDuplicate means the record already exists on the provider.
+		// This is not an error — find the existing record and return its ID.
+		if strings.Contains(err.Error(), "DomainRecordDuplicate") {
+			return c.findExistingRecordID(domainName, rr, recordType, value)
+		}
 		return "", fmt.Errorf("aliyun AddRecord failed: %w", err)
 	}
 
 	return dara.StringValue(resp.Body.RecordId), nil
+}
+
+// findExistingRecordID looks up an existing DNS record by its key fields and returns its RecordID.
+func (c *Client) findExistingRecordID(domainName, rr, recordType, value string) (string, error) {
+	records, err := c.ListAllRecords(domainName)
+	if err != nil {
+		return "", fmt.Errorf("aliyun findExistingRecord failed: %w", err)
+	}
+	for _, r := range records {
+		if r.RR == rr && r.Type == recordType && r.Value == value {
+			return r.RecordID, nil
+		}
+	}
+	return "", fmt.Errorf("aliyun: DomainRecordDuplicate but could not find existing record for %s/%s/%s", rr, recordType, value)
 }
 
 func (c *Client) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
