@@ -353,6 +353,11 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 		return
 	}
 
+	if userID == targetUserID {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "不能撤销自己的权限"})
+		return
+	}
+
 	// Must be at least admin level to revoke
 	if err := h.permissionService.RequireLevel(userID, nodeID, 3); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
