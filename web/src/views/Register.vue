@@ -36,7 +36,12 @@
           <el-input v-model="form.password" type="password" :placeholder="$t('common.password')" prefix-icon="Lock" show-password size="large" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.confirmPassword" type="password" :placeholder="$t('register.confirmPassword')" prefix-icon="Lock" show-password size="large" :suffix-icon="confirmPasswordStatus === 'success' ? 'CircleCheck' : confirmPasswordStatus === 'error' ? 'CircleClose' : ''" />
+          <el-input v-model="form.confirmPassword" type="password" :placeholder="$t('register.confirmPassword')" prefix-icon="Lock" show-password size="large">
+            <template #suffix>
+              <el-icon v-if="confirmPasswordStatus === 'success'" color="#67c23a"><component :is="'CircleCheck'" /></el-icon>
+              <el-icon v-else-if="confirmPasswordStatus === 'error'" color="#f56c6c"><component :is="'CircleClose'" /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
         <el-form-item>
           <el-input v-model="form.invite_code" :placeholder="$t('register.inviteCode')" prefix-icon="Link" size="large" />
