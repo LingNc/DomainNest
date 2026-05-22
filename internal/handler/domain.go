@@ -102,7 +102,8 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 		return
 	}
 
-	if err := h.domainService.TransferNode(nodeID, userID, req.TargetUserID); err != nil {
+	transferResult, err := h.domainService.TransferNode(nodeID, userID, req.TargetUserID)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
@@ -134,6 +135,13 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 			}
 			if err := h.notifSvc.Send(userID, notification.DomainTransferredAway(&node, targetUser.Username)); err != nil {
 				log.Printf("[Notification] DomainTransferredAway failed: %v", err)
+			}
+		}
+
+		// Notify new owner about existing delegations
+		if transferResult.DelegationCount > 0 {
+			if err := h.notifSvc.Send(req.TargetUserID, notification.DomainTransferredWithDelegations(&node, transferResult.DelegationCount)); err != nil {
+				log.Printf("[Notification] DomainTransferredWithDelegations failed: %v", err)
 			}
 		}
 	}()

@@ -68,6 +68,18 @@ func DomainTransferredAway(node *model.DomainNode, toUsername string) Notificati
 	}
 }
 
+func DomainTransferredWithDelegations(node *model.DomainNode, delegationCount int) Notification {
+	return Notification{
+		Category:   CatDomainTransferred,
+		Title:      "域名转让 — 存在委派权限",
+		Content:    fmt.Sprintf("域名 %s 有 %d 个委派权限，请查看授权管理决定是否保留", node.FullDomain, delegationCount),
+		ActionType: "view_permissions",
+		TargetType: "domain_node",
+		TargetID:   node.ID,
+		Priority:   PriorityWarning,
+	}
+}
+
 func DomainReclaimed(node *model.DomainNode, byUsername string) Notification {
 	return Notification{
 		Category: CatDomainReclaimed,

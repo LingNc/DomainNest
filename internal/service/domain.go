@@ -137,17 +137,26 @@ func (s *DomainService) FindNodeByDomain(domain string, userID uint64) (*model.D
 	return &node, rr, nil
 }
 
-func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) error {
+// TransferNodeResult holds the outcome of a domain transfer, including info
+// about existing delegations the new owner should be notified about.
+type TransferNodeResult struct {
+	DelegationCount int
+	DelegatedDomains []string
+}
+
+func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) (*TransferNodeResult, error) {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return nil, errors.New("节点不存在")
 	}
 
 	if err := s.perm.RequireLevel(ownerID, nodeID, 4); err != nil {
-		return err
+		return nil, err
 	}
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	var result TransferNodeResult
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var nodeIDs []uint64
 		err := tx.Raw(`
 			WITH RECURSIVE subtree AS (
@@ -174,8 +183,20 @@ func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) error
 			})
 		}
 
+		// Collect delegation info for the new owner
+		var permCount int64
+		tx.Model(&model.DomainPermission{}).Where("domain_node_id IN ?", nodeIDs).Count(&permCount)
+		result.DelegationCount = int(permCount)
+
+		if permCount > 0 {
+			tx.Model(&model.DomainNode{}).Where("id IN ?", nodeIDs).
+				Pluck("full_domain", &result.DelegatedDomains)
+		}
+
 		return nil
 	})
+
+	return &result, err
 }
 
 func (s *DomainService) DeleteNode(nodeID, userID uint64) error {

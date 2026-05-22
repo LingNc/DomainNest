@@ -537,7 +537,7 @@ func (s *RecordService) transferSingleHost(parent model.DomainNode, currentUserI
 	}
 
 	// Transfer
-	if transErr := s.dom.TransferNode(node.ID, currentUserID, targetUserID); transErr != nil {
+	if _, transErr := s.dom.TransferNode(node.ID, currentUserID, targetUserID); transErr != nil {
 		return TransferResult{Host: host, Status: "error", Error: transErr.Error(), NodeID: node.ID}
 	}
 
