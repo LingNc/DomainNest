@@ -95,50 +95,149 @@
               <template #header>
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
                   <span style="font-weight:600">{{ $t('admin.records') }}</span>
-                  <el-checkbox v-model="includeTrashed" @change="loadRecords">{{ $t('admin.includeTrashed') }}</el-checkbox>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <el-checkbox v-model="includeTrashed" @change="loadRecords">{{ $t('admin.includeTrashed') }}</el-checkbox>
+                    <el-radio-group v-model="recordViewMode" size="small">
+                      <el-radio-button value="tree">{{ $t('domainDetail.treeView') }}</el-radio-button>
+                      <el-radio-button value="flat">{{ $t('domainDetail.flatView') }}</el-radio-button>
+                    </el-radio-group>
+                  </div>
                 </div>
               </template>
-              <el-table :data="records" style="width:100%" size="small" v-loading="recordsLoading" empty-text="">
-                <el-table-column :label="$t('admin.host')" prop="host" min-width="100" />
-                <el-table-column :label="$t('admin.type')" prop="record_type" min-width="80">
+
+              <!-- tree view -->
+              <el-table
+                v-if="recordViewMode === 'tree'"
+                :data="treeRecords"
+                row-key="treeId"
+                :tree-props="{ children: 'children' }"
+                stripe
+                v-loading="recordsLoading"
+                :row-class-name="treeRowClass"
+              >
+                <el-table-column prop="host" :label="$t('admin.host')" min-width="140">
                   <template #default="{ row }">
-                    <el-tag size="small" type="primary">{{ row.record_type }}</el-tag>
+                    <template v-if="row.isGroup">
+                      <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
+                      <strong>{{ row.host }}</strong>
+                    </template>
+                    <template v-else>
+                      <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.host }}</span>
+                    </template>
                   </template>
                 </el-table-column>
-                <el-table-column :label="$t('admin.value')" prop="value" min-width="200" show-overflow-tooltip />
-                <el-table-column :label="$t('admin.ttl')" prop="ttl" min-width="70" />
+                <el-table-column prop="record_type" :label="$t('admin.type')" width="80">
+                  <template #default="{ row }">
+                    <span :style="row.virtual ? 'color:#909399' : ''">{{ row.record_type }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="value" :label="$t('admin.value')" width="140" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.value }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="priority" :label="$t('domainDetail.priority')" width="70">
+                  <template #default="{ row }">{{ row.virtual ? '' : (row.priority ?? '-') }}</template>
+                </el-table-column>
+                <el-table-column prop="ttl" :label="$t('admin.ttl')" width="70">
+                  <template #default="{ row }">{{ row.virtual ? '' : row.ttl }}</template>
+                </el-table-column>
                 <el-table-column :label="$t('common.status')" min-width="80">
                   <template #default="{ row }">
-                    <el-switch
-                      :model-value="row.enabled"
-                      size="small"
-                      @change="(val) => handleToggleRecord(row, val)"
-                    />
+                    <template v-if="!row.virtual">
+                      <el-switch :model-value="row.enabled" size="small" @change="(val) => handleToggleRecord(row, val)" />
+                    </template>
                   </template>
                 </el-table-column>
                 <el-table-column :label="$t('admin.source')" min-width="80">
                   <template #default="{ row }">
-                    <el-tag :type="row.source === 'provider' ? 'warning' : 'info'" size="small">
-                      {{ row.source === 'provider' ? $t('admin.recordSourceProvider') : $t('admin.recordSourcePlatform') }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column :label="$t('admin.syncStatus')" min-width="90">
-                  <template #default="{ row }">
-                    <el-tag
-                      :type="row.sync_status === 'synced' ? 'success' : row.sync_status === 'failed' ? 'danger' : 'info'"
-                      size="small"
-                    >
-                      {{ syncStatusLabel(row.sync_status) }}
-                    </el-tag>
+                    <template v-if="!row.virtual">
+                      <el-tag :type="row.source === 'provider' ? 'warning' : 'info'" size="small">
+                        {{ row.source === 'provider' ? $t('admin.recordSourceProvider') : $t('admin.recordSourcePlatform') }}
+                      </el-tag>
+                    </template>
                   </template>
                 </el-table-column>
                 <el-table-column :label="$t('common.actions')" min-width="80" fixed="right">
                   <template #default="{ row }">
-                    <el-button link type="danger" size="small" @click="handleDeleteRecord(row)">{{ $t('common.delete') }}</el-button>
+                    <template v-if="row.isGroup || row.virtual" />
+                    <template v-else>
+                      <el-button link type="danger" size="small" @click="handleDeleteRecord(row)">{{ $t('common.delete') }}</el-button>
+                    </template>
                   </template>
                 </el-table-column>
               </el-table>
+
+              <!-- flat view -->
+              <el-table v-else :data="paginatedFlatRecords" stripe v-loading="recordsLoading" row-key="id" :row-class-name="flatRowClass" :span-method="flatSpanMethod">
+                <el-table-column prop="host" :label="$t('admin.host')" min-width="180">
+                  <template #default="{ row }">
+                    <template v-if="row.isGroupHeader">
+                      <div class="group-header-content">
+                        <el-icon class="group-chevron" @click="toggleGroup(row.groupKey)"><component :is="isGroupCollapsed(row.groupKey) ? 'ArrowRight' : 'ArrowDown'" /></el-icon>
+                        <strong @click="toggleGroup(row.groupKey)">{{ row.groupLabel }}</strong>
+                        <el-tag size="small" type="info" style="margin-left:8px" @click="toggleGroup(row.groupKey)">{{ row.count }}</el-tag>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <span>{{ row.host }}</span>
+                    </template>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="record_type" :label="$t('admin.type')" width="80">
+                  <template #default="{ row }">
+                    <span v-if="!row.isGroupHeader">{{ row.record_type }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="value" :label="$t('admin.value')" width="140" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    <span v-if="!row.isGroupHeader">{{ row.value }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="priority" :label="$t('domainDetail.priority')" width="70">
+                  <template #default="{ row }">
+                    <span v-if="!row.isGroupHeader">{{ row.priority ?? '-' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="ttl" :label="$t('admin.ttl')" width="70">
+                  <template #default="{ row }">
+                    <span v-if="!row.isGroupHeader">{{ row.ttl }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column :label="$t('common.status')" min-width="80">
+                  <template #default="{ row }">
+                    <template v-if="!row.isGroupHeader">
+                      <el-switch :model-value="row.enabled" size="small" @change="(val) => handleToggleRecord(row, val)" />
+                    </template>
+                  </template>
+                </el-table-column>
+                <el-table-column :label="$t('admin.source')" min-width="80">
+                  <template #default="{ row }">
+                    <template v-if="!row.isGroupHeader">
+                      <el-tag :type="row.source === 'provider' ? 'warning' : 'info'" size="small">
+                        {{ row.source === 'provider' ? $t('admin.recordSourceProvider') : $t('admin.recordSourcePlatform') }}
+                      </el-tag>
+                    </template>
+                  </template>
+                </el-table-column>
+                <el-table-column :label="$t('common.actions')" min-width="80" fixed="right">
+                  <template #default="{ row }">
+                    <template v-if="!row.isGroupHeader">
+                      <el-button link type="danger" size="small" @click="handleDeleteRecord(row)">{{ $t('common.delete') }}</el-button>
+                    </template>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-pagination
+                v-if="recordViewMode === 'flat' && groupedFlatRecords.length > 0"
+                v-model:current-page="flatPage"
+                v-model:page-size="flatPageSize"
+                :total="groupedFlatRecords.length"
+                :page-sizes="[20, 50, 100, 200]"
+                :pager-count="5"
+                layout="total, sizes, prev, pager, next"
+                style="margin-top:16px"
+              />
               <el-empty v-if="!recordsLoading && !records.length" :description="$t('admin.noRecords')" :image-size="60" />
             </el-card>
           </el-tab-pane>
@@ -240,6 +339,23 @@ const recordsLoading = ref(false)
 const includeTrashed = ref(false)
 const recordStats = ref({ total: 0, enabled: 0, disabled: 0, platform_count: 0, provider_count: 0 })
 
+// View mode state (flat default)
+const recordViewMode = ref('flat')
+const sortBy = ref('')
+const sortOrder = ref('asc')
+
+// Collapsed groups for flat view
+const collapsedGroups = ref(new Set())
+
+const toggleGroup = (groupKey) => {
+  if (collapsedGroups.value.has(groupKey)) {
+    collapsedGroups.value.delete(groupKey)
+  } else {
+    collapsedGroups.value.add(groupKey)
+  }
+}
+const isGroupCollapsed = (groupKey) => collapsedGroups.value.has(groupKey)
+
 const syncStatusLabel = (status) => {
   switch (status) {
     case 'synced': return t('admin.syncSynced')
@@ -247,6 +363,217 @@ const syncStatusLabel = (status) => {
     case 'failed': return t('admin.syncFailed')
     default: return t('admin.syncUnknown')
   }
+}
+
+// Sorting
+const sortedRecords = computed(() => {
+  const recs = [...records.value]
+  if (!sortBy.value) return recs
+  const order = sortOrder.value === 'asc' ? 1 : -1
+  recs.sort((a, b) => {
+    const va = a[sortBy.value] ?? ''
+    const vb = b[sortBy.value] ?? ''
+    if (typeof va === 'string') return va.localeCompare(vb) * order
+    if (typeof va === 'number') return (va - vb) * order
+    return 0
+  })
+  return recs
+})
+
+// Tree view computed
+const treeRecords = computed(() => {
+  const recs = sortedRecords.value
+
+  // Separate provider, grouped, and ungrouped records
+  const grouped = new Map()
+  const ungrouped = []
+  const providerRecords = []
+  for (const rec of recs) {
+    if (rec.source === 'provider') {
+      providerRecords.push(rec)
+    } else if (rec.group_tag) {
+      if (!grouped.has(rec.group_tag)) grouped.set(rec.group_tag, [])
+      grouped.get(rec.group_tag).push(rec)
+    } else {
+      ungrouped.push(rec)
+    }
+  }
+
+  // Build subdomain tree from a list of records
+  const buildSubdomainTree = (recs) => {
+    const hostMap = new Map()
+    for (const rec of recs) {
+      if (!hostMap.has(rec.host)) {
+        hostMap.set(rec.host, { host: rec.host, records: [], children: [] })
+      }
+      hostMap.get(rec.host).records.push(rec)
+    }
+
+    const getParent = (host) => {
+      if (host === '@') return null
+      const parts = host.split('.')
+      const parent = parts.slice(1).join('.')
+      return parent || '@'
+    }
+
+    const ensureNode = (host) => {
+      if (!hostMap.has(host)) {
+        hostMap.set(host, { host, records: [], children: [], virtual: true })
+      }
+      return hostMap.get(host)
+    }
+
+    const linked = new Set()
+    const linkToParent = (host) => {
+      if (linked.has(host)) return
+      linked.add(host)
+      const node = hostMap.get(host)
+      const parentHost = getParent(host)
+      if (parentHost === null) return
+      const parent = ensureNode(parentHost)
+      parent.children.push(node)
+      linkToParent(parentHost)
+    }
+
+    for (const host of hostMap.keys()) {
+      linkToParent(host)
+    }
+
+    const roots = []
+    for (const [host, node] of hostMap) {
+      if (getParent(host) === null) roots.push(node)
+    }
+
+    const flatten = (nodes) => {
+      const rows = []
+      for (const node of nodes) {
+        if (node.records.length > 0) {
+          const parentRow = { ...node.records[0], treeId: `${node.host}:${node.records[0].id}`, children: [] }
+          for (let i = 1; i < node.records.length; i++) {
+            parentRow.children.push({ ...node.records[i], treeId: `${node.host}:${node.records[i].id}` })
+          }
+          if (node.children.length > 0) {
+            parentRow.children.push(...flatten(node.children))
+          }
+          rows.push(parentRow)
+        } else if (node.virtual && node.children.length > 0) {
+          const childRows = flatten(node.children)
+          rows.push({
+            treeId: `virtual:${node.host}`,
+            host: node.host,
+            record_type: '—',
+            value: `${childRows.length} records`,
+            virtual: true,
+            children: childRows,
+          })
+        }
+      }
+      return rows
+    }
+
+    return flatten(roots)
+  }
+
+  const result = []
+
+  if (providerRecords.length > 0) {
+    result.push({
+      treeId: 'group:provider',
+      host: t('domainDetail.sourceProvider'),
+      record_type: '—',
+      value: `${providerRecords.length} records`,
+      virtual: true,
+      isGroup: true,
+      children: buildSubdomainTree(providerRecords),
+    })
+  }
+
+  for (const [tag, recs] of grouped) {
+    result.push({
+      treeId: `group:${tag}`,
+      host: tag,
+      record_type: '—',
+      value: `${recs.length} records`,
+      virtual: true,
+      isGroup: true,
+      children: buildSubdomainTree(recs),
+    })
+  }
+
+  result.push(...buildSubdomainTree(ungrouped))
+  return result
+})
+
+const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
+
+// Grouped flat records
+const groupedFlatRecords = computed(() => {
+  const recs = [...sortedRecords.value]
+  recs.sort((a, b) => {
+    if (a.source === 'provider' && b.source !== 'provider') return -1
+    if (a.source !== 'provider' && b.source === 'provider') return 1
+    const tagA = a.source === 'provider' ? '___provider___' : (a.group_tag || '___ungrouped___')
+    const tagB = b.source === 'provider' ? '___provider___' : (b.group_tag || '___ungrouped___')
+    if (tagA !== tagB) return tagA.localeCompare(tagB)
+    return a.host.localeCompare(b.host)
+  })
+
+  const result = []
+  let lastGroup = null
+  for (const rec of recs) {
+    const currentGroup = rec.source === 'provider' ? '__provider__' : (rec.group_tag || '__ungrouped__')
+    if (currentGroup === '__ungrouped__') {
+      result.push(rec)
+      lastGroup = currentGroup
+      continue
+    }
+    if (currentGroup !== lastGroup) {
+      let label
+      if (currentGroup === '__provider__') {
+        label = t('domainDetail.sourceProvider')
+      } else {
+        label = rec.group_tag
+      }
+      result.push({
+        id: `header_${currentGroup}`,
+        isGroupHeader: true,
+        groupLabel: label,
+        groupKey: currentGroup,
+        count: recs.filter(r => {
+          const g = r.source === 'provider' ? '__provider__' : (r.group_tag || '__ungrouped__')
+          return g === currentGroup
+        }).length,
+      })
+      lastGroup = currentGroup
+    }
+    if (!collapsedGroups.value.has(currentGroup)) {
+      result.push(rec)
+    }
+  }
+  return result
+})
+
+const flatPage = ref(1)
+const flatPageSize = ref(50)
+
+const paginatedFlatRecords = computed(() => {
+  const all = groupedFlatRecords.value
+  const start = (flatPage.value - 1) * flatPageSize.value
+  return all.slice(start, start + flatPageSize.value)
+})
+
+const flatSpanMethod = ({ row, columnIndex }) => {
+  if (row.isGroupHeader) {
+    if (columnIndex === 0) return { rowspan: 1, colspan: 1 }
+    if (columnIndex === 1) return { rowspan: 1, colspan: 99 }
+    return { rowspan: 0, colspan: 0 }
+  }
+}
+
+const flatRowClass = ({ row }) => {
+  if (row.isGroupHeader) return 'group-header-row'
+  if (row.group_tag) return 'group-row'
+  return ''
 }
 
 const loadDetail = async () => {
@@ -365,5 +692,34 @@ onMounted(() => {
 }
 .perm-item:last-child {
   border-bottom: none;
+}
+.group-header-content {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+.group-header-content:hover {
+  opacity: 0.85;
+}
+.group-chevron {
+  margin-right: 6px;
+}
+:deep(.virtual-row) {
+  opacity: 0.6;
+}
+:deep(.group-row) {
+  background-color: #fafafa;
+}
+:deep(.group-header-row) {
+  background-color: #f0f9eb !important;
+  cursor: pointer;
+}
+:deep(.group-header-row td) {
+  background-color: #f0f9eb !important;
+  font-weight: bold;
+}
+:deep(.group-header-row:hover td) {
+  background-color: #e8f5d6 !important;
 }
 </style>
