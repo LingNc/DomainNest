@@ -1,20 +1,26 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/domain/notification"
+	"domainnest/internal/model"
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type TrashHandler struct {
 	trashService *service.TrashService
+	notifSvc     *notification.Service
+	db           *gorm.DB
 }
 
-func NewTrashHandler(trashService *service.TrashService) *TrashHandler {
-	return &TrashHandler{trashService: trashService}
+func NewTrashHandler(trashService *service.TrashService, notifSvc *notification.Service, db *gorm.DB) *TrashHandler {
+	return &TrashHandler{trashService: trashService, notifSvc: notifSvc, db: db}
 }
 
 func (h *TrashHandler) List(c *gin.Context) {
@@ -48,6 +54,22 @@ func (h *TrashHandler) Trash(c *gin.Context) {
 		return
 	}
 
+	// Notify the user
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		var record model.DNSRecord
+		if h.db.First(&record, id).Error == nil {
+			var node model.DomainNode
+			domain := ""
+			if h.db.First(&node, record.NodeID).Error == nil {
+				domain = node.FullDomain
+			}
+			if err := h.notifSvc.Send(userID, notification.RecordTrashed(&record, domain)); err != nil {
+				log.Printf("[Notification] RecordTrashed failed: %v", err)
+			}
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已移入回收站"})
 }
 
@@ -63,6 +85,22 @@ func (h *TrashHandler) Restore(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	// Notify the user
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		var record model.DNSRecord
+		if h.db.First(&record, id).Error == nil {
+			var node model.DomainNode
+			domain := ""
+			if h.db.First(&node, record.NodeID).Error == nil {
+				domain = node.FullDomain
+			}
+			if err := h.notifSvc.Send(userID, notification.RecordRestored(&record, domain)); err != nil {
+				log.Printf("[Notification] RecordRestored failed: %v", err)
+			}
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已恢复"})
 }

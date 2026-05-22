@@ -101,6 +101,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	middleware.LogOperation(h.db, user.ID, "register", "user", &user.ID,
 		map[string]interface{}{"username": user.Username, "invited_by": user.InvitedBy}, c.ClientIP())
 
+	// Welcome notification
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		if err := h.notifSvc.Send(user.ID, notification.Welcome()); err != nil {
+			log.Printf("[Notification] Welcome failed: %v", err)
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "成功",
@@ -644,11 +652,31 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新邮箱失败"})
 			return
 		}
+
+		go func() {
+			defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+			if err := h.notifSvc.Send(userID, notification.EmailVerifiedNotification(req.Email)); err != nil {
+				log.Printf("[Notification] EmailVerifiedNotification failed: %v", err)
+			}
+		}()
+
 		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邮箱已验证并更新"})
 		return
 	}
 
 	// For register, mark email as verified for the user with this email
 	h.db.Model(&model.User{}).Where("email = ?", req.Email).Update("email_verified", true)
+
+	// Notify the user (look up by email to get the ID)
+	var verifiedUser model.User
+	if h.db.Where("email = ?", req.Email).First(&verifiedUser).Error == nil {
+		go func() {
+			defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+			if err := h.notifSvc.Send(verifiedUser.ID, notification.EmailVerifiedNotification(req.Email)); err != nil {
+				log.Printf("[Notification] EmailVerifiedNotification failed: %v", err)
+			}
+		}()
+	}
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邮箱验证成功"})
 }

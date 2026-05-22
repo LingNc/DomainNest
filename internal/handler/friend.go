@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/domain/notification"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -15,11 +17,12 @@ import (
 
 type FriendHandler struct {
 	friendService *service.FriendService
+	notifSvc      *notification.Service
 	db            *gorm.DB
 }
 
-func NewFriendHandler(friendService *service.FriendService, db *gorm.DB) *FriendHandler {
-	return &FriendHandler{friendService: friendService, db: db}
+func NewFriendHandler(friendService *service.FriendService, notifSvc *notification.Service, db *gorm.DB) *FriendHandler {
+	return &FriendHandler{friendService: friendService, notifSvc: notifSvc, db: db}
 }
 
 // SendRequest sends a friend request to another user.
@@ -44,6 +47,15 @@ func (h *FriendHandler) SendRequest(c *gin.Context) {
 	if err := h.db.Where("sender_id = ? AND receiver_id = ? AND status = ?", userID, req.ReceiverID, "pending").
 		Order("id DESC").First(&friendReq).Error; err == nil {
 		ws.BroadcastToUser(req.ReceiverID, ws.TypeFriendRequest, friendReq)
+
+		// Notify the receiver with a persistent notification
+		go func() {
+			defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+			senderUsername := c.GetString("username")
+			if err := h.notifSvc.Send(req.ReceiverID, notification.FriendRequestReceived(senderUsername, friendReq.ID)); err != nil {
+				log.Printf("[Notification] FriendRequestReceived failed: %v", err)
+			}
+		}()
 	}
 
 	middleware.LogOperationUser(h.db, userID, req.ReceiverID, "send_friend_request", "user", &req.ReceiverID, nil, c.ClientIP())
@@ -75,6 +87,15 @@ func (h *FriendHandler) AcceptRequest(c *gin.Context) {
 	// Notify sender that their request was accepted
 	ws.BroadcastToUser(friendReq.SenderID, ws.TypeNewNotification, gin.H{"type": "friend_accepted", "from_user_id": userID})
 
+	// Send persistent notification to the sender
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		acceptorUsername := c.GetString("username")
+		if err := h.notifSvc.Send(friendReq.SenderID, notification.FriendRequestAccepted(acceptorUsername)); err != nil {
+			log.Printf("[Notification] FriendRequestAccepted failed: %v", err)
+		}
+	}()
+
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	middleware.LogOperationUser(h.db, userID, friendReq.SenderID, "accept_friend", "friend", &friendID, nil, c.ClientIP())
 
@@ -104,6 +125,15 @@ func (h *FriendHandler) RejectRequest(c *gin.Context) {
 
 	// Notify sender that their request was rejected
 	ws.BroadcastToUser(friendReq.SenderID, ws.TypeNewNotification, gin.H{"type": "friend_rejected", "from_user_id": userID})
+
+	// Send persistent notification to the sender
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		rejectorUsername := c.GetString("username")
+		if err := h.notifSvc.Send(friendReq.SenderID, notification.FriendRequestRejected(rejectorUsername)); err != nil {
+			log.Printf("[Notification] FriendRequestRejected failed: %v", err)
+		}
+	}()
 
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	middleware.LogOperationUser(h.db, userID, friendReq.SenderID, "reject_friend", "friend", &friendID, nil, c.ClientIP())

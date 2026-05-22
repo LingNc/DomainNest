@@ -223,3 +223,84 @@ func SyncFailedNotification(domain string, recordID uint64, detail string) Notif
 		Priority:   PriorityError,
 	}
 }
+
+func DomainDeleted(node *model.DomainNode) Notification {
+	return Notification{
+		Category:   CatDomainDeleted,
+		Title:      "域名已删除",
+		Content:    fmt.Sprintf("域名 %s 已被删除", node.FullDomain),
+		ActionType: "view_domain",
+		TargetType: "domain_node",
+		TargetID:   node.ID,
+		Priority:   PriorityWarning,
+	}
+}
+
+func DomainArchived(node *model.DomainNode) Notification {
+	return Notification{
+		Category:   CatDomainArchived,
+		Title:      "域名已归档",
+		Content:    fmt.Sprintf("域名 %s 已被归档", node.FullDomain),
+		ActionType: "view_domain",
+		TargetType: "domain_node",
+		TargetID:   node.ID,
+		Priority:   PriorityInfo,
+	}
+}
+
+func RecordTrashed(record *model.DNSRecord, domain string) Notification {
+	return Notification{
+		Category:   CatRecordTrashed,
+		Title:      "记录已移入回收站",
+		Content:    fmt.Sprintf("DNS 记录 %s.%s (%s) 已移入回收站", record.Host, domain, record.RecordType),
+		ActionType: "view_trash",
+		TargetType: "dns_record",
+		TargetID:   record.ID,
+		Priority:   PriorityInfo,
+	}
+}
+
+func RecordRestored(record *model.DNSRecord, domain string) Notification {
+	return Notification{
+		Category:   CatRecordRestored,
+		Title:      "记录已恢复",
+		Content:    fmt.Sprintf("DNS 记录 %s.%s (%s) 已从回收站恢复", record.Host, domain, record.RecordType),
+		ActionType: "view_record",
+		TargetType: "dns_record",
+		TargetID:   record.ID,
+		Priority:   PriorityInfo,
+	}
+}
+
+func ProviderDeleted(providerName string) Notification {
+	return Notification{
+		Category: CatProviderDeleted,
+		Title:    "服务商已删除",
+		Content:  fmt.Sprintf("DNS 服务商 %s 已被删除", providerName),
+		Priority: PriorityInfo,
+	}
+}
+
+func DDNSUpdateOK(domain string, recordID uint64) Notification {
+	return Notification{
+		Category:   CatDDNSUpdateOK,
+		Title:      "DDNS 更新成功",
+		Content:    fmt.Sprintf("DDNS 记录 %s 更新成功", domain),
+		ActionType: "view_record",
+		TargetType: "dns_record",
+		TargetID:   recordID,
+		Priority:   PriorityInfo,
+	}
+}
+
+func DDNSUpdateFailed(domain string, recordID uint64, detail string) Notification {
+	return Notification{
+		Category:   CatDDNSUpdateFailed,
+		Title:      "DDNS 更新失败",
+		Content:    fmt.Sprintf("DDNS 记录 %s 更新失败：%s", domain, detail),
+		ActionType: "view_record",
+		TargetType: "dns_record",
+		TargetID:   recordID,
+		Priority:   PriorityError,
+	}
+}

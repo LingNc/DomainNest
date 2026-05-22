@@ -3,10 +3,12 @@ package handler
 import (
 	"encoding/csv"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"domainnest/internal/domain/notification"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -19,11 +21,12 @@ type RecordHandler struct {
 	recordService   *service.RecordService
 	providerService *service.ProviderService
 	ddnsService     *service.DDNSService
+	notifSvc        *notification.Service
 	db              *gorm.DB
 }
 
-func NewRecordHandler(recordService *service.RecordService, providerService *service.ProviderService, ddnsService *service.DDNSService, db *gorm.DB) *RecordHandler {
-	return &RecordHandler{recordService: recordService, providerService: providerService, ddnsService: ddnsService, db: db}
+func NewRecordHandler(recordService *service.RecordService, providerService *service.ProviderService, ddnsService *service.DDNSService, notifSvc *notification.Service, db *gorm.DB) *RecordHandler {
+	return &RecordHandler{recordService: recordService, providerService: providerService, ddnsService: ddnsService, notifSvc: notifSvc, db: db}
 }
 
 func (h *RecordHandler) List(c *gin.Context) {
@@ -628,7 +631,20 @@ func (h *RecordHandler) SyncNow(c *gin.Context) {
 		Error:    errMsg,
 	})
 
+	// Load node for domain name and notification
+	var node model.DomainNode
+	nodeLoaded := h.db.First(&node, record.NodeID).Error == nil
+
 	if syncErr != nil {
+		// Notify on sync failure
+		if nodeLoaded {
+			go func() {
+				defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+				if err := h.notifSvc.Send(userID, notification.SyncFailedNotification(node.FullDomain, recordID, syncErr.Error())); err != nil {
+					log.Printf("[Notification] SyncFailedNotification failed: %v", err)
+				}
+			}()
+		}
 		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"status": "failed", "error": syncErr.Error()}})
 		return
 	}

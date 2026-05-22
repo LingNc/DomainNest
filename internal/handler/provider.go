@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/domain/notification"
 	"domainnest/internal/middleware"
+	"domainnest/internal/model"
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -13,11 +16,12 @@ import (
 
 type ProviderHandler struct {
 	providerService *service.ProviderService
+	notifSvc        *notification.Service
 	db              *gorm.DB
 }
 
-func NewProviderHandler(providerService *service.ProviderService, db *gorm.DB) *ProviderHandler {
-	return &ProviderHandler{providerService: providerService, db: db}
+func NewProviderHandler(providerService *service.ProviderService, notifSvc *notification.Service, db *gorm.DB) *ProviderHandler {
+	return &ProviderHandler{providerService: providerService, notifSvc: notifSvc, db: db}
 }
 
 func (h *ProviderHandler) Create(c *gin.Context) {
@@ -101,6 +105,14 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
 		return
 	}
+
+	// Load provider name before deletion for notification
+	var providerName string
+	var provider model.DNSProvider
+	if h.db.First(&provider, id).Error == nil {
+		providerName = provider.Name
+	}
+
 	confirm := c.Query("confirm") == "true"
 	count, err := h.providerService.Delete(id, userID, confirm)
 	if err != nil {
@@ -112,6 +124,17 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 		return
 	}
 	middleware.LogOperation(h.db, userID, "delete_provider", "dns_provider", &id, nil, c.ClientIP())
+
+	// Notify the user
+	if providerName != "" {
+		go func() {
+			defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+			if err := h.notifSvc.Send(userID, notification.ProviderDeleted(providerName)); err != nil {
+				log.Printf("[Notification] ProviderDeleted failed: %v", err)
+			}
+		}()
+	}
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已删除"})
 }
 
@@ -150,5 +173,14 @@ func (h *ProviderHandler) ClaimDomain(c *gin.Context) {
 	}
 	middleware.LogOperation(h.db, userID, "claim_domain", "domain_node", &node.ID,
 		map[string]interface{}{"domain": node.FullDomain, "provider_id": id}, c.ClientIP())
+
+	// Notify the user
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		if err := h.notifSvc.Send(userID, notification.DomainClaimed(node)); err != nil {
+			log.Printf("[Notification] DomainClaimed failed: %v", err)
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": node})
 }

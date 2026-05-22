@@ -2,9 +2,11 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/domain/notification"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -17,11 +19,12 @@ import (
 type DomainHandler struct {
 	domainService *service.DomainService
 	permService   *service.PermissionService
+	notifSvc      *notification.Service
 	db            *gorm.DB
 }
 
-func NewDomainHandler(domainService *service.DomainService, permService *service.PermissionService, db *gorm.DB) *DomainHandler {
-	return &DomainHandler{domainService: domainService, permService: permService, db: db}
+func NewDomainHandler(domainService *service.DomainService, permService *service.PermissionService, notifSvc *notification.Service, db *gorm.DB) *DomainHandler {
+	return &DomainHandler{domainService: domainService, permService: permService, notifSvc: notifSvc, db: db}
 }
 
 func (h *DomainHandler) List(c *gin.Context) {
@@ -116,6 +119,25 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 		"node_id": nodeID,
 	})
 
+	// Notify both parties
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error != nil {
+			return
+		}
+		fromUsername := c.GetString("username")
+		var targetUser model.User
+		if h.db.First(&targetUser, req.TargetUserID).Error == nil {
+			if err := h.notifSvc.Send(req.TargetUserID, notification.DomainTransferredTo(&node, fromUsername)); err != nil {
+				log.Printf("[Notification] DomainTransferredTo failed: %v", err)
+			}
+			if err := h.notifSvc.Send(userID, notification.DomainTransferredAway(&node, targetUser.Username)); err != nil {
+				log.Printf("[Notification] DomainTransferredAway failed: %v", err)
+			}
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "转移成功"})
 }
 
@@ -126,6 +148,10 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
 		return
 	}
+
+	// Load node before deletion for notification
+	var node model.DomainNode
+	nodeLoaded := h.db.First(&node, nodeID).Error == nil
 
 	if err := h.domainService.DeleteNode(nodeID, userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -139,6 +165,16 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 		"action":  "delete",
 		"node_id": nodeID,
 	})
+
+	// Notify the owner
+	if nodeLoaded {
+		go func() {
+			defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+			if err := h.notifSvc.Send(node.OwnerID, notification.DomainDeleted(&node)); err != nil {
+				log.Printf("[Notification] DomainDeleted failed: %v", err)
+			}
+		}()
+	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }
@@ -325,6 +361,15 @@ func (h *DomainHandler) ReclaimDomain(c *gin.Context) {
 		"node_id": domainNodeID,
 	})
 
+	// Notify the previous owner
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		byUsername := c.GetString("username")
+		if err := h.notifSvc.Send(oldOwnerID, notification.DomainReclaimed(&node, byUsername)); err != nil {
+			log.Printf("[Notification] DomainReclaimed failed: %v", err)
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "回收成功"})
 }
 
@@ -356,6 +401,17 @@ func (h *DomainHandler) ReactivateDomain(c *gin.Context) {
 		"action":  "reactivate",
 		"node_id": nodeID,
 	})
+
+	// Notify the user
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error == nil {
+			if err := h.notifSvc.Send(userID, notification.DomainReactivated(&node)); err != nil {
+				log.Printf("[Notification] DomainReactivated failed: %v", err)
+			}
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "重新激活成功"})
 }
