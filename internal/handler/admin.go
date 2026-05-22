@@ -801,6 +801,13 @@ func (h *AdminHandler) BroadcastNotification(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 			return
 		}
+		if len(users) > 10000 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"message": "活跃用户超过 10000 人，请使用 batch 模式指定 user_ids 分批发送",
+			})
+			return
+		}
 		targetIDs = make([]uint64, len(users))
 		for i, u := range users {
 			targetIDs[i] = u.ID

@@ -56,5 +56,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&SyncLog{},
 		&DomainTransferLog{},
 		&FilterPreset{},
+		&NotificationSetting{},
 	)
 }

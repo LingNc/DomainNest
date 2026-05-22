@@ -75,6 +75,18 @@ func main() {
 
 	notificationService := notification.NewService(db, wsHub)
 
+	// Expired notification purge goroutine — runs every 6 hours
+	go func() {
+		ticker := time.NewTicker(6 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			count := notificationService.PurgeExpired()
+			if count > 0 {
+				log.Printf("Purged %d expired notifications", count)
+			}
+		}
+	}()
+
 	if err := authService.EnsureAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
 		log.Fatalf("Failed to ensure admin user: %v", err)
 	}

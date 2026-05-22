@@ -53,6 +53,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
 	adminHandler := handler.NewAdminHandler(db, domainService, notificationService)
 	notificationHandler := handler.NewNotificationHandler(messageService)
+	notificationSettingHandler := handler.NewNotificationSettingHandler(db)
 	settingsHandler := handler.NewSettingsHandler(db, settingsService)
 	permissionHandler := handler.NewPermissionHandler(permissionService, notificationService, db)
 	ramTokenHandler := handler.NewRAMTokenHandler(ramTokenService, db)
@@ -235,6 +236,13 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
 		notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
 		notifications.DELETE("/:id", notificationHandler.Delete)
+	}
+
+	notifSettings := v1.Group("/notification-settings")
+	notifSettings.Use(middleware.JWTAuth(cfg.JWT.Secret), middleware.OnlineTracker(db))
+	{
+		notifSettings.GET("", notificationSettingHandler.List)
+		notifSettings.PUT("", notificationSettingHandler.Update)
 	}
 
 	providers := v1.Group("/providers")
