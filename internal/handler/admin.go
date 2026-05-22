@@ -418,6 +418,13 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 		return
 	}
 
+	// Prevent self-disable
+	callerID := c.GetUint64("user_id")
+	if userID == callerID {
+		c.JSON(http.StatusOK, gin.H{"code": 400, "message": "不能禁用自己"})
+		return
+	}
+
 	tx := h.db.Begin()
 	defer tx.Rollback()
 
@@ -429,8 +436,11 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	}
 
 	if user.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可禁用超级管理员账号"})
-		return
+		var caller model.User
+		if err := tx.First(&caller, callerID).Error; err != nil || !caller.IsSuperAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅超级管理员可禁用超级管理员账号"})
+			return
+		}
 	}
 
 	if user.InvitedBy != nil {
@@ -472,7 +482,6 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 
 	tx.Commit()
 
-	callerID := c.GetUint64("user_id")
 	middleware.LogOperationUser(h.db, callerID, userID, "disable_user", "user", &userID, nil, c.ClientIP())
 
 	go func() {
