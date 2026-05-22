@@ -120,7 +120,7 @@
                 <span :style="row.virtual ? 'color:#909399' : ''">{{ row.record_type }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="value" :label="$t('domainDetail.value')" show-overflow-tooltip>
+            <el-table-column prop="value" :label="$t('domainDetail.value')" min-width="180" show-overflow-tooltip>
               <template #default="{ row }">
                 <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.value }}</span>
               </template>
@@ -183,17 +183,18 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('common.actions')" min-width="200" fixed="right">
+            <el-table-column :label="$t('common.actions')" min-width="220" fixed="right">
               <template #default="{ row }">
                 <template v-if="row.isGroup" />
                 <template v-else-if="row.virtual" />
                 <template v-else-if="row.source === 'provider' && !row.own_node_id">
-                  <el-button link type="primary" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                  <el-button link type="primary" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
                 </template>
                 <template v-else>
                   <template v-if="row.own_node_id">
                     <el-button link type="primary" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
                   </template>
+                  <el-button v-if="!row.group_tag && row.source !== 'provider'" link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
                   <el-button v-if="row.group_tag" link type="warning" size="small" @click="clearGroupTag(row)">{{ $t('domainDetail.removeFromGroup') }}</el-button>
                   <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                   <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
@@ -234,7 +235,7 @@
                 <span v-if="!row.isGroupHeader">{{ row.record_type }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="value" :label="$t('domainDetail.value')" show-overflow-tooltip>
+            <el-table-column prop="value" :label="$t('domainDetail.value')" min-width="180" show-overflow-tooltip>
               <template #default="{ row }">
                 <span v-if="!row.isGroupHeader">{{ row.value }}</span>
               </template>
@@ -291,26 +292,17 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('domainDetail.groupTag')" width="120">
-              <template #default="{ row }">
-                <template v-if="!row.isGroupHeader">
-                  <el-tag v-if="row.group_tag" size="small" closable @close="clearGroupTag(row)">{{ row.group_tag }}</el-tag>
-                  <template v-else-if="row.source !== 'provider'">
-                    <el-button link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
-                  </template>
-                </template>
-              </template>
-            </el-table-column>
-            <el-table-column :label="$t('common.actions')" min-width="200" fixed="right">
+            <el-table-column :label="$t('common.actions')" min-width="220" fixed="right">
               <template #default="{ row }">
                 <template v-if="!row.isGroupHeader">
                   <template v-if="row.source === 'provider' && !row.own_node_id">
-                    <el-button link type="primary" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.makeIndependent') }}</el-button>
+                    <el-button link type="primary" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
                   </template>
                   <template v-else>
                     <template v-if="row.own_node_id">
                       <el-button link type="primary" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
                     </template>
+                    <el-button v-if="!row.group_tag && row.source !== 'provider'" link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
                     <el-button v-if="row.group_tag" link type="warning" size="small" @click="clearGroupTag(row)">{{ $t('domainDetail.removeFromGroup') }}</el-button>
                     <el-button link type="primary" size="small" @click="editRecord(row)">{{ $t('common.edit') }}</el-button>
                     <el-button v-if="row.sync_status === 'failed' && auth.isAdmin" link type="warning" size="small" @click="handleRetrySync(row.id)">{{ $t('common.retry') }}</el-button>
