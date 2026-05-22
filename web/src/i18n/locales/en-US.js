@@ -72,7 +72,9 @@ export default {
     emailRequired: 'Please enter your email first',
     codePlaceholder: 'Enter the 6-digit code',
     resendCode: 'Resend',
-    resendCountdown: 'Resend in {seconds}s'
+    resendCountdown: 'Resend in {seconds}s',
+    confirmPassword: 'Confirm Password',
+    passwordMismatch: 'Passwords do not match'
   },
   forgotPassword: {
     title: 'Forgot Password',

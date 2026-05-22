@@ -72,7 +72,9 @@ export default {
     emailRequired: '请先输入邮箱',
     codePlaceholder: '请输入 6 位验证码',
     resendCode: '重新发送',
-    resendCountdown: '{seconds}秒后可重发'
+    resendCountdown: '{seconds}秒后可重发',
+    confirmPassword: '确认密码',
+    passwordMismatch: '两次密码不一致'
   },
   forgotPassword: {
     title: '找回密码',

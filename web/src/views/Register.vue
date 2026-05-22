@@ -36,6 +36,9 @@
           <el-input v-model="form.password" type="password" :placeholder="$t('common.password')" prefix-icon="Lock" show-password size="large" />
         </el-form-item>
         <el-form-item>
+          <el-input v-model="form.confirmPassword" type="password" :placeholder="$t('register.confirmPassword')" prefix-icon="Lock" show-password size="large" />
+        </el-form-item>
+        <el-form-item>
           <el-input v-model="form.invite_code" :placeholder="$t('register.inviteCode')" prefix-icon="Link" size="large" />
         </el-form-item>
         <el-form-item>
@@ -62,7 +65,7 @@ const route = useRoute()
 const { t } = useI18n()
 const { showError } = useError()
 const loading = ref(false)
-const form = ref({ username: '', email: '', password: '', invite_code: '', code: '' })
+const form = ref({ username: '', email: '', password: '', confirmPassword: '', invite_code: '', code: '' })
 const usernameStatus = ref('') // '' | 'available' | 'taken'
 let checkTimer = null
 const sendingCode = ref(false)
@@ -139,6 +142,10 @@ const handleVerifyEmail = async () => {
 const handleRegister = async () => {
   if (!form.value.invite_code) {
     ElMessage.warning(t('register.enterInviteCode'))
+    return
+  }
+  if (form.value.password !== form.value.confirmPassword) {
+    ElMessage.warning(t('register.passwordMismatch'))
     return
   }
   if (usernameStatus.value === 'taken') {
