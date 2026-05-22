@@ -36,7 +36,7 @@
           <el-input v-model="form.password" type="password" :placeholder="$t('common.password')" prefix-icon="Lock" show-password size="large" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.confirmPassword" type="password" :placeholder="$t('register.confirmPassword')" prefix-icon="Lock" show-password size="large" />
+          <el-input v-model="form.confirmPassword" type="password" :placeholder="$t('register.confirmPassword')" prefix-icon="Lock" show-password size="large" :suffix-icon="confirmPasswordStatus === 'success' ? 'CircleCheck' : confirmPasswordStatus === 'error' ? 'CircleClose' : ''" />
         </el-form-item>
         <el-form-item>
           <el-input v-model="form.invite_code" :placeholder="$t('register.inviteCode')" prefix-icon="Link" size="large" />
@@ -53,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { register, checkUsername, sendVerifyEmail, verifyEmail } from '../api/auth'
@@ -67,6 +67,10 @@ const { showError } = useError()
 const loading = ref(false)
 const form = ref({ username: '', email: '', password: '', confirmPassword: '', invite_code: '', code: '' })
 const usernameStatus = ref('') // '' | 'available' | 'taken'
+const confirmPasswordStatus = computed(() => {
+  if (!form.value.confirmPassword) return ''
+  return form.value.password === form.value.confirmPassword ? 'success' : 'error'
+})
 let checkTimer = null
 const sendingCode = ref(false)
 const verifying = ref(false)
