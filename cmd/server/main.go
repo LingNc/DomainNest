@@ -44,7 +44,8 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	authService := service.NewAuthService(db)
+	inviteCodeService := service.NewInviteCodeService(db)
+	authService := service.NewAuthService(db, inviteCodeService)
 	permissionService := service.NewPermissionService(db)
 	domainService := service.NewDomainService(db, permissionService)
 	recordService := service.NewRecordService(db, permissionService, domainService)
@@ -91,7 +92,7 @@ func main() {
 		log.Fatalf("Failed to ensure admin user: %v", err)
 	}
 
-	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService, syncService, trashService, filterPresetService, notificationService, wsHub)
+	r := router.Setup(cfg, db, authService, domainService, recordService, ddnsService, emailService, settingsService, permissionService, ramTokenService, friendService, messageService, providerService, syncService, trashService, filterPresetService, notificationService, inviteCodeService, wsHub)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Server starting on %s", addr)

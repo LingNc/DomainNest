@@ -274,6 +274,38 @@
             </el-form-item>
           </el-form>
         </el-tab-pane>
+        <el-tab-pane :label="$t('admin.inviteCodeManagement')" name="inviteCodes">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+            <el-input-number v-model="inviteCodeCount" :min="1" :max="100" />
+            <el-button type="primary" :loading="inviteCodeGenerating" @click="handleGenerateInviteCodes">{{ $t('admin.generateInviteCodes') }}</el-button>
+          </div>
+          <el-table :data="inviteCodes" stripe v-loading="inviteCodeLoading" style="width:100%">
+            <el-table-column prop="id" :label="$t('admin.id')" width="60" />
+            <el-table-column prop="code" :label="$t('admin.inviteCode')" min-width="120" />
+            <el-table-column prop="creator_id" :label="$t('admin.creator')" width="80" />
+            <el-table-column :label="$t('common.status')" width="80">
+              <template #default="{ row }">
+                <el-tag :type="row.used_by ? 'info' : 'success'" size="small">
+                  {{ row.used_by ? $t('admin.codeUsed') : $t('admin.codeUnused') }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="used_by" :label="$t('admin.usedBy')" width="80">
+              <template #default="{ row }">
+                {{ row.used_by || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+            <el-table-column :label="$t('common.action')" width="80" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="danger" size="small" :disabled="!!row.used_by" @click="handleDeleteInviteCode(row)">{{ $t('common.delete') }}</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-pagination v-if="inviteCodeTotal > 0" :current-page="inviteCodePage" :page-size="inviteCodePageSize" :total="inviteCodeTotal"
+            layout="total, sizes, prev, pager, next" :page-sizes="[20, 50, 100]"
+            @current-change="handleInviteCodePageChange" @size-change="handleInviteCodeSizeChange" style="margin-top:16px" />
+        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -364,7 +396,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, adminBatchDeleteDomains } from '../api/admin'
+import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, adminBatchDeleteDomains, generateInviteCodes, listInviteCodes, deleteInviteCode } from '../api/admin'
 import { listProviders, listProviderDomains } from '../api/provider'
 import { grantInviteQuota, revokeInviteQuota } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
@@ -391,6 +423,14 @@ const adminDomains = ref([])
 const selectedProviderId = ref(null)
 const selectedDomain = ref('')
 const loadingAdminDomains = ref(false)
+
+const inviteCodes = ref([])
+const inviteCodeLoading = ref(false)
+const inviteCodeGenerating = ref(false)
+const inviteCodeCount = ref(5)
+const inviteCodePage = ref(1)
+const inviteCodePageSize = ref(20)
+const inviteCodeTotal = ref(0)
 
 const showEditUser = ref(false)
 const editTarget = ref(null)
@@ -568,6 +608,7 @@ const loadData = async () => {
   loadSecurity()
   loadUploads()
   loadAdminProviders()
+  loadInviteCodes()
 }
 
 const loadDomainTree = async () => {
@@ -891,6 +932,48 @@ const handleTestSMTP = async () => {
   } finally {
     testingSMTP.value = false
   }
+}
+
+const loadInviteCodes = async () => {
+  inviteCodeLoading.value = true
+  try {
+    const res = await listInviteCodes({ page: inviteCodePage.value, page_size: inviteCodePageSize.value })
+    inviteCodes.value = res.data.items || []
+    inviteCodeTotal.value = res.data.total || 0
+  } catch { /* ignore */ } finally {
+    inviteCodeLoading.value = false
+  }
+}
+
+const handleGenerateInviteCodes = async () => {
+  inviteCodeGenerating.value = true
+  try {
+    await generateInviteCodes(inviteCodeCount.value)
+    ElMessage.success(t('admin.inviteCodesGenerated'))
+    loadInviteCodes()
+  } catch { /* error shown by interceptor */ } finally {
+    inviteCodeGenerating.value = false
+  }
+}
+
+const handleDeleteInviteCode = async (row) => {
+  try {
+    await ElMessageBox.confirm(t('admin.confirmDeleteInviteCode'), t('common.confirmDelete'), { type: 'warning' })
+    await deleteInviteCode(row.id)
+    ElMessage.success(t('admin.inviteCodeDeleted'))
+    loadInviteCodes()
+  } catch { /* cancelled or error */ }
+}
+
+const handleInviteCodePageChange = (p) => {
+  inviteCodePage.value = p
+  loadInviteCodes()
+}
+
+const handleInviteCodeSizeChange = (s) => {
+  inviteCodePageSize.value = s
+  inviteCodePage.value = 1
+  loadInviteCodes()
 }
 
 

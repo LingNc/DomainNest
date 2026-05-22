@@ -23,6 +23,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	messageService *service.MessageService, providerService *service.ProviderService,
 	syncService *service.SyncService, trashService *service.TrashService,
 	filterPresetService *service.FilterPresetService, notificationService *notification.Service,
+	inviteCodeService *service.InviteCodeService,
 	hub *ws.Hub) *gin.Engine {
 
 	r := gin.Default()
@@ -51,7 +52,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	domainHandler := handler.NewDomainHandler(domainService, permissionService, notificationService, db)
 	recordHandler := handler.NewRecordHandler(recordService, providerService, ddnsService, notificationService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
-	adminHandler := handler.NewAdminHandler(db, domainService, notificationService)
+	adminHandler := handler.NewAdminHandler(db, domainService, notificationService, inviteCodeService)
 	notificationHandler := handler.NewNotificationHandler(messageService)
 	notificationSettingHandler := handler.NewNotificationSettingHandler(db)
 	settingsHandler := handler.NewSettingsHandler(db, settingsService)
@@ -198,6 +199,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		admin.GET("/settings/:category", settingsHandler.Get)
 		admin.PUT("/settings/:category", settingsHandler.Set)
 		admin.POST("/settings/smtp/test", settingsHandler.TestSMTP)
+		admin.POST("/invite-codes", adminHandler.GenerateInviteCodes)
+		admin.GET("/invite-codes", adminHandler.ListInviteCodes)
+		admin.DELETE("/invite-codes/:id", adminHandler.DeleteInviteCode)
 	}
 
 	friends := v1.Group("/friends")

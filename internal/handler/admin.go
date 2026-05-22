@@ -19,13 +19,14 @@ import (
 )
 
 type AdminHandler struct {
-	db            *gorm.DB
-	domainService *service.DomainService
-	notifSvc      *notification.Service
+	db                *gorm.DB
+	domainService     *service.DomainService
+	notifSvc          *notification.Service
+	inviteCodeService *service.InviteCodeService
 }
 
-func NewAdminHandler(db *gorm.DB, domainService *service.DomainService, notifSvc *notification.Service) *AdminHandler {
-	return &AdminHandler{db: db, domainService: domainService, notifSvc: notifSvc}
+func NewAdminHandler(db *gorm.DB, domainService *service.DomainService, notifSvc *notification.Service, inviteCodeService *service.InviteCodeService) *AdminHandler {
+	return &AdminHandler{db: db, domainService: domainService, notifSvc: notifSvc, inviteCodeService: inviteCodeService}
 }
 
 func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
@@ -965,4 +966,59 @@ func (h *AdminHandler) RevokePermission(c *gin.Context) {
 		map[string]interface{}{"target_user_id": userID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已撤销"})
+}
+
+func (h *AdminHandler) GenerateInviteCodes(c *gin.Context) {
+	var req struct {
+		Count int `json:"count"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	callerID := c.GetUint64("user_id")
+	codes, err := h.inviteCodeService.GenerateCodes(callerID, req.Count)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": codes})
+}
+
+func (h *AdminHandler) ListInviteCodes(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	codes, total, err := h.inviteCodeService.ListCodes(page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"items":     codes,
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
+}
+
+func (h *AdminHandler) DeleteInviteCode(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
+		return
+	}
+	if err := h.inviteCodeService.DeleteCode(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邀请码已删除"})
 }

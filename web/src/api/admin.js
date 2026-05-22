@@ -24,3 +24,7 @@ export const adminBatchDeleteDomains = (data) => request.post('/admin/domains/ba
 export const getAdminDomainRecords = (id, params) => request.get(`/admin/domains/${id}/records`, { params })
 export const adminDeleteRecord = (domainId, recordId) => request.delete(`/admin/domains/${domainId}/records/${recordId}`)
 export const adminToggleRecord = (domainId, recordId, data) => request.post(`/admin/domains/${domainId}/records/${recordId}/toggle`, data)
+
+export const generateInviteCodes = (count) => request.post('/admin/invite-codes', { count })
+export const listInviteCodes = (params) => request.get('/admin/invite-codes', { params })
+export const deleteInviteCode = (id) => request.delete(`/admin/invite-codes/${id}`)

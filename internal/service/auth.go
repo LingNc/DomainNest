@@ -13,27 +13,18 @@ import (
 )
 
 type AuthService struct {
-	db *gorm.DB
+	db                *gorm.DB
+	inviteCodeService *InviteCodeService
 }
 
-func NewAuthService(db *gorm.DB) *AuthService {
-	return &AuthService{db: db}
+func NewAuthService(db *gorm.DB, inviteCodeService *InviteCodeService) *AuthService {
+	return &AuthService{db: db, inviteCodeService: inviteCodeService}
 }
 
 func (s *AuthService) Register(username, password, email, inviteCode string) (*model.User, error) {
 	var existing model.User
 	if err := s.db.Where("username = ?", username).First(&existing).Error; err == nil {
 		return nil, errors.New("用户名已存在")
-	}
-
-	// 验证邀请码
-	var inviter model.User
-	if err := s.db.Where("invite_code = ?", inviteCode).First(&inviter).Error; err != nil {
-		return nil, errors.New("邀请码无效")
-	}
-	// Pool check: inviter's available pool (InviteLimit - InviteCount) >= 1
-	if inviter.InviteLimit-inviter.InviteCount < 1 {
-		return nil, errors.New("邀请额度已用完")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -51,14 +42,12 @@ func (s *AuthService) Register(username, password, email, inviteCode string) (*m
 		return nil, err
 	}
 
-	invitedBy := inviter.ID
 	user := &model.User{
 		Username:    username,
 		Password:    string(hashedPassword),
 		Email:       email,
 		Role:        "user",
 		Token:       token,
-		InvitedBy:   &invitedBy,
 		InviteCode:  newInviteCode,
 		InviteLimit: 0,
 	}
@@ -69,14 +58,28 @@ func (s *AuthService) Register(username, password, email, inviteCode string) (*m
 		return nil, err
 	}
 
-	if err := tx.Model(&inviter).UpdateColumn("invite_count", gorm.Expr("invite_count + 1")).Error; err != nil {
+	// Validate and consume single-use invite code
+	inviterID, err := s.inviteCodeService.ConsumeCode(inviteCode, user.ID)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	invitedBy := inviterID
+	user.InvitedBy = &invitedBy
+
+	if err := tx.Model(user).Update("invited_by", invitedBy).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Model(&model.User{}).Where("id = ?", inviterID).UpdateColumn("invite_count", gorm.Expr("invite_count + 1")).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
 
 	// Create InviteLog for registration
 	if err := tx.Create(&model.InviteLog{
-		InviterID: inviter.ID,
+		InviterID: inviterID,
 		InviteeID: user.ID,
 		Action:    "register",
 		Amount:    1,
