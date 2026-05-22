@@ -65,6 +65,78 @@
         </el-card>
       </el-tab-pane>
 
+      <!-- System Notifications Tab -->
+      <el-tab-pane name="systemNotifications">
+        <template #label>
+          <el-badge :value="notifStore.unreadCount" :hidden="notifStore.unreadCount === 0" :max="99">
+            <span>{{ $t('notif.systemNotifications') }}</span>
+          </el-badge>
+        </template>
+        <div class="toolbar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <el-select v-model="sysNotifCategory" :placeholder="$t('notif.allCategories')" clearable size="small" style="width:140px" @change="loadSystemNotifications(1)">
+            <el-option :label="$t('notif.allCategories')" value="" />
+            <el-option :label="$t('notif.catSystem')" value="system" />
+            <el-option :label="$t('notif.catWarning')" value="warning" />
+            <el-option :label="$t('notif.catPromotion')" value="promotion" />
+          </el-select>
+          <el-button v-if="notifStore.unreadCount > 0" size="small" @click="handleSysMarkAllRead">{{ $t('notif.markAllRead') }}</el-button>
+        </div>
+        <el-card>
+          <div v-loading="notifStore.loading">
+            <div
+              v-for="n in notifStore.notifications"
+              :key="n.id"
+              class="notif-item"
+              :class="[!n.read_at ? 'unread' : '', 'priority-' + (n.priority || 'normal')]"
+              @click="handleSysNotifClick(n)"
+            >
+              <div class="notif-icon" :class="'cat-' + (n.category || 'system')">
+                <el-icon :size="20"><component :is="sysCategoryIcon(n.category)" /></el-icon>
+              </div>
+              <div class="notif-body">
+                <div class="notif-top">
+                  <span class="notif-title">{{ n.title || $t('notif.systemNotification') }}</span>
+                  <el-tag v-if="n.priority === 'warning'" type="warning" size="small">{{ $t('notif.priorityWarning') }}</el-tag>
+                  <el-tag v-else-if="n.priority === 'error'" type="danger" size="small">{{ $t('notif.priorityError') }}</el-tag>
+                </div>
+                <div class="notif-content">{{ n.content }}</div>
+                <div class="notif-time">{{ formatTime(n.created_at) }}</div>
+              </div>
+              <div class="notif-actions-col">
+                <el-button
+                  v-if="!n.read_at"
+                  text
+                  type="primary"
+                  size="small"
+                  @click.stop="handleSysMarkRead(n)"
+                >
+                  {{ $t('notif.markRead') }}
+                </el-button>
+                <el-button
+                  text
+                  type="danger"
+                  size="small"
+                  @click.stop="handleSysDelete(n)"
+                >
+                  {{ $t('common.delete') }}
+                </el-button>
+              </div>
+              <div v-if="!n.read_at" class="notif-dot"></div>
+            </div>
+            <el-empty v-if="!notifStore.loading && notifStore.notifications.length === 0" :description="$t('notif.empty')" />
+          </div>
+          <el-pagination
+            v-if="notifStore.total > 20"
+            v-model:current-page="sysNotifPage"
+            :page-size="20"
+            :total="notifStore.total"
+            layout="total, prev, pager, next"
+            @current-change="loadSystemNotifications"
+            style="margin-top: 12px"
+          />
+        </el-card>
+      </el-tab-pane>
+
       <!-- Conversations Tab (private messages) -->
       <el-tab-pane :label="$t('messages.privateMessages')" name="conversations">
         <!-- New Message Dialog -->
@@ -131,21 +203,58 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { Bell } from '@element-plus/icons-vue'
+import { Bell, WarningFilled, InfoFilled, Promotion } from '@element-plus/icons-vue'
 import { getConversations } from '../api/message'
 import { getNotifications, getNotificationUnreadCount, markNotificationAsRead, markAllNotificationsAsRead, handleNotificationAction } from '../api/message'
 import { searchAllUsers } from '../api/auth'
+import { useNotificationStore } from '../stores/notification'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useError } from '../composables/useError'
 
 const router = useRouter()
+const route = useRoute()
 const { t, locale } = useI18n()
 const { showError } = useError()
+const notifStore = useNotificationStore()
 
 const activeTab = ref('notifications')
+
+// --- System Notifications (new notification API) ---
+const sysNotifCategory = ref('')
+const sysNotifPage = ref(1)
+
+const loadSystemNotifications = async (page = 1) => {
+  sysNotifPage.value = page
+  const params = { page, page_size: 20 }
+  if (sysNotifCategory.value) params.category = sysNotifCategory.value
+  await notifStore.fetchNotifications(params)
+}
+
+const sysCategoryIcon = (cat) => {
+  const map = { system: 'Bell', warning: 'WarningFilled', promotion: 'Promotion' }
+  return map[cat] || 'InfoFilled'
+}
+
+const handleSysNotifClick = async (n) => {
+  if (!n.read_at) {
+    await notifStore.markNotificationAsRead(n.id)
+  }
+}
+
+const handleSysMarkRead = async (n) => {
+  await notifStore.markNotificationAsRead(n.id)
+}
+
+const handleSysMarkAllRead = async () => {
+  await notifStore.markAllNotificationsAsRead()
+}
+
+const handleSysDelete = async (n) => {
+  await notifStore.removeNotification(n.id)
+}
 
 // --- Conversations ---
 const conversations = ref([])
@@ -268,6 +377,9 @@ const openChat = (userId) => {
 const handleTabChange = (tab) => {
   if (tab === 'conversations') {
     loadConversations()
+  } else if (tab === 'systemNotifications') {
+    loadSystemNotifications()
+    notifStore.fetchUnreadCount()
   }
 }
 
@@ -283,8 +395,15 @@ const handleUnreadUpdate = (payload) => {
 }
 
 onMounted(() => {
-  loadNotifications()
-  loadNotifUnreadCount()
+  // Support deep-linking via ?tab=systemNotifications
+  if (route.query.tab === 'systemNotifications') {
+    activeTab.value = 'systemNotifications'
+    loadSystemNotifications()
+    notifStore.fetchUnreadCount()
+  } else {
+    loadNotifications()
+    loadNotifUnreadCount()
+  }
   wsOn('new_notification', handleNewNotification)
   wsOn('unread_update', handleUnreadUpdate)
 })
@@ -417,6 +536,33 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #409eff;
+}
+.notif-icon.cat-warning {
+  background: #fdf6ec;
+  color: #e6a23c;
+}
+.notif-icon.cat-promotion {
+  background: #f0f9eb;
+  color: #67c23a;
+}
+.notif-item.priority-warning {
+  border-left: 3px solid #e6a23c;
+}
+.notif-item.priority-error {
+  border-left: 3px solid #f56c6c;
+}
+.notif-time {
+  font-size: 12px;
+  color: #c0c4cc;
+  margin-top: 4px;
+}
+.notif-actions-col {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 8px;
 }
 .notif-body {
   flex: 1;

@@ -71,10 +71,13 @@
         </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">
-        <div class="user-info" @click="$router.push('/profile')">
-          <el-avatar v-if="auth.avatar" :src="auth.avatar" :size="28" />
-          <el-icon v-else><component :is="'User'" /></el-icon>
-          <span>{{ auth.nickname }}</span>
+        <div class="footer-top-row">
+          <div class="user-info" @click="$router.push('/profile')">
+            <el-avatar v-if="auth.avatar" :src="auth.avatar" :size="28" />
+            <el-icon v-else><component :is="'User'" /></el-icon>
+            <span>{{ auth.nickname }}</span>
+          </div>
+          <NotificationBell />
         </div>
         <div class="footer-actions">
           <div class="lang-switch">
@@ -86,6 +89,8 @@
         </div>
       </div>
     </aside>
+
+    <NotificationToast />
 
     <main class="main-content">
       <router-view />
@@ -107,6 +112,8 @@ import { useAuthStore } from './stores/auth'
 import { getUnreadCount } from './api/message'
 import { setLang } from './i18n/utils'
 import { useWebSocket, disconnect } from './composables/useWebSocket'
+import NotificationBell from './components/NotificationBell.vue'
+import NotificationToast from './components/NotificationToast.vue'
 
 const { locale } = useI18n()
 const elLocaleMap = { 'zh-CN': zhCn, 'en-US': en }
@@ -265,14 +272,21 @@ body {
   gap: 8px;
   color: #a3a6b4;
   font-size: 14px;
-  margin-bottom: 8px;
   cursor: pointer;
   padding: 4px;
   border-radius: 6px;
   transition: background 0.2s;
+  flex: 1;
+  min-width: 0;
 }
 .user-info:hover {
   background: rgba(255,255,255,0.08);
+}
+.footer-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .logout-btn {
   color: #f56c6c !important;
