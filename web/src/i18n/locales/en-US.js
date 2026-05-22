@@ -606,6 +606,8 @@ export default {
     noInviteCodes: 'No invite codes yet, click the button above to generate',
     batchDeleteCodes: 'Batch Delete',
     batchDeleteCodesConfirm: 'Delete {count} unused invite codes?',
+    tabPersonal: 'Personal Info',
+    tabInvite: 'Invite Codes',
   },
   providers: {
     title: 'DNS Providers',

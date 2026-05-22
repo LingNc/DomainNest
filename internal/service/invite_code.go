@@ -20,7 +20,7 @@ func NewInviteCodeService(db *gorm.DB) *InviteCodeService {
 }
 
 // GenerateCodes creates count unique invite codes for the given user.
-// Consumes 1 quota per code (invite_count++). SuperAdmin bypasses quota check.
+// Consumes 1 quota per code (invite_count++). All users including SuperAdmin are subject to quota check.
 func (s *InviteCodeService) GenerateCodes(creatorID uint64, count int) ([]model.InviteCode, error) {
 	if count < 1 || count > 100 {
 		count = 10
@@ -31,11 +31,9 @@ func (s *InviteCodeService) GenerateCodes(creatorID uint64, count int) ([]model.
 		return nil, errors.New("用户不存在")
 	}
 
-	if !user.IsSuperAdmin {
-		available := user.InviteLimit - user.InviteCount
-		if available < count {
-			return nil, errors.New("邀请额度不足")
-		}
+	available := user.InviteLimit - user.InviteCount
+	if available < count {
+		return nil, errors.New("邀请额度不足")
 	}
 
 	codes := make([]model.InviteCode, 0, count)
@@ -51,11 +49,9 @@ func (s *InviteCodeService) GenerateCodes(creatorID uint64, count int) ([]model.
 		return nil, err
 	}
 
-	if !user.IsSuperAdmin {
-		if err := tx.Model(&user).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", count)).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
+	if err := tx.Model(&user).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", count)).Error; err != nil {
+		tx.Rollback()
+		return nil, err
 	}
 
 	if err := tx.Commit().Error; err != nil {
@@ -125,12 +121,10 @@ func (s *InviteCodeService) DeleteCode(id, userID uint64) error {
 		return err
 	}
 
-	if !creator.IsSuperAdmin {
-		if err := tx.Model(&creator).UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error; err != nil {
+	if err := tx.Model(&creator).UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
-	}
 
 	return tx.Commit().Error
 }
@@ -164,12 +158,10 @@ func (s *InviteCodeService) BatchDeleteCodes(ids []uint64, userID uint64) (int, 
 		return 0, err
 	}
 
-	if !user.IsSuperAdmin {
-		if err := tx.Model(&user).UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", len(codes))).Error; err != nil {
+	if err := tx.Model(&user).UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", len(codes))).Error; err != nil {
 			tx.Rollback()
 			return 0, err
 		}
-	}
 
 	if err := tx.Commit().Error; err != nil {
 		return 0, err
