@@ -350,12 +350,13 @@
               <el-tag v-if="p.status === 'pending_return'" type="warning" size="small" style="margin-left:4px">{{ $t('domainDetail.pendingReturn') }}</el-tag>
               <el-tag v-if="p.status === 'returned'" type="info" size="small" style="margin-left:4px">{{ $t('domainDetail.returned') }}</el-tag>
             </div>
-            <div class="perm-detail" v-if="p.allowed_types || p.allowed_ips || p.host_prefix || p.host_rules || p.max_depth">
+            <div class="perm-detail" v-if="p.allowed_types || p.allowed_ips || p.host_prefix || p.host_rules || p.max_depth || p.source_filter">
               <span v-if="hostRulesSummary(p)" class="perm-restrict">{{ hostRulesSummary(p) }}</span>
               <span v-else-if="p.host_prefix" class="perm-restrict">{{ $t('domainDetail.prefixLabel') }} {{ p.host_prefix }}</span>
               <span v-if="p.max_depth" class="perm-restrict">{{ $t('domainDetail.depthLabel') }} {{ p.max_depth }}</span>
               <span v-if="p.allowed_types" class="perm-restrict">{{ $t('domainDetail.typesLabel') }} {{ p.allowed_types }}</span>
               <span v-if="p.allowed_ips" class="perm-restrict">{{ $t('domainDetail.ipsLabel') }} {{ p.allowed_ips }}</span>
+              <span v-if="p.source_filter" class="perm-restrict">{{ $t('domainDetail.sourceFilterLabel') }} {{ sourceFilterLabel(p.source_filter) }}</span>
             </div>
             <div class="perm-actions">
               <el-button v-if="p.status === 'active'" link type="danger" size="small" @click="handleRevokePerm(p.user_id)">{{ $t('domainDetail.revoke') }}</el-button>
@@ -445,6 +446,14 @@
         </el-form-item>
         <el-form-item :label="$t('domainDetail.ipRestriction')">
           <el-input v-model="grantForm.allowed_ips_text" type="textarea" :rows="2" :placeholder="$t('domainDetail.ipPlaceholder')" />
+        </el-form-item>
+        <el-form-item :label="$t('domainDetail.sourceFilter')">
+          <el-select v-model="grantForm.source_filter" style="width:100%" clearable :placeholder="$t('domainDetail.sourceFilterPlaceholder')">
+            <el-option :label="$t('domainDetail.sourceFilterAll')" :value="null" />
+            <el-option :label="$t('domainDetail.sourceFilterPlatform')" value="platform" />
+            <el-option :label="$t('domainDetail.sourceFilterProvider')" value="provider" />
+          </el-select>
+          <div style="color:#909399;font-size:12px;margin-top:4px">{{ $t('domainDetail.sourceFilterDesc') }}</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -803,7 +812,7 @@ const csvFileList = ref([])
 
 const permissions = ref([])
 const showGrantPerm = ref(false)
-const grantForm = ref({ target_user_ids: [], level: 'read', allowed_types: [], allowed_ips_text: '', host_rules: [], host_prefix: '', max_depth: null })
+const grantForm = ref({ target_user_ids: [], level: 'read', allowed_types: [], allowed_ips_text: '', host_rules: [], host_prefix: '', max_depth: null, source_filter: null })
 const selectableUsers = ref([])
 const searchingUsers = ref(false)
 const transferSelectRef = ref(null)
@@ -1535,6 +1544,7 @@ const loadPermissions = async () => {
 
 const permTagType = (level) => ({ read: 'info', write: 'success', admin: 'warning' }[level] || 'info')
 const permLabel = (level) => ({ read: t('common.read'), write: t('common.write'), admin: t('common.admin') }[level] || level)
+const sourceFilterLabel = (sf) => ({ platform: t('domainDetail.sourcePlatform'), provider: t('domainDetail.sourceProvider') }[sf] || sf)
 
 const handleGrantPerm = async () => {
   const data = {
@@ -1556,10 +1566,13 @@ const handleGrantPerm = async () => {
   if (grantForm.value.max_depth != null && grantForm.value.max_depth > 0) {
     data.max_depth = grantForm.value.max_depth
   }
+  if (grantForm.value.source_filter) {
+    data.source_filter = grantForm.value.source_filter
+  }
   await batchGrantPermission(domainId, data)
   ElMessage.success(t('domainDetail.grantSuccess'))
   showGrantPerm.value = false
-  grantForm.value = { target_user_ids: [], level: 'read', allowed_types: [], allowed_ips_text: '', host_rules: [], host_prefix: '', max_depth: null }
+  grantForm.value = { target_user_ids: [], level: 'read', allowed_types: [], allowed_ips_text: '', host_rules: [], host_prefix: '', max_depth: null, source_filter: null }
   loadPermissions()
 }
 

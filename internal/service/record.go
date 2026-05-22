@@ -81,6 +81,10 @@ func (s *RecordService) ListRecords(nodeID, userID uint64, q RecordQuery) (*Reco
 			if perm.HostPrefix != "" {
 				query = query.Where("host LIKE ?", perm.HostPrefix+"%")
 			}
+			// Filter by source_filter
+			if perm.SourceFilter != nil && *perm.SourceFilter != "" {
+				query = query.Where("source = ?", *perm.SourceFilter)
+			}
 		}
 	}
 

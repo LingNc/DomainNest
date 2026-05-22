@@ -16,7 +16,7 @@
     <!-- 侧边栏 -->
     <aside class="sidebar" :class="{ open: sidebarOpen, collapsed: sidebarCollapsed }">
       <div class="sidebar-logo">
-        <img v-if="sidebarCollapsed" src="/favicon.svg" class="sidebar-logo-img" />
+        <img v-if="sidebarCollapsed" :src="faviconUrl" class="sidebar-logo-img" alt="logo" />
         <h1 v-else>DomainNest</h1>
       </div>
       <el-menu
@@ -190,6 +190,8 @@ const handleLogout = () => {
   auth.clearAuth()
   router.push('/login')
 }
+
+const faviconUrl = new URL('/favicon.svg', import.meta.url).href
 </script>
 
 <style>

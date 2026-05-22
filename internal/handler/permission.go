@@ -65,6 +65,7 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		HostPrefix   string           `json:"host_prefix"`
 		HostRules    []model.HostRule `json:"host_rules"`
 		MaxDepth     *int             `json:"max_depth"`
+		SourceFilter *string          `json:"source_filter"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -82,7 +83,7 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		allowedIPsJSON = string(b)
 	}
 
-	if err := h.permissionService.Grant(req.TargetUserID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.HostRules, req.MaxDepth, userID); err != nil {
+	if err := h.permissionService.Grant(req.TargetUserID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.HostRules, req.MaxDepth, req.SourceFilter, userID); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
 		return
 	}
@@ -144,6 +145,7 @@ func (h *PermissionHandler) BatchGrant(c *gin.Context) {
 		HostPrefix    string           `json:"host_prefix"`
 		HostRules     []model.HostRule `json:"host_rules"`
 		MaxDepth      *int             `json:"max_depth"`
+		SourceFilter  *string          `json:"source_filter"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -187,7 +189,7 @@ func (h *PermissionHandler) BatchGrant(c *gin.Context) {
 			continue
 		}
 
-		err := h.permissionService.Grant(targetID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.HostRules, req.MaxDepth, userID)
+		err := h.permissionService.Grant(targetID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.HostRules, req.MaxDepth, req.SourceFilter, userID)
 		if err != nil {
 			results[i] = BatchGrantResult{UserID: targetID, Success: false, Error: err.Error()}
 			continue
@@ -240,6 +242,7 @@ func (h *PermissionHandler) BatchGrantMultiDomain(c *gin.Context) {
 		AllowedIPs    []string         `json:"allowed_ips"`
 		HostRules     []model.HostRule `json:"host_rules"`
 		MaxDepth      *int             `json:"max_depth"`
+		SourceFilter  *string          `json:"source_filter"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -301,7 +304,7 @@ func (h *PermissionHandler) BatchGrantMultiDomain(c *gin.Context) {
 				continue
 			}
 
-			err := h.permissionService.Grant(targetID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, "", req.HostRules, req.MaxDepth, userID)
+			err := h.permissionService.Grant(targetID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, "", req.HostRules, req.MaxDepth, req.SourceFilter, userID)
 			if err != nil {
 				results = append(results, BatchMultiDomainResult{DomainNodeID: nodeID, UserID: targetID, Success: false, Error: err.Error()})
 				continue
