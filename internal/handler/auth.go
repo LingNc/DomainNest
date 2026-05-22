@@ -109,6 +109,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		}
 	}()
 
+	// Notify inviter that their invite code was used
+	if user.InvitedBy != nil {
+		go func() {
+			defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+			if err := h.notifSvc.Send(*user.InvitedBy, notification.InviteCodeUsed(user.Username)); err != nil {
+				log.Printf("[Notification] InviteCodeUsed failed: %v", err)
+			}
+		}()
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "成功",
@@ -196,7 +206,6 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 			"role":         user.Role,
 			"is_super_admin": user.IsSuperAdmin,
 			"ddns_token":   user.Token,
-			"invite_code":  user.InviteCode,
 			"invite_limit": user.InviteLimit,
 			"invite_count": user.InviteCount,
 		},

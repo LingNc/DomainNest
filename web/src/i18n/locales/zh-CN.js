@@ -601,6 +601,11 @@ export default {
     ddnsToken: 'DDNS Token',
     token: 'Token',
     time: '时间',
+    inviteCodeManagement: '邀请码管理',
+    generateCodes: '生成邀请码',
+    noInviteCodes: '暂无邀请码，点击上方按钮生成',
+    batchDeleteCodes: '批量删除',
+    batchDeleteCodesConfirm: '确定删除选中的 {count} 个未使用的邀请码？',
   },
   providers: {
     title: 'DNS 提供商',

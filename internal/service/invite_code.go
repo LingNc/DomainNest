@@ -19,39 +19,163 @@ func NewInviteCodeService(db *gorm.DB) *InviteCodeService {
 	return &InviteCodeService{db: db}
 }
 
+// GenerateCodes creates count unique invite codes for the given user.
+// Consumes 1 quota per code (invite_count++). SuperAdmin bypasses quota check.
 func (s *InviteCodeService) GenerateCodes(creatorID uint64, count int) ([]model.InviteCode, error) {
 	if count < 1 || count > 100 {
 		count = 10
 	}
+
+	var user model.User
+	if err := s.db.First(&user, creatorID).Error; err != nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	if !user.IsSuperAdmin {
+		available := user.InviteLimit - user.InviteCount
+		if available < count {
+			return nil, errors.New("邀请额度不足")
+		}
+	}
+
 	codes := make([]model.InviteCode, 0, count)
 	for i := 0; i < count; i++ {
 		code := generateSingleUseCode()
-		ic := model.InviteCode{Code: code, CreatorID: creatorID}
-		if err := s.db.Create(&ic).Error; err != nil {
+		codes = append(codes, model.InviteCode{Code: code, CreatorID: creatorID})
+	}
+
+	tx := s.db.Begin()
+
+	if err := tx.Create(&codes).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if !user.IsSuperAdmin {
+		if err := tx.Model(&user).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", count)).Error; err != nil {
+			tx.Rollback()
 			return nil, err
 		}
-		codes = append(codes, ic)
 	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
 	return codes, nil
 }
 
-func (s *InviteCodeService) ListCodes(page, pageSize int) ([]model.InviteCode, int64, error) {
+// ListUserCodes lists invite codes created by a specific user.
+func (s *InviteCodeService) ListUserCodes(userID uint64, page, pageSize int) ([]model.InviteCode, int64, error) {
 	var total int64
-	s.db.Model(&model.InviteCode{}).Count(&total)
+	s.db.Model(&model.InviteCode{}).Where("creator_id = ?", userID).Count(&total)
+
 	var codes []model.InviteCode
-	s.db.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&codes)
+	s.db.Where("creator_id = ?", userID).
+		Preload("UsedByUser", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "username", "nickname")
+		}).
+		Order("id DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&codes)
+
 	return codes, total, nil
 }
 
-func (s *InviteCodeService) DeleteCode(id uint64) error {
+// ListCodes lists all invite codes (admin overview).
+func (s *InviteCodeService) ListCodes(page, pageSize int) ([]model.InviteCode, int64, error) {
+	var total int64
+	s.db.Model(&model.InviteCode{}).Count(&total)
+
+	var codes []model.InviteCode
+	s.db.Preload("Creator", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id", "username")
+	}).
+		Preload("UsedByUser", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "username")
+	}).
+		Order("id DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&codes)
+
+	return codes, total, nil
+}
+
+// DeleteCode deletes an unused invite code owned by the given user, restoring 1 quota.
+func (s *InviteCodeService) DeleteCode(id, userID uint64) error {
 	var code model.InviteCode
-	if err := s.db.First(&code, id).Error; err != nil {
+	if err := s.db.Where("id = ? AND creator_id = ?", id, userID).First(&code).Error; err != nil {
 		return err
 	}
 	if code.UsedBy != nil {
 		return errors.New("已使用的邀请码不能删除")
 	}
-	return s.db.Delete(&code).Error
+
+	var creator model.User
+	if err := s.db.First(&creator, code.CreatorID).Error; err != nil {
+		return err
+	}
+
+	tx := s.db.Begin()
+
+	if err := tx.Delete(&code).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if !creator.IsSuperAdmin {
+		if err := tx.Model(&creator).UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit().Error
+}
+
+// BatchDeleteCodes deletes multiple unused invite codes and restores quota.
+// Only codes owned by the given userID are affected.
+func (s *InviteCodeService) BatchDeleteCodes(ids []uint64, userID uint64) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	var user model.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return 0, errors.New("用户不存在")
+	}
+
+	// Find unused codes owned by this user among the requested IDs
+	var codes []model.InviteCode
+	if err := s.db.Where("id IN ? AND creator_id = ? AND used_by IS NULL", ids, userID).Find(&codes).Error; err != nil {
+		return 0, err
+	}
+
+	if len(codes) == 0 {
+		return 0, nil
+	}
+
+	tx := s.db.Begin()
+
+	if err := tx.Delete(&codes).Error; err != nil {
+		tx.Rollback()
+		return 0, err
+	}
+
+	if !user.IsSuperAdmin {
+		if err := tx.Model(&user).UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", len(codes))).Error; err != nil {
+			tx.Rollback()
+			return 0, err
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return 0, err
+	}
+
+	return len(codes), nil
 }
 
 // ConsumeCode finds an unused code and marks it as used. Returns the creator ID.

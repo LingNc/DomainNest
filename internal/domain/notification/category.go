@@ -19,6 +19,7 @@ const (
 	CatAdminDisabled       = "admin_disabled"
 	CatAdminGrantInvite    = "admin_grant_invite"
 	CatAdminRevokeInvite   = "admin_revoke_invite"
+	CatInviteCodeUsed      = "invite_code_used"
 	CatUserWelcome         = "user_welcome"
 	CatEmailVerified       = "email_verified"
 	CatDDNSUpdateOK        = "ddns_update_ok"

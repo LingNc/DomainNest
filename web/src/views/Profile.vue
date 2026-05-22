@@ -68,10 +68,6 @@
         <span>{{ $t('profile.inviteInfo') }}</span>
       </template>
       <el-descriptions :column="1" border>
-        <el-descriptions-item :label="$t('profile.myInviteCode')">
-          <span class="code-text">{{ profile.invite_code }}</span>
-          <el-button size="small" text type="primary" @click="copyCode" style="margin-left:8px">{{ $t('common.copy') }}</el-button>
-        </el-descriptions-item>
         <el-descriptions-item :label="$t('profile.inviteLimit')">{{ profile.invite_limit }}</el-descriptions-item>
         <el-descriptions-item :label="$t('profile.assigned')">{{ profile.invite_count }}</el-descriptions-item>
         <el-descriptions-item :label="$t('profile.availableQuota')">
@@ -80,6 +76,53 @@
           </el-tag>
         </el-descriptions-item>
       </el-descriptions>
+    </el-card>
+
+    <el-card style="margin-top:16px">
+      <template #header>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span>{{ $t('profile.inviteCodeManagement') }}</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <el-input-number v-model="inviteCodeCount" :min="1" :max="100" size="small" />
+            <el-button type="primary" size="small" :loading="inviteCodeGenerating" @click="handleGenerateMyCodes">{{ $t('profile.generateCodes') }}</el-button>
+          </div>
+        </div>
+      </template>
+      <div v-if="selectedInviteCodes.length > 0" style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <el-tag>{{ $t('admin.selectedCount', { count: selectedInviteCodes.length }) }}</el-tag>
+        <el-button type="danger" size="small" :loading="batchDeleteCodesLoading" @click="handleBatchDeleteCodes">{{ $t('profile.batchDeleteCodes') }}</el-button>
+      </div>
+      <el-table :data="myInviteCodes" stripe v-loading="myInviteCodesLoading" style="width:100%" @selection-change="handleInviteCodeSelectionChange">
+        <el-table-column type="selection" width="40" :selectable="(row) => !row.used_by" />
+        <el-table-column prop="code" :label="$t('admin.inviteCode')" min-width="120">
+          <template #default="{ row }">
+            <span class="code-text">{{ row.code }}</span>
+            <el-button size="small" text type="primary" @click="copyCodeText(row.code)" style="margin-left:4px">{{ $t('common.copy') }}</el-button>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('common.status')" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.used_by ? 'info' : 'success'" size="small">
+              {{ row.used_by ? $t('admin.codeUsed') : $t('admin.codeUnused') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('admin.usedBy')" min-width="100">
+          <template #default="{ row }">
+            <span v-if="row.used_by_user">{{ row.used_by_user.nickname || row.used_by_user.username }}</span>
+            <span v-else style="color:#909399">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+        <el-table-column :label="$t('common.action')" width="80" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="danger" size="small" :disabled="!!row.used_by" @click="handleDeleteMyCode(row)">{{ $t('common.delete') }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-pagination v-if="myInviteCodesTotal > 20" :current-page="myInviteCodesPage" :page-size="20" :total="myInviteCodesTotal"
+        layout="total, prev, pager, next" @current-change="handleMyInviteCodesPageChange" style="margin-top:12px" />
+      <el-empty v-if="!myInviteCodesLoading && myInviteCodes.length === 0" :description="$t('profile.noInviteCodes')" :image-size="40" />
     </el-card>
 
     <el-card style="margin-top:16px">
@@ -226,6 +269,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getProfile, updateProfile, changePassword, resetToken, checkUsername, uploadAvatar, grantInviteQuota, revokeInviteQuota, getInviteLogs, searchAllUsers, deleteAccount, sendVerifyEmail, verifyEmailChange } from '../api/auth'
+import { generateMyInviteCodes, listMyInviteCodes, deleteMyInviteCode, batchDeleteMyInviteCodes } from '../api/invite'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useError } from '../composables/useError'
@@ -268,6 +312,14 @@ const loadingInviteLogs = ref(false)
 const inviteLogPage = ref(1)
 const inviteLogTotal = ref(0)
 const deleting = ref(false)
+const myInviteCodes = ref([])
+const myInviteCodesLoading = ref(false)
+const myInviteCodesPage = ref(1)
+const myInviteCodesTotal = ref(0)
+const inviteCodeCount = ref(5)
+const inviteCodeGenerating = ref(false)
+const selectedInviteCodes = ref([])
+const batchDeleteCodesLoading = ref(false)
 const emailCode = ref('')
 const sendingCode = ref(false)
 const verifyingEmail = ref(false)
@@ -297,9 +349,78 @@ const loadInviteLogs = async () => {
   }
 }
 
+const loadMyInviteCodes = async () => {
+  myInviteCodesLoading.value = true
+  try {
+    const res = await listMyInviteCodes({ page: myInviteCodesPage.value, page_size: 20 })
+    myInviteCodes.value = res.data.items || []
+    myInviteCodesTotal.value = res.data.total || 0
+  } finally {
+    myInviteCodesLoading.value = false
+  }
+}
+
+const handleGenerateMyCodes = async () => {
+  inviteCodeGenerating.value = true
+  try {
+    await generateMyInviteCodes({ count: inviteCodeCount.value })
+    ElMessage.success(t('admin.inviteCodesGenerated'))
+    await loadMyInviteCodes()
+    await loadProfile()
+  } finally {
+    inviteCodeGenerating.value = false
+  }
+}
+
+const copyCodeText = (code) => {
+  navigator.clipboard.writeText(code)
+  ElMessage.success(t('common.copied'))
+}
+
+const handleDeleteMyCode = async (row) => {
+  try {
+    await ElMessageBox.confirm(t('admin.confirmDeleteInviteCode'), t('common.confirmDelete'), { type: 'warning' })
+    await deleteMyInviteCode(row.id)
+    ElMessage.success(t('admin.inviteCodeDeleted'))
+    await loadMyInviteCodes()
+    await loadProfile()
+  } catch { /* cancelled */ }
+}
+
+const handleInviteCodeSelectionChange = (selection) => {
+  selectedInviteCodes.value = selection
+}
+
+const handleBatchDeleteCodes = async () => {
+  try {
+    await ElMessageBox.confirm(
+      t('profile.batchDeleteCodesConfirm', { count: selectedInviteCodes.value.length }),
+      t('common.confirmDelete'),
+      { type: 'warning' }
+    )
+    batchDeleteCodesLoading.value = true
+    const ids = selectedInviteCodes.value.map(c => c.id)
+    await batchDeleteMyInviteCodes({ ids })
+    ElMessage.success(t('admin.inviteCodeDeleted'))
+    selectedInviteCodes.value = []
+    await loadMyInviteCodes()
+    await loadProfile()
+  } catch (e) {
+    if (e === 'cancel') return
+  } finally {
+    batchDeleteCodesLoading.value = false
+  }
+}
+
+const handleMyInviteCodesPageChange = (p) => {
+  myInviteCodesPage.value = p
+  loadMyInviteCodes()
+}
+
 onMounted(() => {
   loadProfile()
   loadInviteLogs()
+  loadMyInviteCodes()
 })
 
 const onUsernameInput = () => {
@@ -410,11 +531,6 @@ const handleResetToken = async () => {
     profile.value.ddns_token = res.data.token
     ElMessage.success(t('profile.tokenReset'))
   } catch {}
-}
-
-const copyCode = () => {
-  navigator.clipboard.writeText(profile.value.invite_code)
-  ElMessage.success(t('common.copied'))
 }
 
 const copyToken = () => {

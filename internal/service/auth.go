@@ -37,18 +37,12 @@ func (s *AuthService) Register(username, password, email, inviteCode string) (*m
 		return nil, err
 	}
 
-	newInviteCode, err := generateInviteCode()
-	if err != nil {
-		return nil, err
-	}
-
 	user := &model.User{
 		Username:    username,
 		Password:    string(hashedPassword),
 		Email:       email,
 		Role:        "user",
 		Token:       token,
-		InviteCode:  newInviteCode,
 		InviteLimit: 0,
 	}
 
@@ -68,11 +62,6 @@ func (s *AuthService) Register(username, password, email, inviteCode string) (*m
 	user.InvitedBy = &invitedBy
 
 	if err := tx.Model(user).Update("invited_by", invitedBy).Error; err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	if err := tx.Model(&model.User{}).Where("id = ?", inviterID).UpdateColumn("invite_count", gorm.Expr("invite_count + 1")).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -212,18 +201,12 @@ func (s *AuthService) createUser(username, password, email, role string) (*model
 		return nil, err
 	}
 
-	inviteCode, err := generateInviteCode()
-	if err != nil {
-		return nil, err
-	}
-
 	user := &model.User{
 		Username:    username,
 		Password:    string(hashedPassword),
 		Email:       email,
 		Role:        role,
 		Token:       token,
-		InviteCode:  inviteCode,
 		InviteLimit: 0,
 	}
 
@@ -232,14 +215,6 @@ func (s *AuthService) createUser(username, password, email, role string) (*model
 
 func generateToken() (string, error) {
 	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
-}
-
-func generateInviteCode() (string, error) {
-	bytes := make([]byte, 6)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}

@@ -601,6 +601,11 @@ export default {
     ddnsToken: 'DDNS Token',
     token: 'Token',
     time: 'Time',
+    inviteCodeManagement: 'Invite Code Management',
+    generateCodes: 'Generate Codes',
+    noInviteCodes: 'No invite codes yet, click the button above to generate',
+    batchDeleteCodes: 'Batch Delete',
+    batchDeleteCodesConfirm: 'Delete {count} unused invite codes?',
   },
   providers: {
     title: 'DNS Providers',

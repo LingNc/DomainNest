@@ -155,6 +155,14 @@ func InviteRevoked(amount int) Notification {
 	}
 }
 
+func InviteCodeUsed(username string) Notification {
+	return Notification{
+		Category: CatInviteCodeUsed,
+		Title:    "邀请码被使用",
+		Content:  fmt.Sprintf("%s 通过你的邀请码注册了账号", username),
+		Priority: PriorityInfo,
+	}
+}
 func Welcome() Notification {
 	return Notification{
 		Category: CatUserWelcome,

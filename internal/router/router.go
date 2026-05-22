@@ -64,6 +64,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	syncHandler := handler.NewSyncHandler(syncService, recordService, db)
 	trashHandler := handler.NewTrashHandler(trashService, notificationService, db)
 	filterPresetHandler := handler.NewFilterPresetHandler(filterPresetService, db)
+	inviteCodeHandler := handler.NewInviteCodeHandler(inviteCodeService)
 
 	v1 := r.Group("/api/v1")
 
@@ -98,6 +99,10 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		authProtected.GET("/users/search", friendHandler.SearchAllUsers)
 		authProtected.GET("/pending-returns", permissionHandler.GetPendingReturns)
 		authProtected.DELETE("/account", authHandler.DeleteAccount)
+		authProtected.POST("/invite-codes", inviteCodeHandler.Generate)
+		authProtected.GET("/invite-codes", inviteCodeHandler.List)
+		authProtected.DELETE("/invite-codes/:id", inviteCodeHandler.Delete)
+		authProtected.POST("/invite-codes/batch-delete", inviteCodeHandler.BatchDelete)
 	}
 
 	domains := v1.Group("/domains")

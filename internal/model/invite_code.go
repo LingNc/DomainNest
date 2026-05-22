@@ -9,4 +9,7 @@ type InviteCode struct {
 	UsedBy    *uint64    `gorm:"index" json:"used_by,omitempty"`
 	UsedAt    *time.Time `json:"used_at,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
+
+	Creator    User  `gorm:"foreignKey:CreatorID" json:"creator,omitempty"`
+	UsedByUser *User `gorm:"foreignKey:UsedBy" json:"used_by_user,omitempty"`
 }
