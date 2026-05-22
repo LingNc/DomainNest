@@ -101,7 +101,7 @@ func (s *DomainService) GetNode(nodeID, userID uint64) (*model.DomainNode, error
 	}
 
 	var node model.DomainNode
-	if err := s.db.Preload("Children").Preload("Records").First(&node, nodeID).Error; err != nil {
+	if err := s.db.Preload("Children").Preload("Records").Preload("Owner", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).First(&node, nodeID).Error; err != nil {
 		return nil, errors.New("域名节点不存在")
 	}
 	return &node, nil
@@ -616,9 +616,17 @@ func (s *DomainService) BatchDeleteNodes(nodeIDs []uint64, userID uint64) (delet
 
 func (s *DomainService) GetTransferredAwayNodes(userID uint64) ([]model.DomainTransferLog, error) {
 	var logs []model.DomainTransferLog
+
+	// Subquery: latest transfer-out per node_id for this user
+	latestSubQuery := s.db.Model(&model.DomainTransferLog{}).
+		Select("node_id, MAX(id) as max_id").
+		Where("from_user_id = ?", userID).
+		Group("node_id")
+
 	err := s.db.
 		Joins("JOIN domain_nodes ON domain_nodes.id = domain_transfer_logs.node_id").
-		Where("domain_transfer_logs.from_user_id = ? AND domain_nodes.owner_id != ?", userID, userID).
+		Joins("JOIN (?) AS latest ON latest.max_id = domain_transfer_logs.id", latestSubQuery).
+		Where("domain_nodes.owner_id != ?", userID).
 		Preload("Node").
 		Preload("ToUser", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).
 		Order("domain_transfer_logs.created_at DESC").

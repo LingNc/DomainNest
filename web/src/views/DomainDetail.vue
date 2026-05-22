@@ -14,6 +14,9 @@
           <el-tag size="small" type="info">#{{ domain.id }}</el-tag>
           <el-tag v-if="domain.is_materialized" size="small" type="success">{{ $t('domainDetail.materialized') }}</el-tag>
           <span class="info-bar-meta">{{ $t('common.createdAt') }}: {{ domain.created_at }}</span>
+          <span v-if="domain.owner && domain.owner.id !== auth.user?.id" class="info-bar-meta">{{ $t('common.claimer') }}:
+            <router-link to="/friends" class="claimer-link">{{ domain.owner.nickname || domain.owner.username }}</router-link>
+          </span>
         </div>
         <div class="info-bar-right" v-if="domain.owner_id === auth.user?.id">
           <el-button size="small" type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
@@ -1913,6 +1916,13 @@ onMounted(() => {
 .info-bar-meta {
   color: #909399;
   font-size: 13px;
+}
+.info-bar-meta .claimer-link {
+  color: #409eff;
+  text-decoration: none;
+}
+.info-bar-meta .claimer-link:hover {
+  text-decoration: underline;
 }
 .info-bar-right {
   display: flex;

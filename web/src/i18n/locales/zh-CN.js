@@ -24,6 +24,7 @@ export default {
     edit: '编辑',
     actions: '操作',
     createdAt: '创建时间',
+    claimer: '认领者',
     hint: '提示',
     loading: '加载中...',
     save: '保存',

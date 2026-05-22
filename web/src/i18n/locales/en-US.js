@@ -24,6 +24,7 @@ export default {
     edit: 'Edit',
     actions: 'Actions',
     createdAt: 'Created At',
+    claimer: 'Claimer',
     hint: 'Prompt',
     loading: 'Loading...',
     save: 'Save',
