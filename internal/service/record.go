@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -588,9 +589,24 @@ func (s *RecordService) DeleteGroupTag(nodeID, userID uint64, tag string) (int64
 
 func validateRecordValue(recordType, value string, priority *int) error {
 	switch recordType {
+	case "A":
+		if net.ParseIP(value) == nil || !strings.Contains(value, ".") {
+			return errors.New("A记录值必须是合法的IPv4地址")
+		}
+	case "AAAA":
+		if net.ParseIP(value) == nil || !strings.Contains(value, ":") {
+			return errors.New("AAAA记录值必须是合法的IPv6地址")
+		}
+	case "CNAME", "ALIAS", "NS":
+		if !isValidDomainName(value) {
+			return fmt.Errorf("%s记录值必须是合法的域名", recordType)
+		}
 	case "MX":
 		if priority == nil {
 			return errors.New("MX记录需要指定优先级")
+		}
+		if !isValidDomainName(value) {
+			return errors.New("MX记录值必须是合法的域名")
 		}
 	case "SRV":
 		parts := strings.Fields(value)
@@ -603,14 +619,51 @@ func validateRecordValue(recordType, value string, priority *int) error {
 		if _, err := strconv.Atoi(parts[1]); err != nil {
 			return errors.New("SRV权重必须为数字")
 		}
-		if _, err := strconv.Atoi(parts[2]); err != nil {
+		port, err := strconv.Atoi(parts[2])
+		if err != nil {
 			return errors.New("SRV端口必须为数字")
+		}
+		if port < 0 || port > 65535 {
+			return errors.New("SRV端口范围为0-65535")
+		}
+		if !isValidDomainName(parts[3]) {
+			return errors.New("SRV目标必须是合法的域名")
 		}
 	case "CAA":
 		parts := strings.SplitN(value, " ", 3)
 		if len(parts) != 3 {
 			return errors.New("CAA记录值格式必须为 '标志 标签 值'")
 		}
+		flag, err := strconv.Atoi(parts[0])
+		if err != nil || flag < 0 || flag > 255 {
+			return errors.New("CAA标志必须为0-255的数字")
+		}
+	case "TXT":
+		// TXT records accept any string, no validation needed
 	}
 	return nil
+}
+
+func isValidDomainName(name string) bool {
+	if name == "" || len(name) > 253 {
+		return false
+	}
+	name = strings.TrimSuffix(name, ".")
+	parts := strings.Split(name, ".")
+	if len(parts) < 1 {
+		return false
+	}
+	for _, part := range parts {
+		if len(part) == 0 || len(part) > 63 {
+			return false
+		}
+		if !isAlphaNumeric(part[0]) || !isAlphaNumeric(part[len(part)-1]) {
+			return false
+		}
+	}
+	return true
+}
+
+func isAlphaNumeric(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }

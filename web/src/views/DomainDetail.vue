@@ -1233,6 +1233,30 @@ const openAddRecord = () => {
   showAddRecord.value = true
 }
 
+const validateRecordValue = (type, value) => {
+  const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/
+  const ipv6 = /^[0-9a-fA-F:]+$/
+  const domain = /^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)*[a-zA-Z]{2,}\.?$/
+
+  switch (type) {
+    case 'A':
+      if (!ipv4.test(value)) return t('domainDetail.invalidIPv4')
+      break
+    case 'AAAA':
+      if (!ipv6.test(value)) return t('domainDetail.invalidIPv6')
+      break
+    case 'CNAME':
+    case 'ALIAS':
+    case 'NS':
+      if (!domain.test(value)) return t('domainDetail.invalidDomain')
+      break
+    case 'MX':
+      if (!domain.test(value)) return t('domainDetail.invalidDomain')
+      break
+  }
+  return null
+}
+
 const handleAddRecord = async () => {
   const data = {
     host: recordForm.value.host,
@@ -1243,6 +1267,12 @@ const handleAddRecord = async () => {
   }
   if (recordForm.value.record_type === 'MX' && recordForm.value.priority != null) {
     data.priority = recordForm.value.priority
+  }
+
+  const validationError = validateRecordValue(data.record_type, data.value)
+  if (validationError) {
+    ElMessage.error(validationError)
+    return
   }
 
   // Check for provider conflict first
@@ -1292,6 +1322,13 @@ const handleUpdateRecord = async () => {
   if (editForm.value.record_type === 'MX' && editForm.value.priority != null) {
     data.priority = editForm.value.priority
   }
+
+  const validationError = validateRecordValue(editForm.value.record_type, data.value)
+  if (validationError) {
+    ElMessage.error(validationError)
+    return
+  }
+
   await updateRecord(editForm.value.id, data)
   ElMessage.success(t('domainDetail.updateRecordSuccess'))
   showEditRecord.value = false
