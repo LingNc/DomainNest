@@ -2,10 +2,12 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"domainnest/internal/domain/notification"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -19,10 +21,11 @@ import (
 type AdminHandler struct {
 	db            *gorm.DB
 	domainService *service.DomainService
+	notifSvc      *notification.Service
 }
 
-func NewAdminHandler(db *gorm.DB, domainService *service.DomainService) *AdminHandler {
-	return &AdminHandler{db: db, domainService: domainService}
+func NewAdminHandler(db *gorm.DB, domainService *service.DomainService, notifSvc *notification.Service) *AdminHandler {
+	return &AdminHandler{db: db, domainService: domainService, notifSvc: notifSvc}
 }
 
 func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
@@ -398,6 +401,13 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 
 	middleware.LogOperationUser(h.db, callerID, userID, "admin_reset_password", "user", &userID, nil, c.ClientIP())
 
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		if err := h.notifSvc.Send(userID, notification.AdminPasswordReset()); err != nil {
+			log.Printf("[Notification] AdminPasswordReset failed: %v", err)
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "密码重置成功"})
 }
 
@@ -465,6 +475,13 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	callerID := c.GetUint64("user_id")
 	middleware.LogOperationUser(h.db, callerID, userID, "disable_user", "user", &userID, nil, c.ClientIP())
 
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		if err := h.notifSvc.Send(userID, notification.AccountDisabled()); err != nil {
+			log.Printf("[Notification] AccountDisabled failed: %v", err)
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "用户已禁用"})
 }
 
@@ -500,6 +517,13 @@ func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 	}
 
 	middleware.LogOperationUser(h.db, callerID, targetID, "promote_to_admin", "user", &targetID, nil, c.ClientIP())
+
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		if err := h.notifSvc.Send(targetID, notification.RolePromoted()); err != nil {
+			log.Printf("[Notification] RolePromoted failed: %v", err)
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "用户已提升为管理员"})
 }
@@ -540,6 +564,13 @@ func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
 	}
 
 	middleware.LogOperationUser(h.db, callerID, targetID, "demote_from_admin", "user", &targetID, nil, c.ClientIP())
+
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		if err := h.notifSvc.Send(targetID, notification.RoleDemoted()); err != nil {
+			log.Printf("[Notification] RoleDemoted failed: %v", err)
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "管理员已降级为普通用户"})
 }

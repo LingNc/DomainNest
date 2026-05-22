@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"domainnest/internal/config"
+	"domainnest/internal/domain/notification"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -59,17 +60,19 @@ type AuthHandler struct {
 	emailSvc        *service.EmailService
 	emailVerifySvc  *service.EmailVerifyService
 	settingsService *service.SettingsService
+	notifSvc        *notification.Service
 	db              *gorm.DB
 	jwtSecret       string
 	jwtExpire       int
 }
 
-func NewAuthHandler(authService *service.AuthService, emailSvc *service.EmailService, emailVerifySvc *service.EmailVerifyService, settingsService *service.SettingsService, db *gorm.DB, cfg *config.JWTConfig) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, emailSvc *service.EmailService, emailVerifySvc *service.EmailVerifyService, settingsService *service.SettingsService, notifSvc *notification.Service, db *gorm.DB, cfg *config.JWTConfig) *AuthHandler {
 	return &AuthHandler{
 		authService:     authService,
 		emailSvc:        emailSvc,
 		emailVerifySvc:  emailVerifySvc,
 		settingsService: settingsService,
+		notifSvc:        notifSvc,
 		db:              db,
 		jwtSecret:       cfg.Secret,
 		jwtExpire:       cfg.ExpireHours,
@@ -492,10 +495,11 @@ func (h *AuthHandler) GrantInviteQuota(c *gin.Context) {
 
 	go func() {
 		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+		if err := h.notifSvc.Send(req.TargetUserID, notification.InviteGranted(req.Amount)); err != nil {
+			log.Printf("[Notification] InviteGranted failed: %v", err)
+			return
+		}
 		svc := service.NewMessageService(h.db)
-		svc.SendSystemNotification(req.TargetUserID, "邀请额度变更",
-			fmt.Sprintf("你收到了 %d 个邀请额度", req.Amount), "", "")
-		ws.BroadcastToUser(req.TargetUserID, ws.TypeNewNotification, gin.H{"type": "invite_change", "amount": req.Amount})
 		if count, err := svc.GetNotificationUnreadCount(req.TargetUserID); err == nil {
 			ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 		}
@@ -527,10 +531,11 @@ func (h *AuthHandler) RevokeInviteQuota(c *gin.Context) {
 
 	go func() {
 		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+		if err := h.notifSvc.Send(req.TargetUserID, notification.InviteRevoked(req.Amount)); err != nil {
+			log.Printf("[Notification] InviteRevoked failed: %v", err)
+			return
+		}
 		svc := service.NewMessageService(h.db)
-		svc.SendSystemNotification(req.TargetUserID, "邀请额度变更",
-			fmt.Sprintf("你的 %d 个邀请额度已被收回", req.Amount), "", "")
-		ws.BroadcastToUser(req.TargetUserID, ws.TypeNewNotification, gin.H{"type": "invite_change", "amount": -req.Amount})
 		if count, err := svc.GetNotificationUnreadCount(req.TargetUserID); err == nil {
 			ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 		}

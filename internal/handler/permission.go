@@ -2,11 +2,11 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/domain/notification"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -18,11 +18,12 @@ import (
 
 type PermissionHandler struct {
 	permissionService *service.PermissionService
+	notifSvc          *notification.Service
 	db                *gorm.DB
 }
 
-func NewPermissionHandler(permissionService *service.PermissionService, db *gorm.DB) *PermissionHandler {
-	return &PermissionHandler{permissionService: permissionService, db: db}
+func NewPermissionHandler(permissionService *service.PermissionService, notifSvc *notification.Service, db *gorm.DB) *PermissionHandler {
+	return &PermissionHandler{permissionService: permissionService, notifSvc: notifSvc, db: db}
 }
 
 func (h *PermissionHandler) List(c *gin.Context) {
@@ -99,14 +100,14 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		map[string]interface{}{"level": req.Level, "domain": domain}, c.ClientIP())
 
 	// Notify target user
-	go func() {
-		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
-		if nodeLoaded {
+	if nodeLoaded {
+		go func() {
+			defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+			if err := h.notifSvc.Send(req.TargetUserID, notification.PermissionGranted(&node, req.Level)); err != nil {
+				log.Printf("[Notification] PermissionGranted failed: %v", err)
+				return
+			}
 			svc := service.NewMessageService(h.db)
-			svc.SendSystemNotification(req.TargetUserID, "权限授予",
-				fmt.Sprintf("你已被授予 %s 域名的 %s 权限", node.FullDomain, req.Level),
-				"permission_grant", fmt.Sprintf("{\"domain_node_id\":%d,\"level\":\"%s\"}", nodeID, req.Level))
-			ws.BroadcastToUser(req.TargetUserID, ws.TypeNewNotification, gin.H{"type": "permission_change"})
 			if count, err := svc.GetNotificationUnreadCount(req.TargetUserID); err == nil {
 				ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
@@ -114,8 +115,8 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 				"action":  "permission_change",
 				"node_id": nodeID,
 			})
-		}
-	}()
+		}()
+	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "权限已授予"})
 }
@@ -201,11 +202,11 @@ func (h *PermissionHandler) BatchGrant(c *gin.Context) {
 		if nodeLoaded {
 			go func(uid uint64) {
 				defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+				if err := h.notifSvc.Send(uid, notification.PermissionGranted(&node, req.Level)); err != nil {
+					log.Printf("[Notification] PermissionGranted failed: %v", err)
+					return
+				}
 				svc := service.NewMessageService(h.db)
-				svc.SendSystemNotification(uid, "权限授予",
-					fmt.Sprintf("你已被授予 %s 域名的 %s 权限", node.FullDomain, req.Level),
-					"permission_grant", fmt.Sprintf("{\"domain_node_id\":%d,\"level\":\"%s\"}", nodeID, req.Level))
-				ws.BroadcastToUser(uid, ws.TypeNewNotification, gin.H{"type": "permission_change"})
 				if count, err := svc.GetNotificationUnreadCount(uid); err == nil {
 					ws.BroadcastToUser(uid, ws.TypeUnreadUpdate, gin.H{"count": count})
 				}
@@ -315,11 +316,11 @@ func (h *PermissionHandler) BatchGrantMultiDomain(c *gin.Context) {
 			if nodeLoaded {
 				go func(uid uint64, n model.DomainNode, nid uint64) {
 					defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
+					if err := h.notifSvc.Send(uid, notification.PermissionGranted(&n, req.Level)); err != nil {
+						log.Printf("[Notification] PermissionGranted failed: %v", err)
+						return
+					}
 					svc := service.NewMessageService(h.db)
-					svc.SendSystemNotification(uid, "权限授予",
-						fmt.Sprintf("你已被授予 %s 域名的 %s 权限", n.FullDomain, req.Level),
-						"permission_grant", fmt.Sprintf("{\"domain_node_id\":%d,\"level\":\"%s\"}", nid, req.Level))
-					ws.BroadcastToUser(uid, ws.TypeNewNotification, gin.H{"type": "permission_change"})
 					if count, err := svc.GetNotificationUnreadCount(uid); err == nil {
 						ws.BroadcastToUser(uid, ws.TypeUnreadUpdate, gin.H{"count": count})
 					}
@@ -367,10 +368,11 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
 		var node model.DomainNode
 		if h.db.First(&node, nodeID).Error == nil {
+			if err := h.notifSvc.Send(targetUserID, notification.PermissionRevoked(&node)); err != nil {
+				log.Printf("[Notification] PermissionRevoked failed: %v", err)
+				return
+			}
 			svc := service.NewMessageService(h.db)
-			svc.SendSystemNotification(targetUserID, "权限撤销",
-				fmt.Sprintf("你在 %s 域名的权限已被撤销", node.FullDomain), "", "")
-			ws.BroadcastToUser(targetUserID, ws.TypeNewNotification, gin.H{"type": "permission_change"})
 			if count, err := svc.GetNotificationUnreadCount(targetUserID); err == nil {
 				ws.BroadcastToUser(targetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
@@ -428,10 +430,11 @@ func (h *PermissionHandler) RevokeRequest(c *gin.Context) {
 		defer func() { if r := recover(); r != nil { log.Printf("[WS] BroadcastToUser panic: %v", r) } }()
 		var node model.DomainNode
 		if h.db.First(&node, nodeID).Error == nil {
+			if err := h.notifSvc.Send(targetUserID, notification.PermissionRevokeRequest(&node)); err != nil {
+				log.Printf("[Notification] PermissionRevokeRequest failed: %v", err)
+				return
+			}
 			svc := service.NewMessageService(h.db)
-			svc.SendSystemNotification(targetUserID, "权限归还请求",
-				fmt.Sprintf("管理员请求归还你在 %s 域名的权限", node.FullDomain), "", "")
-			ws.BroadcastToUser(targetUserID, ws.TypeNewNotification, gin.H{"type": "permission_change"})
 			if count, err := svc.GetNotificationUnreadCount(targetUserID); err == nil {
 				ws.BroadcastToUser(targetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
