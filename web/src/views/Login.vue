@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
@@ -35,6 +35,12 @@ const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(false)
 const form = ref({ username: '', password: '' })
+
+onMounted(() => {
+  if (auth.isLoggedIn) {
+    router.push('/dashboard')
+  }
+})
 
 const handleLogin = async () => {
   loading.value = true

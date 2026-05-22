@@ -41,6 +41,11 @@ func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 			if err == nil {
 				return client, nil
 			}
+		} else if node.ArchivedProviderID != nil && s.providerService != nil {
+			client, err := s.providerService.GetDNSProvider(*node.ArchivedProviderID)
+			if err == nil {
+				return client, nil
+			}
 		}
 		if node.ParentID == nil {
 			break
@@ -50,7 +55,7 @@ func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 			break
 		}
 	}
-	return nil, errors.New("该域名没有可用的DNS服务商")
+	return nil, errors.New("该域名没有可用的DNS提供商")
 }
 
 type DDNSUpdateResult struct {
