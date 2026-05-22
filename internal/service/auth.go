@@ -52,8 +52,8 @@ func (s *AuthService) Register(username, password, email, inviteCode string) (*m
 		return nil, err
 	}
 
-	// Validate and consume single-use invite code
-	inviterID, err := s.inviteCodeService.ConsumeCode(inviteCode, user.ID)
+	// Validate and consume single-use invite code within the same transaction
+	inviterID, err := s.inviteCodeService.ConsumeCode(tx, inviteCode, user.ID)
 	if err != nil {
 		tx.Rollback()
 		return nil, err

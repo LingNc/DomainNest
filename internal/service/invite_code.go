@@ -171,15 +171,17 @@ func (s *InviteCodeService) BatchDeleteCodes(ids []uint64, userID uint64) (int, 
 }
 
 // ConsumeCode finds an unused code and marks it as used. Returns the creator ID.
-func (s *InviteCodeService) ConsumeCode(codeStr string, userID uint64) (uint64, error) {
+// The db parameter should be the calling transaction (tx) to ensure atomicity
+// and avoid FK lock-waits across connections.
+func (s *InviteCodeService) ConsumeCode(db *gorm.DB, codeStr string, userID uint64) (uint64, error) {
 	var code model.InviteCode
-	err := s.db.Where("code = ? AND used_by IS NULL", codeStr).First(&code).Error
+	err := db.Where("code = ? AND used_by IS NULL", codeStr).First(&code).Error
 	if err != nil {
 		return 0, errors.New("邀请码无效或已使用")
 	}
 	now := time.Now()
 	updates := map[string]interface{}{"used_by": userID, "used_at": now}
-	if err := s.db.Model(&code).Updates(updates).Error; err != nil {
+	if err := db.Model(&code).Updates(updates).Error; err != nil {
 		return 0, err
 	}
 	return code.CreatorID, nil
