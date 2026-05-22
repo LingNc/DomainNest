@@ -910,6 +910,7 @@ export default {
     creator: '创建者',
     codeUsed: '已使用',
     codeUnused: '未使用',
+    filterByCreatorOrUsedBy: '按创建者或使用者筛选',
     usedBy: '使用者',
     usedAt: '使用时间',
     inviteCodesGenerated: '邀请码已生成',

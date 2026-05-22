@@ -910,6 +910,7 @@ export default {
     creator: 'Creator',
     codeUsed: 'Used',
     codeUnused: 'Unused',
+    filterByCreatorOrUsedBy: 'Filter by creator or used-by',
     usedBy: 'Used By',
     usedAt: 'Used At',
     inviteCodesGenerated: 'Invite codes generated',

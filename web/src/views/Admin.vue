@@ -276,7 +276,7 @@
         </el-tab-pane>
         <el-tab-pane :label="$t('admin.inviteCodeManagement')" name="inviteCodes">
           <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-            <el-input v-model="inviteCodeFilter" placeholder="Filter by creator or used-by" clearable style="width:200px" size="default" />
+            <el-input v-model="inviteCodeFilter" :placeholder="$t('admin.filterByCreatorOrUsedBy')" clearable style="width:200px" size="default" />
             <el-select v-model="inviteCodeStatus" style="width:130px" size="default">
               <el-option :label="$t('common.all')" value="all" />
               <el-option :label="$t('admin.codeUnused')" value="unused" />
@@ -284,14 +284,20 @@
             </el-select>
           </div>
           <el-table :data="filteredInviteCodes" stripe v-loading="inviteCodeLoading" style="width:100%" @sort-change="handleInviteCodeSortChange">
-            <el-table-column prop="id" :label="$t('admin.id')" width="60" sortable="custom" />
-            <el-table-column prop="code" :label="$t('admin.inviteCode')" min-width="120" sortable="custom" />
+            <el-table-column :label="$t('admin.id')" width="60" sortable="custom">
+              <template #header="{ column }">{{ $t('admin.id') }}</template>
+            </el-table-column>
+            <el-table-column prop="code" :label="$t('admin.inviteCode')" min-width="120" sortable="custom">
+              <template #header="{ column }">{{ $t('admin.inviteCode') }}</template>
+            </el-table-column>
             <el-table-column :label="$t('admin.creator')" width="120">
               <template #default="{ row }">
                 {{ row.creator?.username || row.creator_id }}
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" sortable="custom" />
+            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" sortable="custom">
+              <template #header="{ column }">{{ $t('common.createdAt') }}</template>
+            </el-table-column>
             <el-table-column :label="$t('common.status')" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.used_by ? 'info' : 'success'" size="small">
