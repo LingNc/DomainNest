@@ -56,11 +56,6 @@ func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
 	}
 
 	host := extractHostFromDomain(req.DomainName)
-	// Hard-delete any soft-deleted row that still occupies the unique index
-	var stale model.DomainNode
-	if h.db.Unscoped().Where("full_domain = ?", req.DomainName).First(&stale).Error == nil {
-		h.db.Exec("DELETE FROM domain_nodes WHERE id = ?", stale.ID)
-	}
 	node := &model.DomainNode{
 		Host:       host,
 		FullDomain: req.DomainName,

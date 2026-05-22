@@ -177,11 +177,6 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 		OwnerID:    userID,
 		ProviderID: &providerID,
 	}
-	// Hard-delete any soft-deleted row that still occupies the unique index
-	var stale model.DomainNode
-	if s.db.Unscoped().Where("full_domain = ?", domainName).First(&stale).Error == nil {
-		s.db.Exec("DELETE FROM domain_nodes WHERE id = ?", stale.ID)
-	}
 	if err := s.db.Create(node).Error; err != nil {
 		return nil, err
 	}

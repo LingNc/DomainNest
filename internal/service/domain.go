@@ -44,11 +44,6 @@ func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64)
 		OwnerID:    ownerID,
 	}
 
-	// Hard-delete any soft-deleted row that still occupies the unique index
-	var stale model.DomainNode
-	if s.db.Unscoped().Where("full_domain = ?", node.FullDomain).First(&stale).Error == nil {
-		s.db.Exec("DELETE FROM domain_nodes WHERE id = ?", stale.ID)
-	}
 	if err := s.db.Create(node).Error; err != nil {
 		return nil, err
 	}
@@ -282,11 +277,6 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 	}
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		// Hard-delete any soft-deleted row that still occupies the unique index
-		var stale model.DomainNode
-		if tx.Unscoped().Where("full_domain = ?", fullDomain).First(&stale).Error == nil {
-			tx.Exec("DELETE FROM domain_nodes WHERE id = ?", stale.ID)
-		}
 		if err := tx.Create(node).Error; err != nil {
 			return err
 		}
