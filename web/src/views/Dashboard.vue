@@ -58,7 +58,8 @@
                   <el-tag size="small" type="info">{{ $t('dashboard.recordsCount', { count: data.records?.length || 0 }) }}</el-tag>
                   <div class="node-actions" @click.stop v-if="data.owner_id === auth.user?.id">
                     <el-button size="small" text type="warning" @click="handleTransferDomain(data)">{{ $t('dashboard.transferDomain') }}</el-button>
-                    <el-button size="small" text type="danger" @click="handleDeleteDomain(data)">{{ $t('dashboard.deleteDomain') }}</el-button>
+                    <el-button v-if="!data.parent_id" size="small" text type="danger" @click="handleArchiveDomain(data)">{{ $t('dashboard.archiveDomain') }}</el-button>
+                    <el-button v-else size="small" text type="danger" @click="handleReturnSubdomain(data)">{{ $t('dashboard.returnToClaimer') }}</el-button>
                   </div>
                 </div>
               </template>
@@ -134,6 +135,23 @@
       </el-tab-pane>
 
       <!-- Recycle Bin Tab -->
+      <el-tab-pane :label="$t('dashboard.tabArchived')" name="archived">
+        <el-card v-if="archivedDomains.length === 0" class="empty-card">
+          <el-empty :description="$t('dashboard.noArchivedDomains')" />
+        </el-card>
+
+        <el-table v-else :data="archivedDomains" stripe style="width:100%">
+          <el-table-column prop="full_domain" :label="$t('admin.fullDomain')" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="archived_at" :label="$t('dashboard.archivedAt')" width="170" />
+          <el-table-column :label="$t('common.actions')" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="handleRestoreArchived(row)">{{ $t('dashboard.restoreDomain') }}</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
+      <!-- Trash Tab -->
       <el-tab-pane :label="$t('trash.title')" name="trash">
         <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
           <el-button type="danger" size="small" @click="handleEmptyTrash" :disabled="trashTotal === 0">
@@ -287,7 +305,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomains, transferDomain, deleteDomain, demoteNode, getTransferredAway, batchDeleteDomains } from '../api/domain'
+import { getDomains, transferDomain, deleteDomain, demoteNode, getTransferredAway, batchDeleteDomains, archiveDomain, restoreDomain, getArchivedDomains, returnSubdomain } from '../api/domain'
 import { createRootDomain } from '../api/admin'
 import { getMyPermissions, batchGrantPermissions } from '../api/permission'
 import { listProviders, listProviderDomains } from '../api/provider'
@@ -320,6 +338,7 @@ const activeTab = ref('domains')
 const treeRef = ref(null)
 const checkedKeys = ref([])
 const transferredAway = ref([])
+const archivedDomains = ref([])
 const expandedGroupKeys = ref(new Set())
 const toggleGroupExpand = (key) => {
   const s = new Set(expandedGroupKeys.value)
@@ -481,6 +500,13 @@ const loadTransferredAway = async () => {
   } catch { /* ignore */ }
 }
 
+const loadArchivedDomains = async () => {
+  try {
+    const res = await getArchivedDomains()
+    archivedDomains.value = res.data || []
+  } catch { /* ignore */ }
+}
+
 const loadProviders = async () => {
   try {
     const res = await listProviders()
@@ -618,6 +644,39 @@ const handleDeleteDomain = async (data) => {
   )
   await deleteDomain(data.id)
   ElMessage.success(t('dashboard.deleteDomainSuccess'))
+  loadDomains()
+}
+
+const handleArchiveDomain = async (data) => {
+  try {
+    await ElMessageBox.confirm(
+      t('dashboard.archiveConfirm', { domain: data.full_domain }),
+      t('dashboard.archiveDomain'),
+      { type: 'warning', confirmButtonText: t('dashboard.confirmArchive') }
+    )
+  } catch { return }
+  await archiveDomain(data.id)
+  ElMessage.success(t('dashboard.archiveSuccess'))
+  loadDomains()
+}
+
+const handleReturnSubdomain = async (data) => {
+  try {
+    await ElMessageBox.confirm(
+      t('dashboard.returnConfirm', { domain: data.full_domain }),
+      t('dashboard.returnToClaimer'),
+      { type: 'warning', confirmButtonText: t('dashboard.confirmReturn') }
+    )
+  } catch { return }
+  await returnSubdomain(data.id)
+  ElMessage.success(t('dashboard.returnSuccess'))
+  loadDomains()
+}
+
+const handleRestoreArchived = async (data) => {
+  await restoreDomain(data.id)
+  ElMessage.success(t('dashboard.restoreSuccess'))
+  loadArchivedDomains()
   loadDomains()
 }
 
@@ -842,6 +901,7 @@ onMounted(() => {
   loadPermissions()
   loadProviders()
   loadTransferredAway()
+  loadArchivedDomains()
   loadTrashDomains()
 
   // WebSocket listener for tree updates
@@ -857,10 +917,12 @@ onMounted(() => {
   })
 })
 
-// Load trash when tab becomes active
+// Load trash/archived when tab becomes active
 watch(activeTab, (tab) => {
   if (tab === 'trash') {
     loadTrash()
+  } else if (tab === 'archived') {
+    loadArchivedDomains()
   }
 })
 </script>

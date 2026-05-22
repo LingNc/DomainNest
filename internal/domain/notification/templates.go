@@ -248,11 +248,35 @@ func DomainDeleted(node *model.DomainNode) Notification {
 	}
 }
 
-func DomainArchived(node *model.DomainNode) Notification {
+func DomainArchived(node *model.DomainNode, byUsername string) Notification {
 	return Notification{
 		Category:   CatDomainArchived,
 		Title:      "域名已归档",
-		Content:    fmt.Sprintf("域名 %s 已被归档", node.FullDomain),
+		Content:    fmt.Sprintf("域名 %s 已被 %s 归档", node.FullDomain, byUsername),
+		ActionType: "view_archived",
+		TargetType: "domain_node",
+		TargetID:   node.ID,
+		Priority:   PriorityWarning,
+	}
+}
+
+func DomainRestored(node *model.DomainNode) Notification {
+	return Notification{
+		Category:   CatDomainReactivated,
+		Title:      "域名已恢复",
+		Content:    fmt.Sprintf("域名 %s 已从归档恢复", node.FullDomain),
+		ActionType: "view_domain",
+		TargetType: "domain_node",
+		TargetID:   node.ID,
+		Priority:   PriorityInfo,
+	}
+}
+
+func SubdomainReturned(node *model.DomainNode, byUsername string) Notification {
+	return Notification{
+		Category:   CatDomainTransferred,
+		Title:      "子域名已归还",
+		Content:    fmt.Sprintf("%s 归还了子域名 %s", byUsername, node.FullDomain),
 		ActionType: "view_domain",
 		TargetType: "domain_node",
 		TargetID:   node.ID,

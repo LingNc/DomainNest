@@ -14,6 +14,10 @@ export const getConversionLogs = (nodeId) => request.get(`/domains/${nodeId}/nod
 
 export const reactivateDomain = (id, data) => request.post(`/domains/${id}/reactivate`, data)
 export const getArchiveInfo = (id) => request.get(`/domains/${id}/archive-info`)
+export const archiveDomain = (id) => request.post(`/domains/${id}/archive`)
+export const restoreDomain = (id) => request.post(`/domains/${id}/restore`)
+export const getArchivedDomains = () => request.get('/domains/archived')
+export const returnSubdomain = (id) => request.post(`/domains/${id}/return-to-claimer`)
 
 export const getTransferredAway = () => request.get('/domains/transferred-away')
 export const getTransferHistory = (id) => request.get(`/domains/${id}/transfer-history`)

@@ -458,3 +458,110 @@ func (h *DomainHandler) ArchiveInfo(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": result})
 }
+
+func (h *DomainHandler) ArchiveDomain(c *gin.Context) {
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+	userID := c.GetUint64("user_id")
+
+	if err := h.domainService.ArchiveDomainTree(nodeID, userID); err != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	// Get node info for notification
+	var node model.DomainNode
+	h.db.First(&node, nodeID)
+
+	byUsername := c.GetString("username")
+
+	// Notify all permission holders
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		var perms []model.DomainPermission
+		h.db.Where("domain_node_id = ?", nodeID).Find(&perms)
+		for _, p := range perms {
+			if err := h.notifSvc.Send(p.UserID, notification.DomainArchived(&node, byUsername)); err != nil {
+				log.Printf("[Notification] DomainArchived failed: %v", err)
+			}
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "域名已归档"})
+}
+
+func (h *DomainHandler) RestoreDomain(c *gin.Context) {
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+	userID := c.GetUint64("user_id")
+
+	if err := h.domainService.RestoreDomainTree(nodeID, userID); err != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		var node model.DomainNode
+		if h.db.First(&node, nodeID).Error == nil {
+			if err := h.notifSvc.Send(userID, notification.DomainRestored(&node)); err != nil {
+				log.Printf("[Notification] DomainRestored failed: %v", err)
+			}
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "域名已恢复"})
+}
+
+func (h *DomainHandler) GetArchivedDomains(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+	nodes, err := h.domainService.GetArchivedDomains(userID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": nodes})
+}
+
+func (h *DomainHandler) ReturnSubdomain(c *gin.Context) {
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		return
+	}
+	userID := c.GetUint64("user_id")
+
+	// Get node before return for notification
+	var node model.DomainNode
+	if err := h.db.First(&node, nodeID).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 404, "message": "节点不存在"})
+		return
+	}
+
+	if err := h.domainService.ReturnSubdomainToClaimer(nodeID, userID); err != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	// Notify claimer (parent owner)
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		if node.ParentID != nil && *node.ParentID != 0 {
+			var parent model.DomainNode
+			if h.db.First(&parent, *node.ParentID).Error == nil {
+				byUsername := c.GetString("username")
+				if err := h.notifSvc.Send(parent.OwnerID, notification.SubdomainReturned(&node, byUsername)); err != nil {
+					log.Printf("[Notification] SubdomainReturned failed: %v", err)
+				}
+			}
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "子域名已归还认领人"})
+}
