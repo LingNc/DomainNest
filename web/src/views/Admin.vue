@@ -275,27 +275,32 @@
           </el-form>
         </el-tab-pane>
         <el-tab-pane :label="$t('admin.inviteCodeManagement')" name="inviteCodes">
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-            <el-input-number v-model="inviteCodeCount" :min="1" :max="100" />
-            <el-button type="primary" :loading="inviteCodeGenerating" @click="handleGenerateInviteCodes">{{ $t('admin.generateInviteCodes') }}</el-button>
-          </div>
           <el-table :data="inviteCodes" stripe v-loading="inviteCodeLoading" style="width:100%">
             <el-table-column prop="id" :label="$t('admin.id')" width="60" />
             <el-table-column prop="code" :label="$t('admin.inviteCode')" min-width="120" />
-            <el-table-column prop="creator_id" :label="$t('admin.creator')" width="80" />
-            <el-table-column :label="$t('common.status')" width="80">
+            <el-table-column :label="$t('admin.creator')" width="120">
+              <template #default="{ row }">
+                {{ row.creator?.username || row.creator_id }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+            <el-table-column :label="$t('common.status')" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.used_by ? 'info' : 'success'" size="small">
                   {{ row.used_by ? $t('admin.codeUsed') : $t('admin.codeUnused') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="used_by" :label="$t('admin.usedBy')" width="80">
+            <el-table-column :label="$t('admin.usedBy')" width="120">
               <template #default="{ row }">
-                {{ row.used_by || '-' }}
+                {{ row.used_by_user?.username || (row.used_by ? row.used_by : '-') }}
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+            <el-table-column prop="used_at" :label="$t('admin.usedAt')" width="170">
+              <template #default="{ row }">
+                {{ row.used_at || '-' }}
+              </template>
+            </el-table-column>
             <el-table-column :label="$t('common.action')" width="80" fixed="right">
               <template #default="{ row }">
                 <el-button link type="danger" size="small" :disabled="!!row.used_by" @click="handleDeleteInviteCode(row)">{{ $t('common.delete') }}</el-button>
@@ -396,7 +401,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, adminBatchDeleteDomains, generateInviteCodes, listInviteCodes, deleteInviteCode } from '../api/admin'
+import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, adminBatchDeleteDomains, listInviteCodes, deleteInviteCode } from '../api/admin'
 import { listProviders, listProviderDomains } from '../api/provider'
 import { grantInviteQuota, revokeInviteQuota } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
@@ -426,8 +431,6 @@ const loadingAdminDomains = ref(false)
 
 const inviteCodes = ref([])
 const inviteCodeLoading = ref(false)
-const inviteCodeGenerating = ref(false)
-const inviteCodeCount = ref(5)
 const inviteCodePage = ref(1)
 const inviteCodePageSize = ref(20)
 const inviteCodeTotal = ref(0)
@@ -942,17 +945,6 @@ const loadInviteCodes = async () => {
     inviteCodeTotal.value = res.data.total || 0
   } catch { /* ignore */ } finally {
     inviteCodeLoading.value = false
-  }
-}
-
-const handleGenerateInviteCodes = async () => {
-  inviteCodeGenerating.value = true
-  try {
-    await generateInviteCodes(inviteCodeCount.value)
-    ElMessage.success(t('admin.inviteCodesGenerated'))
-    loadInviteCodes()
-  } catch { /* error shown by interceptor */ } finally {
-    inviteCodeGenerating.value = false
   }
 }
 

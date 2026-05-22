@@ -16,7 +16,8 @@
     <!-- 侧边栏 -->
     <aside class="sidebar" :class="{ open: sidebarOpen, collapsed: sidebarCollapsed }">
       <div class="sidebar-logo">
-        <h1>{{ sidebarCollapsed ? 'D' : 'DomainNest' }}</h1>
+        <img v-if="sidebarCollapsed" src="/favicon.svg" class="sidebar-logo-img" />
+        <h1 v-else>DomainNest</h1>
       </div>
       <el-menu
         :default-active="activeMenu"
@@ -68,33 +69,40 @@
         </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">
-        <div class="footer-top-row" v-if="!sidebarCollapsed">
-          <div class="user-info" @click="$router.push('/profile')">
-            <el-avatar v-if="auth.avatar" :src="auth.avatar" :size="28" />
-            <el-icon v-else><component :is="'User'" /></el-icon>
-            <span>{{ auth.nickname }}</span>
+        <template v-if="!sidebarCollapsed">
+          <div class="footer-top-row">
+            <div class="user-info" @click="$router.push('/profile')">
+              <el-avatar v-if="auth.avatar" :src="auth.avatar" :size="28" />
+              <el-icon v-else><component :is="'User'" /></el-icon>
+              <span>{{ auth.nickname }}</span>
+            </div>
+            <NotificationBell />
           </div>
-          <NotificationBell />
-        </div>
-        <div class="footer-top-row" v-else>
-          <el-avatar v-if="auth.avatar" :src="auth.avatar" :size="28" style="cursor:pointer" @click="$router.push('/profile')" />
-          <el-icon v-else style="cursor:pointer" @click="$router.push('/profile')"><component :is="'User'" /></el-icon>
-          <NotificationBell />
-        </div>
-        <div class="footer-actions">
-          <div class="lang-switch" v-if="!sidebarCollapsed">
-            <span :class="{ active: locale === 'zh-CN' }" @click="switchLang('zh-CN')">中</span>
-            <span class="divider">/</span>
-            <span :class="{ active: locale === 'en-US' }" @click="switchLang('en-US')">En</span>
+          <div class="footer-actions">
+            <div class="lang-switch">
+              <span :class="{ active: locale === 'zh-CN' }" @click="switchLang('zh-CN')">中</span>
+              <span class="divider">/</span>
+              <span :class="{ active: locale === 'en-US' }" @click="switchLang('en-US')">En</span>
+            </div>
+            <el-button text size="small" @click="handleLogout" class="logout-btn">{{ $t('common.logout') }}</el-button>
+            <el-button text size="small" @click="sidebarCollapsed = !sidebarCollapsed" class="collapse-btn">
+              <el-icon><component :is="'DArrowLeft'" /></el-icon>
+            </el-button>
           </div>
-          <el-button v-if="sidebarCollapsed" text size="small" @click="handleLogout" class="logout-btn" :title="$t('common.logout')">
-            <el-icon><component :is="'SwitchButton'" /></el-icon>
-          </el-button>
-          <el-button v-if="!sidebarCollapsed" text size="small" @click="handleLogout" class="logout-btn">{{ $t('common.logout') }}</el-button>
-          <el-button text size="small" @click="sidebarCollapsed = !sidebarCollapsed" class="collapse-btn">
-            <el-icon><component :is="sidebarCollapsed ? 'DArrowRight' : 'DArrowLeft'" /></el-icon>
-          </el-button>
-        </div>
+        </template>
+        <template v-else>
+          <div class="collapsed-footer">
+            <el-button text size="small" @click="handleLogout" class="logout-btn" :title="$t('common.logout')">
+              <el-icon><component :is="'SwitchButton'" /></el-icon>
+            </el-button>
+            <NotificationBell />
+            <el-avatar v-if="auth.avatar" :src="auth.avatar" :size="28" style="cursor:pointer" @click="$router.push('/profile')" />
+            <el-icon v-else style="cursor:pointer" @click="$router.push('/profile')"><component :is="'User'" /></el-icon>
+            <el-button text size="small" @click="sidebarCollapsed = false" class="collapse-btn">
+              <el-icon><component :is="'DArrowRight'" /></el-icon>
+            </el-button>
+          </div>
+        </template>
       </div>
     </aside>
 
@@ -274,6 +282,11 @@ body {
   font-weight: 600;
   letter-spacing: 1px;
 }
+.sidebar-logo-img {
+  height: 36px;
+  width: 36px;
+  border-radius: 8px;
+}
 
 .sidebar .el-menu {
   border-right: none;
@@ -296,6 +309,12 @@ body {
 }
 .sidebar.collapsed .footer-actions {
   justify-content: center;
+}
+.collapsed-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .sidebar-footer {

@@ -120,7 +120,7 @@
                 <span :style="row.virtual ? 'color:#909399' : ''">{{ row.record_type }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="value" :label="$t('domainDetail.value')" min-width="180" show-overflow-tooltip>
+            <el-table-column prop="value" :label="$t('domainDetail.value')" width="140" show-overflow-tooltip>
               <template #default="{ row }">
                 <span :style="row.virtual ? 'color:#909399;font-style:italic' : ''">{{ row.value }}</span>
               </template>
@@ -236,7 +236,7 @@
                 <span v-if="!row.isGroupHeader">{{ row.record_type }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="value" :label="$t('domainDetail.value')" min-width="180" show-overflow-tooltip>
+            <el-table-column prop="value" :label="$t('domainDetail.value')" width="140" show-overflow-tooltip>
               <template #default="{ row }">
                 <span v-if="!row.isGroupHeader">{{ row.value }}</span>
               </template>

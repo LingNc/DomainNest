@@ -172,6 +172,15 @@ func InviteCodeUsed(username string) Notification {
 		Priority: PriorityInfo,
 	}
 }
+
+func InviteCodeDeletedByAdmin(code string) Notification {
+	return Notification{
+		Category: CatInviteCodeDeletedByAdmin,
+		Title:    "邀请码已删除",
+		Content:  fmt.Sprintf("管理员删除了你的未使用邀请码 %s", code),
+		Priority: PriorityWarning,
+	}
+}
 func Welcome() Notification {
 	return Notification{
 		Category: CatUserWelcome,

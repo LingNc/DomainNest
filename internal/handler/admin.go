@@ -1040,9 +1040,23 @@ func (h *AdminHandler) DeleteInviteCode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "已使用的邀请码不能删除"})
 		return
 	}
+	creatorID := code.CreatorID
+	creatorUsername := ""
+	var creator model.User
+	if h.db.Select("id", "username").First(&creator, creatorID).Error == nil {
+		creatorUsername = creator.Username
+	}
 	if err := h.db.Delete(&code).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邀请码已删除"})
+
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		if err := h.notifSvc.Send(creatorID, notification.InviteCodeDeletedByAdmin(code.Code)); err != nil {
+			log.Printf("[Notification] InviteCodeDeletedByAdmin failed: %v", err)
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邀请码已删除", "data": gin.H{"creator_id": creatorID, "creator_username": creatorUsername}})
 }
