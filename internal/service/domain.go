@@ -334,7 +334,7 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 		Host:           host,
 		FullDomain:     fullDomain,
 		ParentID:       &parentID,
-		OwnerID:        parent.OwnerID,
+		OwnerID:        triggeredBy,
 		IsMaterialized: true,
 	}
 
