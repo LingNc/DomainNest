@@ -702,7 +702,7 @@ func (s *DomainService) GetTransferredAwayNodes(userID uint64) ([]model.DomainTr
 		Group("node_id")
 
 	err := s.db.
-		Joins("JOIN domain_nodes ON domain_nodes.id = domain_transfer_logs.node_id").
+		Joins("JOIN domain_nodes ON domain_nodes.id = domain_transfer_logs.node_id AND domain_nodes.deleted_at IS NULL").
 		Joins("JOIN (?) AS latest ON latest.max_id = domain_transfer_logs.id", latestSubQuery).
 		Where("domain_nodes.owner_id != ?", userID).
 		Preload("Node").
