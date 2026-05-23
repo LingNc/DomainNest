@@ -1372,10 +1372,15 @@ const handleAddRecord = async () => {
     // Conflict check failed -- proceed with creation anyway
   }
 
-  await createRecord(domainId, data)
-  ElMessage.success(t('domainDetail.addRecordSuccess'))
-  showAddRecord.value = false
-  loadRecords()
+  data.host = data.host || "@"
+  try {
+    await createRecord(domainId, data)
+    ElMessage.success(t('domainDetail.addRecordSuccess'))
+    showAddRecord.value = false
+    loadRecords()
+  } catch {
+    // already shown by interceptor
+  }
 }
 
 const handleConflictImport = async () => {

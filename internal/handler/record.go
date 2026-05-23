@@ -74,7 +74,7 @@ func (h *RecordHandler) Create(c *gin.Context) {
 	}
 
 	var req struct {
-		Host             string `json:"host" binding:"required"`
+		Host             string `json:"host"`
 		RecordType       string `json:"record_type" binding:"required"`
 		Value            string `json:"value" binding:"required"`
 		TTL              int    `json:"ttl"`
@@ -482,7 +482,7 @@ func (h *RecordHandler) CheckConflict(c *gin.Context) {
 	}
 
 	var req struct {
-		Host       string `json:"host" binding:"required"`
+		Host       string `json:"host"`
 		RecordType string `json:"record_type" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
