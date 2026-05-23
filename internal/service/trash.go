@@ -59,7 +59,7 @@ func (s *TrashService) ListTrash(userID uint64, q TrashQuery) (*TrashListResult,
 
 	// Base query: trashed records belonging to domains the user owns
 	base := s.db.Unscoped().Model(&model.DNSRecord{}).
-		Joins("JOIN domain_nodes ON domain_nodes.id = dns_records.node_id AND domain_nodes.deleted_at IS NULL").
+		Joins("JOIN domain_nodes ON domain_nodes.id = dns_records.node_id").
 		Where("dns_records.trashed_at IS NOT NULL").
 		Where("domain_nodes.owner_id = ?", userID)
 
@@ -104,7 +104,7 @@ func (s *TrashService) TrashRecord(recordID, userID uint64) error {
 
 	// Verify ownership through node
 	var node model.DomainNode
-	if err := s.db.First(&node, record.NodeID).Error; err != nil {
+	if err := s.db.Unscoped().First(&node, record.NodeID).Error; err != nil {
 		return errors.New("域名不存在")
 	}
 	if node.OwnerID != userID {
@@ -141,7 +141,7 @@ func (s *TrashService) RestoreRecord(recordID, userID uint64) error {
 
 	// Verify ownership
 	var node model.DomainNode
-	if err := s.db.First(&node, record.NodeID).Error; err != nil {
+	if err := s.db.Unscoped().First(&node, record.NodeID).Error; err != nil {
 		return errors.New("域名不存在")
 	}
 	if node.OwnerID != userID {
@@ -168,7 +168,7 @@ func (s *TrashService) PermanentDelete(recordID, userID uint64) error {
 
 	// Verify ownership
 	var node model.DomainNode
-	if err := s.db.First(&node, record.NodeID).Error; err != nil {
+	if err := s.db.Unscoped().First(&node, record.NodeID).Error; err != nil {
 		return errors.New("域名不存在")
 	}
 	if node.OwnerID != userID {
@@ -182,7 +182,7 @@ func (s *TrashService) PermanentDelete(recordID, userID uint64) error {
 func (s *TrashService) EmptyTrash(userID uint64) (int64, error) {
 	result := s.db.Unscoped().
 		Where("trashed_at IS NOT NULL").
-		Where("node_id IN (SELECT id FROM domain_nodes WHERE owner_id = ? AND deleted_at IS NULL)", userID).
+		Where("node_id IN (SELECT id FROM domain_nodes WHERE owner_id = ?)", userID).
 		Delete(&model.DNSRecord{})
 	return result.RowsAffected, result.Error
 }
