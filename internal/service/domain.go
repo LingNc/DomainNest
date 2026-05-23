@@ -842,10 +842,12 @@ func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
 	})
 }
 
-// GetArchivedDomains returns all archived domain nodes owned by the user.
+// GetArchivedDomains returns all archived domain nodes owned by the user,
+// as well as domains that the user transferred away but later got archived
+// by the current user (via ArchiveDomainTree).
 func (s *DomainService) GetArchivedDomains(userID uint64) ([]model.DomainNode, error) {
 	var nodes []model.DomainNode
-	err := s.db.Where("owner_id = ? AND status = 'archived' AND deleted_at IS NULL", userID).
+	err := s.db.Where("(owner_id = ? OR archived_by = ?) AND status = 'archived' AND deleted_at IS NULL", userID, userID).
 		Order("archived_at DESC").Find(&nodes).Error
 	return nodes, err
 }
