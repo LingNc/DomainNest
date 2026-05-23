@@ -143,10 +143,19 @@
 
         <el-table v-else :data="archivedDomains" stripe style="width:100%">
           <el-table-column prop="full_domain" :label="$t('admin.fullDomain')" min-width="200" show-overflow-tooltip />
+          <el-table-column :label="$t('admin.owner')" width="140">
+            <template #default="{ row }">
+              <span v-if="row.owner && row.owner.username">{{ row.owner.nickname || row.owner.username }}</span>
+              <el-tag v-if="row.owner_id !== auth.user?.id && row.archived_by === auth.user?.id" type="warning" size="small" style="margin-left:6px">已转让</el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="archived_at" :label="$t('dashboard.archivedAt')" width="170" />
           <el-table-column :label="$t('common.actions')" width="120" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" size="small" @click="handleRestoreArchived(row)">{{ $t('dashboard.restoreDomain') }}</el-button>
+              <el-button v-if="row.owner_id === auth.user?.id" link type="primary" size="small" @click="handleRestoreArchived(row)">{{ $t('dashboard.restoreDomain') }}</el-button>
+              <el-tooltip v-else :content="'域名已转让给 '+getOwnerName(row)+'，无法由你恢复'" placement="top">
+                <el-button link type="info" size="small" disabled>{{ $t('dashboard.restoreDomain') }}</el-button>
+              </el-tooltip>
             </template>
           </el-table-column>
         </el-table>
@@ -673,6 +682,8 @@ const handleReturnSubdomain = async (data) => {
   ElMessage.success(t('dashboard.returnSuccess'))
   loadDomains()
 }
+
+const getOwnerName = (row) => row.owner?.nickname || row.owner?.username || `用户${row.owner_id}`
 
 const handleRestoreArchived = async (data) => {
   await restoreDomain(data.id)
