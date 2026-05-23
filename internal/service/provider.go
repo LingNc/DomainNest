@@ -258,6 +258,16 @@ func (s *ProviderService) GetDNSProvider(providerID uint64) (dns.Provider, error
 	return dns.Create(provider.ProviderType, provider.AccessKeyID, provider.AccessKeySecret, provider.Endpoint)
 }
 
+// GetDNSProviderArchived creates a dns.Provider from an archived (soft-deleted) provider record.
+// Used by getClientForNode as a fallback when a node's ArchivedProviderID is set.
+func (s *ProviderService) GetDNSProviderArchived(providerID uint64) (dns.Provider, error) {
+	var provider model.DNSProvider
+	if err := s.db.Unscoped().First(&provider, providerID).Error; err != nil {
+		return nil, errors.New("DNS服务商不存在")
+	}
+	return dns.Create(provider.ProviderType, provider.AccessKeyID, provider.AccessKeySecret, provider.Endpoint)
+}
+
 func extractHost(domain string) string {
 	parts := splitDomainParts(domain)
 	if len(parts) >= 2 {

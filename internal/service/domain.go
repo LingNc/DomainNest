@@ -336,6 +336,7 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 		ParentID:       &parentID,
 		OwnerID:        triggeredBy,
 		IsMaterialized: true,
+		ProviderID:     parent.ProviderID,
 	}
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {

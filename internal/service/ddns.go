@@ -45,7 +45,7 @@ func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 			// ArchivedProviderID below before walking up the parent chain.
 		}
 		if node.ArchivedProviderID != nil && s.providerService != nil {
-			client, err := s.providerService.GetDNSProvider(*node.ArchivedProviderID)
+			client, err := s.providerService.GetDNSProviderArchived(*node.ArchivedProviderID)
 			if err == nil {
 				return client, nil
 			}
