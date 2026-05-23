@@ -426,9 +426,13 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 		return errors.New("无法降级含有权限委托的节点")
 	}
 
-	// Check no provider binding
+	// Provider binding: allow demotion if provider was inherited from parent (materialized node).
+	// In that case the provider stays with the parent and we just clear it here.
 	if node.ProviderID != nil {
-		return errors.New("无法降级绑定了DNS提供商的节点")
+		if node.ParentID == nil {
+			return errors.New("无法降级绑定了DNS提供商的节点")
+		}
+		// Will be cleared during demotion — parent absorbs the provider relationship
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
@@ -444,6 +448,9 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 				"node_id":     parentID,
 				"host":        node.Host,
 				"own_node_id": nil,
+			}
+			if node.ProviderID != nil {
+				updates["provider_id"] = nil
 			}
 			if err := tx.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(updates).Error; err != nil {
 				return err
