@@ -222,6 +222,12 @@ export default {
     restoreDomain: 'Restore Domain',
     restoreSuccess: 'Domain restored',
   },
+  domain: {
+    archivedChildren: 'Archived Subdomains',
+    archivedDomain: 'Domain',
+    archivedAt: 'Archived At',
+    noArchivedChildren: 'No archived subdomains',
+  },
   domainDetail: {
     back: 'Back',
     dnsRecords: 'DNS Records',
@@ -482,6 +488,8 @@ export default {
     archivedDesc: 'The provider has been deleted. Records are preserved but cannot sync to cloud.',
     reactivate: 'Reactivate',
     reactivateSuccess: 'Domain reactivated',
+    confirmRestoreChild: 'Restore subdomain {domain}? It will become manageable again.',
+    restoreChildSuccess: 'Subdomain restored',
     source: 'Source',
     sourceProvider: 'Provider',
     sourcePlatform: 'Platform',

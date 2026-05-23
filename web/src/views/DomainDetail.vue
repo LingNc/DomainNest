@@ -390,6 +390,31 @@
           </el-table>
         </el-card>
       </el-tab-pane>
+
+      <!-- Archived Children Tab -->
+      <el-tab-pane v-if="!domain?.parent_id" name="archived-children">
+        <template #label>
+          <el-badge v-if="archivedChildren.length > 0" :value="archivedChildren.length" :max="99">
+            {{ $t('domain.archivedChildren') }}
+          </el-badge>
+          <span v-else>{{ $t('domain.archivedChildren') }}</span>
+        </template>
+        <el-card v-loading="archivedLoading">
+          <el-table v-if="archivedChildren.length > 0" :data="archivedChildren" stripe>
+            <el-table-column prop="full_domain" :label="$t('domain.archivedDomain')" min-width="160" />
+            <el-table-column :label="$t('owner')" min-width="120">
+              <template #default="{ row }">{{ row.owner?.username || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="archived_at" :label="$t('domain.archivedAt')" width="160" />
+            <el-table-column :label="$t('common.actions')" width="120" fixed="right">
+              <template #default="{ row }">
+                <el-button type="warning" size="small" @click="handleRestoreChild(row)">{{ $t('dashboard.restoreDomain') }}</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else :description="$t('domain.noArchivedChildren')" />
+        </el-card>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- grant permission dialog -->
@@ -761,7 +786,7 @@
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain } from '../api/domain'
+import { getDomain, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain, getArchivedChildren, restoreArchivedChild } from '../api/domain'
 import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag } from '../api/record'
 import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
@@ -873,6 +898,8 @@ const pendingCreateData = ref(null)
 // Archive state
 const archiveInfo = ref(null)
 const isProviderOwner = computed(() => archiveInfo.value?.is_provider_owner || false)
+const archivedChildren = ref([])
+const archivedLoading = ref(false)
 
 // Tree view & group tag state
 const recordViewMode = ref('flat')
@@ -1178,6 +1205,7 @@ const loadDomain = async () => {
 const loadData = async () => {
   await Promise.all([loadDomain(), loadRecords(), loadPermissions(), loadPendingRecords()])
   loadArchiveInfo()
+  loadArchivedChildren()
 }
 
 const loadArchiveInfo = async () => {
@@ -1186,6 +1214,32 @@ const loadArchiveInfo = async () => {
       const res = await getArchiveInfo(domainId)
       archiveInfo.value = res.data
     } catch { /* ignore */ }
+  }
+}
+
+const loadArchivedChildren = async () => {
+  if (domain.value?.parent_id) return
+  archivedLoading.value = true
+  try {
+    const res = await getArchivedChildren(domainId)
+    archivedChildren.value = res.data || []
+  } catch { archivedChildren.value = [] }
+  finally { archivedLoading.value = false }
+}
+
+const handleRestoreChild = async (child) => {
+  try {
+    await ElMessageBox.confirm(
+      t('domainDetail.confirmRestoreChild', { domain: child.full_domain }),
+      t('common.confirm'),
+      { type: 'warning' }
+    )
+    await restoreArchivedChild(domainId, child.id)
+    ElMessage.success(t('domainDetail.restoreChildSuccess'))
+    loadArchivedChildren()
+    loadDomain()
+  } catch (e) {
+    if (e !== 'cancel') showError(e.response?.data?.message || t('common.error'))
   }
 }
 

@@ -21,3 +21,6 @@ export const returnSubdomain = (id) => request.post(`/domains/${id}/return-to-cl
 
 export const getTransferredAway = () => request.get('/domains/transferred-away')
 export const getTransferHistory = (id) => request.get(`/domains/${id}/transfer-history`)
+
+export const getArchivedChildren = (id) => request.get(`/domains/${id}/archived-children`)
+export const restoreArchivedChild = (id, childId) => request.post(`/domains/${id}/archived-children/${childId}/restore`)
