@@ -21,7 +21,7 @@
         <div class="info-bar-right" v-if="domain.owner_id === auth.user?.id">
           <el-button size="small" type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
           <el-button size="small" type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
-          <el-button v-if="domain.is_materialized" size="small" type="warning" plain @click="handleDemoteNode">{{ $t('domainDetail.demoteNode') }}</el-button>
+          <el-button v-if="domain.is_materialized && domain.parent_id" size="small" type="warning" plain @click="handleDemoteNode">{{ $t('domainDetail.demoteNode') }}</el-button>
         </div>
       </div>
     </el-card>

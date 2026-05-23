@@ -267,9 +267,7 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 			})
 		}
 		// Claimer deleting: proceed to soft-delete below
-	} else if node.Status != "archived" {
-		return errors.New("子域名请先归档后再删除")
-	}
+	} // Subdomains: delete directly without archiving requirement
 
 	// Block if has active children only (archived children don't block deletion)
 	var childCount int64
