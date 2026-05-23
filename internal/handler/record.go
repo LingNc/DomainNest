@@ -265,6 +265,26 @@ func (h *RecordHandler) BatchTag(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "更新成功"})
 }
 
+func (h *RecordHandler) TransferRecords(c *gin.Context) {
+	userID := c.GetUint64("user_id")
+
+	var req struct {
+		RecordIDs    []uint64 `json:"record_ids" binding:"required,min=1"`
+		TargetNodeID uint64   `json:"target_node_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	if err := h.recordService.TransferRecords(req.RecordIDs, req.TargetNodeID, userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "转移成功"})
+}
+
 func (h *RecordHandler) TransferByHost(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)

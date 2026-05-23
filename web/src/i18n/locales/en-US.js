@@ -429,6 +429,8 @@ export default {
     triggerUser: 'Triggered By',
     batchTransfer: 'Batch Transfer',
     transfer: 'Transfer',
+    transferRecords: 'Transfer Records',
+    selectTargetNode: 'Select Target Domain',
     transferSubdomain: 'Transfer Subdomain',
     transferSubdomainTitle: 'Transfer Subdomain: {host}',
     transferHostsSummary: 'Hosts to transfer',

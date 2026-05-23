@@ -429,6 +429,8 @@ export default {
     triggerUser: '操作人',
     batchTransfer: '批量转让',
     transfer: '转让',
+    transferRecords: '转移记录',
+    selectTargetNode: '选择目标域名',
     transferSubdomain: '转让子域名',
     transferSubdomainTitle: '转让子域名: {host}',
     transferHostsSummary: '待转让的主机记录',

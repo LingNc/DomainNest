@@ -168,6 +168,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		records.POST("/batch-delete", recordHandler.BatchDelete)
 		records.POST("/batch-toggle", recordHandler.BatchToggle)
 		records.PUT("/batch-tag", recordHandler.BatchTag)
+		records.POST("/transfer", recordHandler.TransferRecords)
 	}
 
 	ddns := v1.Group("/ddns")

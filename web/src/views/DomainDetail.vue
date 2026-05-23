@@ -70,6 +70,7 @@
             <el-button size="small" type="warning" @click="handleBatchToggle(false)">{{ $t('domainDetail.batchDisable') }}</el-button>
             <el-button size="small" type="danger" @click="handleBatchDelete">{{ $t('domainDetail.batchDelete') }}</el-button>
             <el-button size="small" type="warning" @click="showBatchTransfer = true">{{ $t('domainDetail.batchTransfer') }}</el-button>
+            <el-button size="small" type="warning" @click="openTransferRecords">{{ $t('domainDetail.transferRecords') }}</el-button>
             <el-button size="small" type="primary" @click="openBatchGroupDialog">{{ $t('domainDetail.batchGroup') }}</el-button>
           </div>
 
@@ -780,6 +781,26 @@
         <el-button type="primary" @click="handleRenameGroup">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- transfer records dialog -->
+    <el-dialog v-model="showTransferRecords" :title="$t('domainDetail.transferRecords')" width="500px" destroy-on-close>
+      <el-form label-width="100px">
+        <el-form-item :label="$t('domainDetail.selectTargetNode')">
+          <el-tree
+            ref="transferNodeTreeRef"
+            :data="accessibleNodeTree"
+            node-key="id"
+            :props="{ label: 'full_domain', children: 'children' }"
+            highlight-current
+            @node-click="onTransferNodeSelect"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showTransferRecords = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="warning" :disabled="!transferTargetNodeId" @click="handleTransferRecords">{{ $t('domainDetail.transferRecords') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -788,7 +809,7 @@ import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomain, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain, getArchivedChildren, restoreArchivedChild } from '../api/domain'
-import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag } from '../api/record'
+import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag, transferRecords } from '../api/record'
 import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
@@ -874,6 +895,12 @@ const batchGroupForm = ref({ mode: 'new', group_tag: '' })
 // Rename group state
 const showRenameGroupDialog = ref(false)
 const renameGroupForm = ref({ old_tag: '', new_tag: '' })
+
+// Transfer records state
+const showTransferRecords = ref(false)
+const transferTargetNodeId = ref(null)
+const transferNodeTreeRef = ref(null)
+const accessibleNodeTree = ref([])
 
 // Existing groups for batch dialog
 const existingGroupNames = computed(() => {
@@ -1901,6 +1928,52 @@ const handleBatchTransfer = async () => {
   }
 }
 
+const openTransferRecords = async () => {
+  transferTargetNodeId.value = null
+  try {
+    const res = await getDomains()
+    accessibleNodeTree.value = buildNodeTree(res.data || [])
+  } catch { accessibleNodeTree.value = [] }
+  showTransferRecords.value = true
+}
+
+const buildNodeTree = (nodes) => {
+  const map = {}
+  const roots = []
+  for (const n of nodes) {
+    map[n.id] = { ...n, children: [] }
+  }
+  for (const n of nodes) {
+    if (n.parent_id && map[n.parent_id]) {
+      map[n.parent_id].children.push(map[n.id])
+    } else {
+      roots.push(map[n.id])
+    }
+  }
+  return roots
+}
+
+const onTransferNodeSelect = (data) => {
+  transferTargetNodeId.value = data.id
+}
+
+const handleTransferRecords = async () => {
+  if (!transferTargetNodeId.value) return
+  try {
+    await transferRecords({
+      record_ids: selectedIds.value,
+      target_node_id: transferTargetNodeId.value,
+    })
+    ElMessage.success(t('domainDetail.transferRecords') + ' ' + t('common.success'))
+    showTransferRecords.value = false
+    selectMode.value = false
+    selectedIds.value = []
+    selectedRows.value = []
+    await loadRecords()
+  } catch (e) {
+    showError(e.response?.data?.message || t('common.error'))
+  }
+}
 
 const openBatchGroupDialog = () => {
   batchGroupForm.value = { mode: existingGroupNames.value.length > 0 ? 'existing' : 'new', group_tag: '' }

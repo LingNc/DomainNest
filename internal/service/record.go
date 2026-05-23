@@ -381,6 +381,53 @@ func (s *RecordService) GetRecordByID(recordID uint64) (*model.DNSRecord, error)
 	return &record, nil
 }
 
+func (s *RecordService) TransferRecords(recordIDs []uint64, targetNodeID uint64, userID uint64) error {
+	var target model.DomainNode
+	if err := s.db.First(&target, targetNodeID).Error; err != nil {
+		return fmt.Errorf("目标节点不存在")
+	}
+	if err := s.perm.RequireLevel(userID, targetNodeID, 1); err != nil {
+		return err
+	}
+
+	for _, id := range recordIDs {
+		var record model.DNSRecord
+		if err := s.db.First(&record, id).Error; err != nil {
+			return fmt.Errorf("记录 %d 不存在", id)
+		}
+		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
+			return fmt.Errorf("无权访问记录 %d", id)
+		}
+
+		var source model.DomainNode
+		if err := s.db.First(&source, record.NodeID).Error; err != nil {
+			return fmt.Errorf("源节点不存在")
+		}
+
+		newHost := record.Host
+		if source.FullDomain == target.FullDomain {
+			newHost = record.Host
+		} else if strings.HasSuffix(target.FullDomain, "."+source.FullDomain) {
+			prefix := strings.TrimSuffix(target.FullDomain, "."+source.FullDomain)
+			newHost = prefix + "." + record.Host
+		} else if strings.HasSuffix(source.FullDomain, "."+target.FullDomain) {
+			suffix := strings.TrimSuffix(source.FullDomain, "."+target.FullDomain)
+			newHost = strings.TrimPrefix(record.Host, suffix+".")
+		}
+
+		if err := s.db.Model(&record).Updates(map[string]interface{}{
+			"node_id":      targetNodeID,
+			"host":         newHost,
+			"own_node_id": targetNodeID,
+			"sync_status": "pending",
+		}).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (s *RecordService) UpdateSyncStatus(recordID uint64, status, providerRecordID string) error {
 	updates := map[string]interface{}{
 		"sync_status": status,
