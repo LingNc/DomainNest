@@ -927,11 +927,10 @@ func (s *DomainService) RestoreArchivedChild(nodeID, callerID uint64) error {
 		return err
 	}
 
-	// Check provider exists if there is an archived provider
 	if node.ArchivedProviderID != nil {
 		var provider model.DNSProvider
 		if err := s.db.Unscoped().First(&provider, *node.ArchivedProviderID).Error; err != nil {
-			node.ArchivedProviderID = nil
+			return errors.New("该域名的DNS提供商已被删除，无法恢复，请重新添加服务商后再试")
 		}
 	}
 
