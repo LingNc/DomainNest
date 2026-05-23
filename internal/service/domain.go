@@ -244,14 +244,7 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 					}).Error; err != nil {
 					return fmt.Errorf("移入回收站失败: %w", err)
 				}
-				// Provider records: just disable sync
-				if err := tx.Model(&model.DNSRecord{}).
-					Where("node_id = ? AND deleted_at IS NULL AND source = 'provider'", nodeID).
-					Updates(map[string]interface{}{
-						"sync_status": "disabled",
-					}).Error; err != nil {
-					return fmt.Errorf("禁用同步失败: %w", err)
-				}
+				// Provider records: left untouched (external to the platform)
 				// Return domain to claimer, restore to active
 				claimerID := node.OwnerID
 				if node.ClaimerID != nil {
@@ -268,9 +261,9 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 		return errors.New("子域名请先归档后再删除")
 	}
 
-	// Block if has children (archived children must be explicitly deleted first)
+	// Block if has active children only (archived children don't block deletion)
 	var childCount int64
-	s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL", nodeID).Count(&childCount)
+	s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL AND status = 'active'", nodeID).Count(&childCount)
 	if childCount > 0 {
 		return errors.New("无法删除含有子节点的节点，请先删除所有子域名")
 	}
@@ -285,14 +278,6 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 				"sync_status": "disabled",
 			}).Error; err != nil {
 			return fmt.Errorf("移入回收站失败: %w", err)
-		}
-		// Provider records: just disable sync
-		if err := tx.Model(&model.DNSRecord{}).
-			Where("node_id = ? AND deleted_at IS NULL AND source = 'provider'", nodeID).
-			Updates(map[string]interface{}{
-				"sync_status": "disabled",
-			}).Error; err != nil {
-			return fmt.Errorf("禁用同步失败: %w", err)
 		}
 
 		// Soft-delete permission records
