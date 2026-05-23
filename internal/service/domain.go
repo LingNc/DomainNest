@@ -512,9 +512,6 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 				"host":        node.Host,
 				"own_node_id": nil,
 			}
-			if node.ProviderID != nil {
-				updates["provider_id"] = nil
-			}
 			if err := tx.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(updates).Error; err != nil {
 				return err
 			}
