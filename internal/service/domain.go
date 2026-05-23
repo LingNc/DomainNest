@@ -393,23 +393,6 @@ func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, trigg
 			return err
 		}
 
-		// Move child subdomain records (e.g., www.test1 where test1 is being materialized)
-		var childRecs []model.DNSRecord
-		if err := tx.Where("node_id = ? AND host LIKE ? AND deleted_at IS NULL", parentID, "%."+fullDomain).Find(&childRecs).Error; err != nil {
-			return err
-		}
-		for _, rec := range childRecs {
-			suffix := "." + fullDomain
-			newHost := rec.Host[:len(rec.Host)-len(suffix)]
-			if err := tx.Model(&rec).Updates(map[string]interface{}{
-				"node_id":     node.ID,
-				"host":        newHost,
-				"own_node_id": node.ID,
-			}).Error; err != nil {
-				return err
-			}
-		}
-
 		// Set materialized_from to first record ID
 		var firstRecord model.DNSRecord
 		if err := tx.Where("node_id = ? AND host = ? AND deleted_at IS NULL", node.ID, "@").
