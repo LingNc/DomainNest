@@ -235,11 +235,18 @@ func (h *DomainHandler) ConvertToNode(c *gin.Context) {
 	}
 
 	var req struct {
-		Host string `json:"host" binding:"required,min=1,max=64"`
+		Host         string `json:"host" binding:"required,min=1,max=64"`
+		TargetUserID uint64 `json:"target_user_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
+	}
+
+	// Default target user to caller
+	targetUserID := req.TargetUserID
+	if targetUserID == 0 {
+		targetUserID = userID
 	}
 
 	// Require write permission on the parent node
@@ -248,7 +255,7 @@ func (h *DomainHandler) ConvertToNode(c *gin.Context) {
 		return
 	}
 
-	node, err := h.domainService.MaterializeNode(parentID, req.Host, userID)
+	node, err := h.domainService.MaterializeOrRestore(parentID, req.Host, userID, targetUserID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return

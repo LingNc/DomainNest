@@ -302,9 +302,12 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	})
 }
 
-// MaterializeNode converts an implicit host under a parent node into an explicit DomainNode.
-// It is idempotent: if the node already exists, it returns the existing one.
-func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredBy uint64) (*model.DomainNode, error) {
+// MaterializeOrRestore attempts to materialize a subdomain node. If an archived node
+// exists for the same full_domain:
+//   - If targetUserID matches the archived node's owner → restore it and return
+//   - If targetUserID differs and no active node exists → hard-delete archived and proceed
+//   - If targetUserID differs but an active node exists → error "该子域名已被使用"
+func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, triggeredBy uint64, targetUserID uint64) (*model.DomainNode, error) {
 	var parent model.DomainNode
 	if err := s.db.First(&parent, parentID).Error; err != nil {
 		return nil, errors.New("父节点不存在")
@@ -312,13 +315,33 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 
 	fullDomain := host + "." + parent.FullDomain
 
-	// Idempotent: return existing if already materialized
+	// Check for existing node of any status
 	var existing model.DomainNode
 	if err := s.db.Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
 		if existing.Status == "archived" {
-			return nil, errors.New("子域名已存在于归档中")
+			// If target is the same owner → restore
+			if targetUserID == existing.OwnerID {
+				if err := s.RestoreArchivedChild(existing.ID, triggeredBy); err != nil {
+					return nil, err
+				}
+				// Reload the restored node
+				s.db.First(&existing, existing.ID)
+				return &existing, nil
+			}
+			// Different owner: check if any active node already exists
+			var activeCount int64
+			s.db.Model(&model.DomainNode{}).Where("full_domain = ? AND status = 'active' AND deleted_at IS NULL", fullDomain).Count(&activeCount)
+			if activeCount > 0 {
+				return nil, errors.New("该子域名已被使用")
+			}
+			// No active node → hard-delete the archived and proceed to create new
+			if err := s.db.Unscoped().Delete(&existing).Error; err != nil {
+				return nil, fmt.Errorf("删除归档节点失败: %w", err)
+			}
+		} else {
+			// Active node already exists
+			return &existing, nil
 		}
-		return &existing, nil
 	}
 
 	// Verify records with this host exist under the parent
@@ -332,7 +355,7 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 		Host:           host,
 		FullDomain:     fullDomain,
 		ParentID:       &parentID,
-		OwnerID:        triggeredBy,
+		OwnerID:        targetUserID,
 		IsMaterialized: true,
 		ProviderID:     parent.ProviderID,
 	}
@@ -387,6 +410,12 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 	})
 
 	return node, err
+}
+
+// MaterializeNode converts an implicit host under a parent node into an explicit DomainNode.
+// It is idempotent: if the node already exists, it returns the existing one.
+func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredBy uint64) (*model.DomainNode, error) {
+	return s.MaterializeOrRestore(parentID, host, triggeredBy, triggeredBy)
 }
 
 // DemoteNode converts an explicit materialized DomainNode back to an implicit subdomain.

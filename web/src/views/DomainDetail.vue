@@ -394,10 +394,7 @@
       <!-- Archived Children Tab -->
       <el-tab-pane v-if="!domain?.parent_id" name="archived-children">
         <template #label>
-          <el-badge v-if="archivedChildren.length > 0" :value="archivedChildren.length" :max="99">
-            {{ $t('domain.archivedChildren') }}
-          </el-badge>
-          <span v-else>{{ $t('domain.archivedChildren') }}</span>
+          {{ $t('domain.archivedChildren') }}
         </template>
         <el-card v-loading="archivedLoading">
           <el-table v-if="archivedChildren.length > 0" :data="archivedChildren" stripe>
