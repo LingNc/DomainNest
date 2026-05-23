@@ -87,6 +87,9 @@ func (h *RecordHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+	if req.Host == "" {
+		req.Host = "@"
+	}
 
 	record, err := h.recordService.CreateRecord(nodeID, userID, req.Host, req.RecordType, req.Value, req.TTL, req.Priority, req.Line, req.ProviderRecordID)
 	if err != nil {
@@ -128,6 +131,9 @@ func (h *RecordHandler) Update(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
+	}
+	if syncErr := h.ddnsService.SyncRecord(recordID); syncErr != nil {
+		h.recordService.UpdateSyncStatus(recordID, "failed", "")
 	}
 
 	middleware.LogOperation(h.db, userID, "update_record", "dns_record", &recordID,

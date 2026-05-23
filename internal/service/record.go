@@ -217,6 +217,15 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		syncStatus = "synced"
 	}
 
+	var existing model.DNSRecord
+	if err := s.db.Where("node_id = ? AND host = ? AND record_type = ? AND deleted_at IS NULL", nodeID, host, recordType).First(&existing).Error; err == nil {
+		if existing.SyncStatus == "failed" {
+			s.db.Unscoped().Delete(&existing)
+		} else {
+			return nil, errors.New("记录已存在")
+		}
+	}
+
 	record := &model.DNSRecord{
 		NodeID:           nodeID,
 		Host:             host,
