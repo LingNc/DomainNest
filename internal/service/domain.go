@@ -244,9 +244,17 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 		if userID != claimerID {
 			// Non-claimer deleting: return ownership to claimer, un-archive
 			return s.db.Transaction(func(tx *gorm.DB) error {
-				// Platform records: move to trash
+				// Platform records: trigger sync to delete from provider, then move to trash
 				if err := tx.Model(&model.DNSRecord{}).
-					Where("node_id = ? AND deleted_at IS NULL AND source = 'platform'", nodeID).
+					Where("node_id = ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id != ''", nodeID).
+					Updates(map[string]interface{}{
+						"sync_status": "pending",
+						"enabled":     false,
+					}).Error; err != nil {
+					return fmt.Errorf("标记待删除失败: %w", err)
+				}
+				if err := tx.Model(&model.DNSRecord{}).
+					Where("node_id = ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id = ''", nodeID).
 					Updates(map[string]interface{}{
 						"trashed_at":  now,
 						"deleted_at":  now,
@@ -277,9 +285,19 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Platform records: move to trash
+		// Platform records: move to trash, those with provider_record_id also trigger delete from provider
 		if err := tx.Model(&model.DNSRecord{}).
-			Where("node_id = ? AND deleted_at IS NULL AND source = 'platform'", nodeID).
+			Where("node_id = ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id != ''", nodeID).
+			Updates(map[string]interface{}{
+				"trashed_at":   now,
+				"deleted_at":   now,
+				"sync_status":  "pending",
+				"enabled":      false,
+			}).Error; err != nil {
+			return fmt.Errorf("移入回收站失败: %w", err)
+		}
+		if err := tx.Model(&model.DNSRecord{}).
+			Where("node_id = ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id = ''", nodeID).
 			Updates(map[string]interface{}{
 				"trashed_at":  now,
 				"deleted_at":  now,
