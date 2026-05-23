@@ -805,6 +805,14 @@ func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
 		return errors.New("域名未归档")
 	}
 
+	// Prevent restore if the provider was deleted (no fallback available)
+	if node.ArchivedProviderID != nil {
+		var provider model.DNSProvider
+		if err := s.db.First(&provider, *node.ArchivedProviderID).Error; err != nil {
+			return errors.New("该域名的DNS提供商已被删除，无法恢复，请重新添加服务商后再试")
+		}
+	}
+
 	// Collect ALL archived subtree nodes (regardless of owner)
 	var nodeIDs []uint64
 	s.db.Raw(`
@@ -842,12 +850,10 @@ func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
 	})
 }
 
-// GetArchivedDomains returns all archived domain nodes owned by the user,
-// as well as domains that the user transferred away but later got archived
-// by the current user (via ArchiveDomainTree).
+// GetArchivedDomains returns all archived domain nodes owned by the user.
 func (s *DomainService) GetArchivedDomains(userID uint64) ([]model.DomainNode, error) {
 	var nodes []model.DomainNode
-	err := s.db.Where("(owner_id = ? OR archived_by = ?) AND status = 'archived' AND deleted_at IS NULL", userID, userID).
+	err := s.db.Where("owner_id = ? AND status = 'archived' AND deleted_at IS NULL", userID).
 		Order("archived_at DESC").Find(&nodes).Error
 	return nodes, err
 }

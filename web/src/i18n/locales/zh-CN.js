@@ -704,6 +704,7 @@ export default {
     createRootDomain: '创建根域名',
     rootDomainCreated: '根域名创建成功',
     fullDomain: '完整域名',
+    owner: '所有者',
     currentOwner: '当前所有者',
     assignDomain: '分配域名',
     assignTo: '分配给',

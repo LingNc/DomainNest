@@ -704,6 +704,7 @@ export default {
     createRootDomain: 'Create Root Domain',
     rootDomainCreated: 'Root domain created successfully',
     fullDomain: 'Full Domain',
+    owner: 'Owner',
     currentOwner: 'Current Owner',
     assignDomain: 'Assign Domain',
     assignTo: 'Assign To',
