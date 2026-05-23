@@ -25,6 +25,16 @@ func (s *DomainService) SetRecordService(recordSvc *RecordService) {
 	s.recordSvc = recordSvc
 }
 
+// DomainConflictError carries the existing node's status when a domain already exists.
+type DomainConflictError struct {
+	Status string
+	Msg    string
+}
+
+func (e *DomainConflictError) Error() string {
+	return e.Msg
+}
+
 func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64) (*model.DomainNode, error) {
 	var parent model.DomainNode
 	if err := s.db.First(&parent, parentID).Error; err != nil {
@@ -39,7 +49,7 @@ func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64)
 
 	var existing model.DomainNode
 	if err := s.db.Preload("Owner").Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
-		return nil, fmt.Errorf("域名 %s 已存在，当前归属于用户 %s", existing.FullDomain, existing.Owner.Username)
+		return nil, &DomainConflictError{Status: existing.Status, Msg: fmt.Sprintf("域名 %s 已存在，当前归属于用户 %s", existing.FullDomain, existing.Owner.Username)}
 	}
 
 	node := &model.DomainNode{
@@ -305,6 +315,9 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 	// Idempotent: return existing if already materialized
 	var existing model.DomainNode
 	if err := s.db.Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
+		if existing.Status == "archived" {
+			return nil, errors.New("子域名已存在于归档中")
+		}
 		return &existing, nil
 	}
 
@@ -832,6 +845,71 @@ func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
 		}
 
 		return nil
+	})
+}
+
+// ListArchivedChildren returns all archived children under a root domain node.
+func (s *DomainService) ListArchivedChildren(rootNodeID, callerID uint64) ([]model.DomainNode, error) {
+	var root model.DomainNode
+	if err := s.db.First(&root, rootNodeID).Error; err != nil {
+		return nil, errors.New("节点不存在")
+	}
+
+	if err := s.perm.RequireLevel(callerID, rootNodeID, 4); err != nil {
+		return nil, err
+	}
+
+	var nodes []model.DomainNode
+	pattern := "%." + root.FullDomain
+	err := s.db.Where("status = 'archived' AND deleted_at IS NULL AND full_domain LIKE ?", pattern).
+		Preload("Owner").
+		Order("full_domain ASC").
+		Find(&nodes).Error
+	return nodes, err
+}
+
+// RestoreArchivedChild restores an archived child node to active status under a new root.
+func (s *DomainService) RestoreArchivedChild(nodeID, callerID uint64) error {
+	var node model.DomainNode
+	if err := s.db.First(&node, nodeID).Error; err != nil {
+		return errors.New("节点不存在")
+	}
+	if node.Status != "archived" {
+		return errors.New("节点未处于归档状态")
+	}
+
+	// Find root domain (same full_domain suffix, not archived)
+	var root model.DomainNode
+	err := s.db.Where("full_domain = ? AND status != 'archived' AND deleted_at IS NULL",
+		node.FullDomain[strings.Index(node.FullDomain, ".")+1:]).First(&root).Error
+	if err != nil {
+		return errors.New("未找到可用的根域名")
+	}
+
+	if err := s.perm.RequireLevel(callerID, root.ID, 4); err != nil {
+		return err
+	}
+
+	// Check provider exists if there is an archived provider
+	if node.ArchivedProviderID != nil {
+		var provider model.DNSProvider
+		if err := s.db.Unscoped().First(&provider, *node.ArchivedProviderID).Error; err != nil {
+			node.ArchivedProviderID = nil
+		}
+	}
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		updates := map[string]interface{}{
+			"status":               "active",
+			"parent_id":            &root.ID,
+			"archived_by":          0,
+			"archived_at":          nil,
+			"archived_provider_id": nil,
+		}
+		if node.ArchivedProviderID != nil {
+			updates["provider_id"] = *node.ArchivedProviderID
+		}
+		return tx.Model(&node).Updates(updates).Error
 	})
 }
 

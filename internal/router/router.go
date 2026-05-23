@@ -122,6 +122,8 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.POST("/batch/permissions", permissionHandler.BatchGrantMultiDomain)
 		domains.GET("/transferred-away", domainHandler.GetTransferredAway)
 		domains.GET("/archived", domainHandler.GetArchivedDomains)
+		domains.GET("/:id/archived-children", domainHandler.ListArchivedChildren)
+		domains.POST("/:id/archived-children/:childId/restore", domainHandler.RestoreArchivedChild)
 		domains.GET("/:id", domainHandler.Get)
 		domains.POST("/:id/transfer", domainHandler.Transfer)
 		domains.DELETE("/:id", domainHandler.Delete)

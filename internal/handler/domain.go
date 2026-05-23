@@ -529,6 +529,33 @@ func (h *DomainHandler) GetArchivedDomains(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": nodes})
 }
 
+func (h *DomainHandler) ListArchivedChildren(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	userID := c.GetUint64("user_id")
+
+	list, err := h.domainService.ListArchivedChildren(id, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": list})
+}
+
+func (h *DomainHandler) RestoreArchivedChild(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	childID, _ := strconv.ParseUint(c.Param("childId"), 10, 64)
+	userID := c.GetUint64("user_id")
+
+	err := h.domainService.RestoreArchivedChild(childID, userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "恢复成功"})
+}
+
 func (h *DomainHandler) ReturnSubdomain(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
