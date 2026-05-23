@@ -41,8 +41,10 @@ func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 			if err == nil {
 				return client, nil
 			}
-			// Provider ID exists but provider was deleted — still check
-			// ArchivedProviderID below before walking up the parent chain.
+			// Provider ID exists but provider not found via normal lookup — try archived
+			if archivedClient, err := s.providerService.GetDNSProviderArchived(*node.ProviderID); err == nil {
+				return archivedClient, nil
+			}
 		}
 		if node.ArchivedProviderID != nil && s.providerService != nil {
 			client, err := s.providerService.GetDNSProviderArchived(*node.ArchivedProviderID)
