@@ -543,7 +543,6 @@ func (h *DomainHandler) ListArchivedChildren(c *gin.Context) {
 }
 
 func (h *DomainHandler) RestoreArchivedChild(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	childID, _ := strconv.ParseUint(c.Param("childId"), 10, 64)
 	userID := c.GetUint64("user_id")
 
