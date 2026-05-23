@@ -94,6 +94,11 @@ func (h *RecordHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Trigger immediate sync for the newly created record
+	if syncErr := h.ddnsService.SyncRecord(record.ID); syncErr != nil {
+		h.recordService.UpdateSyncStatus(record.ID, "failed", "")
+	}
+
 	middleware.LogOperation(h.db, userID, "create_record", "dns_record", &record.ID,
 		map[string]interface{}{"host": record.Host, "type": record.RecordType, "value": record.Value}, c.ClientIP())
 
