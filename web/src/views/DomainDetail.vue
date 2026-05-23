@@ -397,7 +397,8 @@
           {{ $t('domain.archivedChildren') }}
         </template>
         <el-card v-loading="archivedLoading">
-          <el-table v-if="archivedChildren.length > 0" :data="archivedChildren" stripe>
+          <el-table v-if="archivedChildren.length > 0" ref="multipleTableRef" :data="archivedChildren" stripe>
+            <el-table-column type="selection" width="40" />
             <el-table-column prop="full_domain" :label="$t('domain.archivedDomain')" min-width="160" />
             <el-table-column :label="$t('owner')" min-width="120">
               <template #default="{ row }">{{ row.owner?.username || '-' }}</template>
@@ -409,6 +410,9 @@
               </template>
             </el-table-column>
           </el-table>
+          <div v-if="archivedChildren.length > 0" style="margin-bottom:12px">
+            <el-button type="primary" size="small" @click="handleBatchRestore">{{ $t('domain.batchRestore') }}</el-button>
+          </div>
           <el-empty v-else :description="$t('domain.noArchivedChildren')" />
         </el-card>
       </el-tab-pane>
@@ -897,6 +901,7 @@ const archiveInfo = ref(null)
 const isProviderOwner = computed(() => archiveInfo.value?.is_provider_owner || false)
 const archivedChildren = ref([])
 const archivedLoading = ref(false)
+const multipleTableRef = ref(null)
 
 // Tree view & group tag state
 const recordViewMode = ref('flat')
@@ -1232,6 +1237,27 @@ const handleRestoreChild = async (child) => {
       { type: 'warning' }
     )
     await restoreArchivedChild(domainId, child.id)
+    ElMessage.success(t('domainDetail.restoreChildSuccess'))
+    loadArchivedChildren()
+    loadDomain()
+  } catch (e) {
+    if (e !== 'cancel') showError(e.response?.data?.message || t('common.error'))
+  }
+}
+
+const handleBatchRestore = async () => {
+  const rows = multipleTableRef.value?.getSelectionRows() || []
+  if (rows.length === 0) {
+    ElMessage.warning(t('domainDetail.pleaseSelectRecords'))
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('domain.batchRestoreConfirm', { count: rows.length }),
+      t('common.confirm'),
+      { type: 'warning' }
+    )
+    await Promise.all(rows.map(row => restoreArchivedChild(domainId, row.id)))
     ElMessage.success(t('domainDetail.restoreChildSuccess'))
     loadArchivedChildren()
     loadDomain()

@@ -227,6 +227,8 @@ export default {
     archivedDomain: 'Domain',
     archivedAt: 'Archived At',
     noArchivedChildren: 'No archived subdomains',
+    batchRestore: 'Batch Restore',
+    batchRestoreConfirm: 'Confirm restoring N archived subdomains? They will be returned to their original owners.',
   },
   domainDetail: {
     back: 'Back',

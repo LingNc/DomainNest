@@ -227,6 +227,8 @@ export default {
     archivedDomain: '域名',
     archivedAt: '归档时间',
     noArchivedChildren: '暂无已归档子域名',
+    batchRestore: '批量恢复',
+    batchRestoreConfirm: '确认恢复 N 个已归档子域名？恢复后将归还给其原所有者。',
   },
   domainDetail: {
     back: '返回',
