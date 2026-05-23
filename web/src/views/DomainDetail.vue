@@ -397,6 +397,9 @@
           {{ $t('domain.archivedChildren') }}
         </template>
         <el-card v-loading="archivedLoading">
+          <div v-if="archivedChildren.length > 0 && multipleTableRef.getSelectionRows().length > 0" style="margin-bottom:12px;display:flex;justify-content:flex-start">
+            <el-button type="primary" size="small" @click="handleBatchRestore">{{ $t('domain.batchRestore') }}</el-button>
+          </div>
           <el-table v-if="archivedChildren.length > 0" ref="multipleTableRef" :data="archivedChildren" stripe>
             <el-table-column type="selection" width="40" />
             <el-table-column prop="full_domain" :label="$t('domain.archivedDomain')" min-width="160" />
@@ -410,9 +413,6 @@
               </template>
             </el-table-column>
           </el-table>
-          <div v-if="archivedChildren.length > 0" style="margin-bottom:12px">
-            <el-button type="primary" size="small" @click="handleBatchRestore">{{ $t('domain.batchRestore') }}</el-button>
-          </div>
           <el-empty v-else :description="$t('domain.noArchivedChildren')" />
         </el-card>
       </el-tab-pane>
