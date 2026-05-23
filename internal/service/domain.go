@@ -335,6 +335,7 @@ func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, trigg
 				return nil, errors.New("该子域名已被使用")
 			}
 			// No active node → hard-delete the archived and proceed to create new
+			s.db.Unscoped().Delete(&model.DNSRecord{}, "node_id = ?", existing.ID)
 			if err := s.db.Unscoped().Delete(&existing).Error; err != nil {
 				return nil, fmt.Errorf("删除归档节点失败: %w", err)
 			}
@@ -945,6 +946,8 @@ func (s *DomainService) RestoreArchivedChild(nodeID, callerID uint64) error {
 		if node.ArchivedProviderID != nil {
 			updates["provider_id"] = *node.ArchivedProviderID
 		}
+		tx.Where("node_id = ? AND host = ? AND deleted_at IS NULL", root.ID, node.Host).
+			Delete(&model.DNSRecord{})
 		return tx.Model(&node).Updates(updates).Error
 	})
 }
