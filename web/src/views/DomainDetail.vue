@@ -2022,18 +2022,56 @@ const openTransferRecords = async () => {
   transferTargetNodeId.value = null
   try {
     const res = await getDomains()
-    accessibleNodeTree.value = buildNodeTree(res.data || [])
-  } catch { accessibleNodeTree.value = [] }
+    console.log('transfer getDomains result:', res.data)
+    const currentId = Number(domainId)
+    // Collect all descendant node IDs of the current node (to exclude them)
+    const descendantIds = new Set()
+    const collectDescendants = (nodes, parentId) => {
+      for (const n of nodes) {
+        if (n.parent_id === parentId) {
+          descendantIds.add(n.id)
+          if (n.children && n.children.length > 0) {
+            collectDescendants(n.children, n.id)
+          }
+        }
+      }
+    }
+    collectDescendants(res.data || [], currentId)
+    descendantIds.add(currentId)
+
+    const filtered = (res.data || []).filter(n => {
+      // Exclude current node and all its descendants
+      if (descendantIds.has(n.id)) return false
+      return true
+    })
+    console.log('transfer filtered:', filtered.map(n => ({ id: n.id, full_domain: n.full_domain, parent_id: n.parent_id })))
+    accessibleNodeTree.value = buildNodeTree(filtered)
+  } catch (e) {
+    console.error('transfer getDomains failed:', e)
+    accessibleNodeTree.value = []
+  }
   showTransferRecords.value = true
 }
 
 const buildNodeTree = (nodes) => {
+  // First flatten any nested children into a flat list with parent_id
+  const flat = []
+  const flatten = (list, parentId) => {
+    for (const n of list) {
+      flat.push({ ...n, parent_id: parentId })
+      if (n.children && n.children.length > 0) {
+        flatten(n.children, n.id)
+      }
+    }
+  }
+  flatten(nodes, null)
+
   const map = {}
   const roots = []
-  for (const n of nodes) {
+  for (const n of flat) {
     map[n.id] = { ...n, children: [] }
   }
-  for (const n of nodes) {
+  for (const n of flat) {
     if (n.parent_id && map[n.parent_id]) {
       map[n.parent_id].children.push(map[n.id])
     } else {
