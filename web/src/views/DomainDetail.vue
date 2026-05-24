@@ -104,9 +104,10 @@
             v-loading="loading"
             @selection-change="handleSelectionChange"
             :row-class-name="treeRowClass"
+            style="table-layout:auto"
           >
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.virtual" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="240">
+            <el-table-column prop="host" :label="$t('domainDetail.host')" show-overflow-tooltip>
               <template #default="{ row }">
                 <template v-if="row.isGroup">
                   <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
