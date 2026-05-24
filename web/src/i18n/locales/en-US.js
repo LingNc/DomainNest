@@ -525,6 +525,8 @@ export default {
     deleteGroup: 'Delete Group',
     deleteGroupConfirm: 'Delete group "{group}"? Records in this group will become ungrouped.',
     deleteGroupSuccess: 'Group deleted successfully',
+    removeFromGroup: 'Remove from Group',
+    batchRemoveGroupSuccess: 'Group removed successfully',
     moveToExistingGroup: 'Move to Existing Group',
     createNewGroup: 'Create New Group',
     selectGroup: 'Select Group',

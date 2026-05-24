@@ -47,7 +47,7 @@
               <template #default="{ data }">
                 <div class="tree-node" :class="{ archived: data.status === 'archived' }">
                   <span class="domain-name">
-                    <el-avatar v-if="data.owner?.avatar" :src="data.owner.avatar" :size="20" style="margin-right:4px" />
+                    <el-avatar v-if="auth.user?.id === data.owner_id ? data.owner?.avatar : (data.claimer?.avatar || data.owner?.avatar)" :src="auth.user?.id === data.owner_id ? data.owner?.avatar : (data.claimer?.avatar || data.owner?.avatar)" :size="20" style="margin-right:4px" />
                     {{ data.full_domain }}
                   </span>
                   <el-tag v-if="data.is_materialized" size="small" type="success">{{ $t('domainDetail.materialized') }}</el-tag>

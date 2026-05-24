@@ -252,6 +252,9 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 						}
 					}
 				}
+				// Duplicate confirmed but couldn't list - treat as synced with empty provider_record_id
+				s.recordService.UpdateSyncStatus(record.ID, "synced", "")
+				return nil
 			}
 			s.recordService.UpdateSyncStatus(record.ID, "failed", "")
 			return err

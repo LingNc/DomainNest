@@ -525,6 +525,8 @@ export default {
     deleteGroup: '删除分组',
     deleteGroupConfirm: '确定要删除分组「{group}」吗？该分组下的记录将变为未分组状态。',
     deleteGroupSuccess: '分组已删除',
+    removeFromGroup: '取消分组',
+    batchRemoveGroupSuccess: '已取消分组',
     moveToExistingGroup: '移入已有分组',
     createNewGroup: '创建新分组',
     selectGroup: '选择分组',

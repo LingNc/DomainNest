@@ -82,7 +82,9 @@ func (s *DomainService) GetUserNodes(userID uint64) ([]model.DomainNode, error) 
 			return db.Where("id IN ?", accessibleIDs)
 		}).
 		Preload("Owner").
-		Preload("Claimer", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname") }).
+		Preload("Claimer", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id,username,nickname,avatar")
+		}).
 		Find(&nodes).Error
 
 	if err != nil {
@@ -122,7 +124,10 @@ func (s *DomainService) GetNode(nodeID, userID uint64) (*model.DomainNode, error
 	}
 
 	var node model.DomainNode
-	if err := s.db.Preload("Children").Preload("Records").Preload("Owner", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).First(&node, nodeID).Error; err != nil {
+	if err := s.db.Preload("Children").Preload("Records").
+		Preload("Owner", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).
+		Preload("Claimer", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).
+		First(&node, nodeID).Error; err != nil {
 		return nil, errors.New("域名节点不存在")
 	}
 	return &node, nil

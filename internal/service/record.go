@@ -670,10 +670,7 @@ func (s *RecordService) RenameGroupTag(nodeID, userID uint64, oldTag, newTag str
 func (s *RecordService) BatchSetOwnNode(recordIDs []uint64, nodeID uint64) error {
 	return s.db.Model(&model.DNSRecord{}).
 		Where("id IN ? AND deleted_at IS NULL", recordIDs).
-		Updates(map[string]interface{}{
-			"own_node_id": nodeID,
-			"sync_status": "pending",
-		}).Error
+		Update("source", "platform").Error
 }
 
 func (s *RecordService) DeleteGroupTag(nodeID, userID uint64, tag string) (int64, error) {

@@ -71,7 +71,7 @@
             <el-button size="small" type="danger" @click="handleBatchDelete">{{ $t('domainDetail.batchDelete') }}</el-button>
             <el-button size="small" type="warning" @click="showBatchTransfer = true">{{ $t('domainDetail.batchTransfer') }}</el-button>
             <el-button size="small" type="warning" @click="openTransferRecords">{{ $t('domainDetail.transferRecords') }}</el-button>
-            <el-button size="small" type="primary" @click="handleBatchTakeover">{{ $t('domainDetail.batchTakeover') }}</el-button>
+            <el-button v-if="canBatchTakeover" size="small" type="primary" @click="handleBatchTakeover">{{ $t('domainDetail.batchTakeover') }}</el-button>
             <el-button size="small" type="primary" @click="openBatchGroupDialog">{{ $t('domainDetail.batchGroup') }}</el-button>
           </div>
 
@@ -755,16 +755,17 @@
       <el-form>
         <el-form-item :label="$t('domainDetail.groupTag')">
           <el-radio-group v-model="batchGroupForm.mode">
+            <el-radio v-if="selectedIds.length > 0" value="remove">{{ $t('domainDetail.removeFromGroup') }}</el-radio>
             <el-radio v-if="selectedIds.length > 0" value="existing">{{ $t('domainDetail.moveToExistingGroup') }}</el-radio>
             <el-radio value="new">{{ $t('domainDetail.createNewGroup') }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="batchGroupForm.mode === 'existing'" :label="$t('domainDetail.selectGroup')">
+        <el-form-item v-if="batchGroupForm.mode === 'existing' && batchGroupForm.mode !== 'remove'" :label="$t('domainDetail.selectGroup')">
           <el-select v-model="batchGroupForm.group_tag" :placeholder="$t('domainDetail.selectGroup')" style="width:100%">
             <el-option v-for="g in existingGroupNames" :key="g" :label="g" :value="g" />
           </el-select>
         </el-form-item>
-        <el-form-item v-else :label="$t('domainDetail.groupTag')">
+        <el-form-item v-else-if="batchGroupForm.mode !== 'remove'" :label="$t('domainDetail.groupTag')">
           <el-input v-model="batchGroupForm.group_tag" :placeholder="$t('domainDetail.groupTagPlaceholder')" />
         </el-form-item>
       </el-form>
@@ -816,7 +817,7 @@
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain, getArchivedChildren, restoreArchivedChild } from '../api/domain'
+import { getDomain, getDomains, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain, getArchivedChildren, restoreArchivedChild } from '../api/domain'
 import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag, transferRecords, takeoverRecords } from '../api/record'
 import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
@@ -920,6 +921,12 @@ const existingGroupNames = computed(() => {
   }
   return [...names].sort()
 })
+
+// Batch takeover: only show button when some selected records are adoptable
+const canBatchTakeover = computed(() => selectedIds.value.some(id => {
+  const r = records.value.find(rec => rec.id === id)
+  return r && r.source === 'provider' && !r.own_node_id
+}))
 
 // Flat view pagination
 const flatPage = ref(1)
@@ -1600,7 +1607,7 @@ const handleBatchTakeover = async () => {
       t('common.confirm'),
       { type: 'warning' }
     )
-    await takeoverRecords(selectedIds.value, domainId)
+    await takeoverRecords(selectedIds.value, Number(domainId))
     ElMessage.success(t('domainDetail.takeoverSuccess'))
     selectedIds.value = []
     loadRecords()
@@ -2064,6 +2071,13 @@ const openBatchGroupDialog = () => {
 }
 
 const handleBatchGroup = async () => {
+  if (batchGroupForm.value.mode === 'remove') {
+    await batchTagRecords({ record_ids: selectedIds.value, group_tag: '' })
+    ElMessage.success(t('domainDetail.batchRemoveGroupSuccess'))
+    showBatchGroupDialog.value = false
+    await loadRecords()
+    return
+  }
   if (!batchGroupForm.value.group_tag) {
     ElMessage.warning(t('domainDetail.groupTagRequired'))
     return
