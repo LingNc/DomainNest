@@ -406,7 +406,7 @@
           <el-table v-if="archivedChildren.length > 0" ref="multipleTableRef" :data="archivedChildren" stripe>
             <el-table-column type="selection" width="40" />
             <el-table-column prop="full_domain" :label="$t('domain.archivedDomain')" min-width="160" />
-            <el-table-column :label="$t('owner')" min-width="120">
+            <el-table-column :label="$t('providers.owner')" min-width="120">
               <template #default="{ row }">{{ row.owner?.username || '-' }}</template>
             </el-table-column>
             <el-table-column prop="archived_at" :label="$t('domain.archivedAt')" width="160" />

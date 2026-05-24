@@ -44,6 +44,8 @@ export default {
     copied: 'Copied',
     saved: 'Saved successfully',
     error: 'Error',
+    noData: 'No data',
+    success: 'Success',
   },
   login: {
     subtitle: 'Domain Allocation & DDNS Management',

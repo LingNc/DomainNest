@@ -44,6 +44,8 @@ export default {
     copied: '已复制',
     saved: '保存成功',
     error: '错误',
+    noData: '暂无数据',
+    success: '成功',
   },
   login: {
     subtitle: '域名分配与 DDNS 管理系统',
