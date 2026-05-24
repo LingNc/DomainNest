@@ -535,6 +535,9 @@ export default {
     sortTTL: 'TTL',
     sortPriority: 'Priority',
     sortSource: 'Source',
+    batchTakeover: 'Batch Takeover',
+    confirmTakeover: 'Confirm taking over {count} records?',
+    takeoverSuccess: 'Takeover successful',
   },
   settings: {
     title: 'System Settings',

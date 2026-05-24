@@ -535,6 +535,9 @@ export default {
     sortTTL: 'TTL',
     sortPriority: '优先级',
     sortSource: '来源',
+    batchTakeover: '批量接管',
+    confirmTakeover: '确认接管 {count} 条记录？',
+    takeoverSuccess: '接管成功',
   },
   settings: {
     title: '系统设置',
