@@ -56,7 +56,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	emailVerifySvc := service.NewEmailVerifyService(db, emailService)
 	authHandler := handler.NewAuthHandler(authService, emailService, emailVerifySvc, settingsService, notificationService, db, &cfg.JWT)
 	domainHandler := handler.NewDomainHandler(domainService, permissionService, notificationService, db)
-	recordHandler := handler.NewRecordHandler(recordService, providerService, ddnsService, notificationService, db)
+	recordHandler := handler.NewRecordHandler(recordService, providerService, ddnsService, notificationService, permissionService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
 	adminHandler := handler.NewAdminHandler(db, domainService, notificationService, inviteCodeService)
 	notificationHandler := handler.NewNotificationHandler(messageService)
@@ -169,6 +169,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		records.POST("/batch-toggle", recordHandler.BatchToggle)
 		records.PUT("/batch-tag", recordHandler.BatchTag)
 		records.POST("/transfer", recordHandler.TransferRecords)
+		records.POST("/batch-own-node", recordHandler.BatchSetOwnNode)
 	}
 
 	ddns := v1.Group("/ddns")

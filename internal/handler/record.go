@@ -22,11 +22,12 @@ type RecordHandler struct {
 	providerService *service.ProviderService
 	ddnsService     *service.DDNSService
 	notifSvc        *notification.Service
+	permService     *service.PermissionService
 	db              *gorm.DB
 }
 
-func NewRecordHandler(recordService *service.RecordService, providerService *service.ProviderService, ddnsService *service.DDNSService, notifSvc *notification.Service, db *gorm.DB) *RecordHandler {
-	return &RecordHandler{recordService: recordService, providerService: providerService, ddnsService: ddnsService, notifSvc: notifSvc, db: db}
+func NewRecordHandler(recordService *service.RecordService, providerService *service.ProviderService, ddnsService *service.DDNSService, notifSvc *notification.Service, permService *service.PermissionService, db *gorm.DB) *RecordHandler {
+	return &RecordHandler{recordService: recordService, providerService: providerService, ddnsService: ddnsService, notifSvc: notifSvc, permService: permService, db: db}
 }
 
 func (h *RecordHandler) List(c *gin.Context) {
@@ -263,6 +264,27 @@ func (h *RecordHandler) BatchTag(c *gin.Context) {
 		map[string]interface{}{"ids": req.RecordIDs, "group_tag": req.GroupTag}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "更新成功"})
+}
+
+func (h *RecordHandler) BatchSetOwnNode(c *gin.Context) {
+	var req struct {
+		RecordIDs []uint64 `json:"record_ids" binding:"required,min=1"`
+		NodeID    uint64   `json:"node_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	userID := c.GetUint64("user_id")
+	if err := h.permService.RequireLevel(userID, req.NodeID, 1); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		return
+	}
+	if err := h.recordService.BatchSetOwnNode(req.RecordIDs, req.NodeID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "接管成功"})
 }
 
 func (h *RecordHandler) TransferRecords(c *gin.Context) {
