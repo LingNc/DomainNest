@@ -97,17 +97,20 @@
           <!-- tree view -->
           <el-table
             v-if="recordViewMode === 'tree'"
+            ref="treeTableRef"
             :data="treeRecords"
             row-key="treeId"
             :tree-props="{ children: 'children' }"
             stripe
             v-loading="loading"
             @selection-change="handleSelectionChange"
+            @tree-node-expand="onTreeNodeExpand"
+            @tree-node-collapse="onTreeNodeCollapse"
             :row-class-name="treeRowClass"
             class="tree-records-table"
           >
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.virtual" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="140" show-overflow-tooltip>
+            <el-table-column prop="host" :label="$t('domainDetail.host')" :style="{ minWidth: hostColumnMinWidth + 'px' }" show-overflow-tooltip>
               <template #default="{ row }">
                 <template v-if="row.isGroup">
                   <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
@@ -935,6 +938,55 @@ const archivedChildren = ref([])
 const archivedLoading = ref(false)
 const multipleTableRef = ref(null)
 
+// Tree column auto-width
+const treeTableRef = ref(null)
+const hostColumnMinWidth = ref(140)
+
+let widthUpdatePending = null
+
+const scheduleUpdateHostColumnWidth = () => {
+  if (widthUpdatePending) cancelAnimationFrame(widthUpdatePending)
+  widthUpdatePending = requestAnimationFrame(() => {
+    nextTick(() => {
+      updateHostColumnWidth()
+    })
+  })
+}
+
+const updateHostColumnWidth = () => {
+  if (!treeTableRef.value) return
+  const wrapper = treeTableRef.value.$el.querySelector('.el-table__body-wrapper')
+  if (!wrapper) return
+  const rows = wrapper.querySelectorAll('tbody tr.el-table__row')
+  if (rows.length === 0) {
+    hostColumnMinWidth.value = 140
+    return
+  }
+  let maxWidth = 140
+  for (const row of rows) {
+    if (row.style.display === 'none') continue
+    const cells = row.querySelectorAll('td')
+    if (cells.length > 1) {
+      const cell = cells[1]
+      const display = getComputedStyle(cell).display
+      if (display !== 'none') {
+        const w = cell.scrollWidth
+        if (w > maxWidth) maxWidth = w
+      }
+    }
+  }
+  hostColumnMinWidth.value = Math.max(140, maxWidth + 24)
+  widthUpdatePending = null
+}
+
+const onTreeNodeExpand = () => {
+  scheduleUpdateHostColumnWidth()
+}
+
+const onTreeNodeCollapse = () => {
+  scheduleUpdateHostColumnWidth()
+}
+
 // Tree view & group tag state
 const recordViewMode = ref('flat')
 const collapsedGroups = reactive(new Set())
@@ -1127,6 +1179,12 @@ const treeRecords = computed(() => {
 })
 
 const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
+
+watch(() => treeRecords.value, () => {
+  nextTick(() => {
+    scheduleUpdateHostColumnWidth()
+  })
+}, { deep: true })
 
 const groupedFlatRecords = computed(() => {
   const recs = [...sortedRecords.value]
@@ -2213,10 +2271,6 @@ onMounted(() => {
 /* Tree view: allow table to size columns based on content */
 .tree-records-table :deep(.el-table__body) {
   table-layout: auto !important;
-}
-.tree-records-table :deep(.el-table__body td .cell) {
-  width: auto;
-  min-width: 0;
 }
 .group-header-content {
   display: flex;
