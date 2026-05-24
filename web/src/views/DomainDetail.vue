@@ -106,7 +106,7 @@
             :row-class-name="treeRowClass"
           >
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.virtual" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="160" show-overflow-tooltip>
+            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="140" show-overflow-tooltip>
               <template #default="{ row }">
                 <template v-if="row.isGroup">
                   <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
