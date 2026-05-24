@@ -71,6 +71,7 @@
             <el-button size="small" type="danger" @click="handleBatchDelete">{{ $t('domainDetail.batchDelete') }}</el-button>
             <el-button size="small" type="warning" @click="showBatchTransfer = true">{{ $t('domainDetail.batchTransfer') }}</el-button>
             <el-button size="small" type="warning" @click="openTransferRecords">{{ $t('domainDetail.transferRecords') }}</el-button>
+            <el-button size="small" type="primary" @click="handleBatchTakeover">{{ $t('domainDetail.batchTakeover') }}</el-button>
             <el-button size="small" type="primary" @click="openBatchGroupDialog">{{ $t('domainDetail.batchGroup') }}</el-button>
           </div>
 
@@ -105,7 +106,7 @@
             :row-class-name="treeRowClass"
           >
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.virtual" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="140">
+            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="240">
               <template #default="{ row }">
                 <template v-if="row.isGroup">
                   <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
@@ -786,7 +787,10 @@
     <el-dialog v-model="showTransferRecords" :title="$t('domainDetail.transferRecords')" width="500px" destroy-on-close>
       <el-form label-width="100px">
         <el-form-item :label="$t('domainDetail.selectTargetNode')">
-          <el-tree
+          <div v-if="accessibleNodeTree.length === 0" style="display:flex;justify-content:center;align-items:center;min-height:200px">
+            <span style="color:#909399">{{ $t('common.noData') }}</span>
+          </div>
+          <el-tree v-else
             ref="transferNodeTreeRef"
             :data="accessibleNodeTree"
             node-key="id"
@@ -809,7 +813,7 @@ import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomain, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain, getArchivedChildren, restoreArchivedChild } from '../api/domain'
-import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag, transferRecords } from '../api/record'
+import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag, transferRecords, takeoverRecords } from '../api/record'
 import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
 import { getPermissions, grantPermission, batchGrantPermission, revokePermission, acceptReturn, getPendingRecords, assignPendingRecords, deletePendingRecords } from '../api/permission'
@@ -1524,6 +1528,26 @@ const handleBatchToggle = async (enabled) => {
   await batchToggleRecords(selectedIds.value, enabled)
   ElMessage.success(enabled ? t('domainDetail.batchEnableSuccess') : t('domainDetail.batchDisableSuccess'))
   loadRecords()
+}
+
+const handleBatchTakeover = async () => {
+  if (selectedIds.value.length === 0) {
+    ElMessage.warning(t('domainDetail.pleaseSelectRecords'))
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('domainDetail.confirmTakeover', { count: selectedIds.value.length }),
+      t('common.confirm'),
+      { type: 'warning' }
+    )
+    await takeoverRecords(selectedIds.value, domainId)
+    ElMessage.success(t('domainDetail.takeoverSuccess'))
+    selectedIds.value = []
+    loadRecords()
+  } catch (e) {
+    if (e !== 'cancel') showError(e?.response?.data?.message || t('common.error'))
+  }
 }
 
 const handleExport = async (format) => {
