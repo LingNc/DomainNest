@@ -12,9 +12,10 @@ import (
 )
 
 type DomainService struct {
-	db         *gorm.DB
-	perm       *PermissionService
-	recordSvc  *RecordService
+	db             *gorm.DB
+	perm           *PermissionService
+	recordSvc      *RecordService
+	providerSvc    *ProviderService
 }
 
 func NewDomainService(db *gorm.DB, perm *PermissionService) *DomainService {
@@ -23,6 +24,10 @@ func NewDomainService(db *gorm.DB, perm *PermissionService) *DomainService {
 
 func (s *DomainService) SetRecordService(recordSvc *RecordService) {
 	s.recordSvc = recordSvc
+}
+
+func (s *DomainService) SetProviderService(providerSvc *ProviderService) {
+	s.providerSvc = providerSvc
 }
 
 // DomainConflictError carries the existing node's status when a domain already exists.
@@ -225,6 +230,103 @@ func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) (*Tra
 	return &result, err
 }
 
+// deleteProviderRecords deletes platform-managed DNS records from their providers
+// and marks them as trashed. Returns a map of providerID -> error for any failures.
+func (s *DomainService) deleteProviderRecords(nodeIDs []uint64) error {
+	if s.providerSvc == nil {
+		return nil
+	}
+
+	// Collect all platform records with provider_record_id across all nodes
+	var records []model.DNSRecord
+	if err := s.db.Unscoped().
+		Where("node_id IN ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id != ''", nodeIDs).
+		Find(&records).Error; err != nil {
+		return fmt.Errorf("查询DNS记录失败: %w", err)
+	}
+
+	if len(records) == 0 {
+		return nil
+	}
+
+	// Group records by provider_id (node's ProviderID)
+	type providerKey struct {
+		providerID uint64
+		recordIDs  []uint64
+		prIDs      []string
+	}
+	byProvider := make(map[uint64]*providerKey)
+
+	for _, rec := range records {
+		var node model.DomainNode
+		if err := s.db.Unscoped().First(&node, rec.NodeID).Error; err != nil {
+			continue
+		}
+		var pid uint64
+		if node.ProviderID != nil {
+			pid = *node.ProviderID
+		} else if node.ArchivedProviderID != nil {
+			pid = *node.ArchivedProviderID
+		}
+		if pid == 0 {
+			continue
+		}
+
+		if _, ok := byProvider[pid]; !ok {
+			byProvider[pid] = &providerKey{providerID: pid}
+		}
+		byProvider[pid].recordIDs = append(byProvider[pid].recordIDs, rec.ID)
+		byProvider[pid].prIDs = append(byProvider[pid].prIDs, rec.ProviderRecordID)
+	}
+
+	// Delete from each provider
+	for pid, pk := range byProvider {
+		client, err := s.providerSvc.GetDNSProvider(pid)
+		if err != nil {
+			// Try archived provider lookup
+			client, err = s.providerSvc.GetDNSProviderArchived(pid)
+		}
+		if err != nil {
+			continue // skip, record stays as-is
+		}
+		for _, prID := range pk.prIDs {
+			client.DeleteRecord(prID)
+		}
+	}
+
+	// Mark all as trashed
+	now := time.Now()
+	return s.db.Unscoped().Model(&model.DNSRecord{}).
+		Where("id IN ?", func() []uint64 {
+			ids := make([]uint64, 0)
+			for _, pk := range byProvider {
+				ids = append(ids, pk.recordIDs...)
+			}
+			return ids
+		}()).
+		Updates(map[string]interface{}{
+			"trashed_at":         now,
+			"deleted_at":         now,
+			"provider_record_id": "",
+			"sync_status":        "trashed",
+		}).Error
+}
+
+// getSubtreeNodeIDs returns all node IDs in the subtree rooted at nodeID (including nodeID itself).
+func (s *DomainService) getSubtreeNodeIDs(nodeID uint64) ([]uint64, error) {
+	var nodeIDs []uint64
+	err := s.db.Raw(`
+		WITH RECURSIVE subtree AS (
+			SELECT id FROM domain_nodes WHERE id = ? AND deleted_at IS NULL
+			UNION ALL
+			SELECT dn.id FROM domain_nodes dn
+			JOIN subtree s ON dn.parent_id = s.id
+			WHERE dn.deleted_at IS NULL
+		) SELECT id FROM subtree
+	`, nodeID).Scan(&nodeIDs).Error
+	return nodeIDs, err
+}
+
 func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
@@ -289,24 +391,20 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 		return errors.New("无法删除含有子节点的节点，请先删除所有子域名")
 	}
 
+	// Delete platform records from provider before soft-delete (sync worker won't process deleted nodes)
+	if err := s.deleteProviderRecords([]uint64{nodeID}); err != nil {
+		return fmt.Errorf("删除DNS记录失败: %w", err)
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Platform records: move to trash, those with provider_record_id also trigger delete from provider
+		// Mark all platform records as trashed (provider already deleted above)
 		if err := tx.Model(&model.DNSRecord{}).
-			Where("node_id = ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id != ''", nodeID).
+			Where("node_id = ? AND deleted_at IS NULL AND source = 'platform'", nodeID).
 			Updates(map[string]interface{}{
 				"trashed_at":   now,
 				"deleted_at":   now,
-				"sync_status":  "pending",
-				"enabled":      false,
-			}).Error; err != nil {
-			return fmt.Errorf("移入回收站失败: %w", err)
-		}
-		if err := tx.Model(&model.DNSRecord{}).
-			Where("node_id = ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id = ''", nodeID).
-			Updates(map[string]interface{}{
-				"trashed_at":  now,
-				"deleted_at":  now,
-				"sync_status": "disabled",
+				"sync_status":  "trashed",
+				"provider_record_id": "",
 			}).Error; err != nil {
 			return fmt.Errorf("移入回收站失败: %w", err)
 		}
@@ -817,9 +915,26 @@ func (s *DomainService) ArchiveDomainTree(nodeID, userID uint64) error {
 		) SELECT id FROM subtree
 	`, nodeID).Scan(&nodeIDs)
 
+	// Delete provider records before archiving (uses archived_provider_id for lookup)
+	if err := s.deleteProviderRecords(nodeIDs); err != nil {
+		return fmt.Errorf("删除DNS记录失败: %w", err)
+	}
+
 	now := time.Now()
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Mark all platform records in subtree as trashed
+		if err := tx.Model(&model.DNSRecord{}).
+			Where("node_id IN ? AND deleted_at IS NULL AND source = 'platform'", nodeIDs).
+			Updates(map[string]interface{}{
+				"trashed_at":         now,
+				"deleted_at":         now,
+				"sync_status":        "archived",
+				"provider_record_id": "",
+			}).Error; err != nil {
+			return fmt.Errorf("归档DNS记录失败: %w", err)
+		}
+
 		// Archive all nodes in subtree
 		if err := tx.Model(&model.DomainNode{}).
 			Where("id IN ?", nodeIDs).

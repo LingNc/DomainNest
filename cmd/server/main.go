@@ -50,6 +50,7 @@ func main() {
 	domainService := service.NewDomainService(db, permissionService)
 	recordService := service.NewRecordService(db, permissionService, domainService)
 	providerService := service.NewProviderService(db)
+	domainService.SetProviderService(providerService)
 	ddnsService := service.NewDDNSService(db, domainService, recordService, providerService)
 	settingsService := service.NewSettingsService(db)
 	emailService := service.NewEmailServiceWithSettings(&cfg.SMTP, settingsService)
