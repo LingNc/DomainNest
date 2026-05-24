@@ -2209,6 +2209,10 @@ onMounted(() => {
 :deep(.group-header-row:hover td) {
   background-color: #e8f5d6 !important;
 }
+/* Tree view: allow table to size columns based on content */
+.domain-detail-tabs :deep(.el-table__body) {
+  table-layout: auto !important;
+}
 .group-header-content {
   display: flex;
   align-items: center;
