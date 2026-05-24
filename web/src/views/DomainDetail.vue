@@ -104,6 +104,7 @@
             v-loading="loading"
             @selection-change="handleSelectionChange"
             :row-class-name="treeRowClass"
+            class="tree-records-table"
           >
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.virtual" />
             <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="140" show-overflow-tooltip>
@@ -210,7 +211,7 @@
           <!-- flat view -->
           <el-table v-else :data="paginatedFlatRecords" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id" :row-class-name="flatRowClass" :span-method="flatSpanMethod">
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.isGroupHeader" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="180">
+            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="140">
               <template #default="{ row }">
                 <template v-if="row.isGroupHeader">
                   <div class="group-header-content">
@@ -2210,8 +2211,12 @@ onMounted(() => {
   background-color: #e8f5d6 !important;
 }
 /* Tree view: allow table to size columns based on content */
-.domain-detail-tabs :deep(.el-table__body) {
+.tree-records-table :deep(.el-table__body) {
   table-layout: auto !important;
+}
+.tree-records-table :deep(.el-table__body td .cell) {
+  width: auto;
+  min-width: 0;
 }
 .group-header-content {
   display: flex;
