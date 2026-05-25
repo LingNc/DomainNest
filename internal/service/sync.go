@@ -94,6 +94,7 @@ func (s *SyncService) processBatch() {
 		if err != nil {
 			s.handleSyncFailure(&records[i], err)
 		} else {
+			s.db.Model(&model.DNSRecord{}).Where("id = ?", recordID).Update("sync_status", "synced")
 			s.db.Create(&model.SyncLog{
 				RecordID:   recordID,
 				Action:     "sync",
@@ -152,6 +153,7 @@ func (s *SyncService) ManualSync(recordIDs []uint64) (synced int, failed int) {
 			s.handleSyncFailure(&records[i], err)
 		} else {
 			synced++
+			s.db.Model(&model.DNSRecord{}).Where("id = ?", records[i].ID).Update("sync_status", "synced")
 			s.db.Create(&model.SyncLog{
 				RecordID:   records[i].ID,
 				Action:     "sync",
