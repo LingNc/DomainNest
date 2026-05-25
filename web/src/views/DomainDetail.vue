@@ -1707,7 +1707,7 @@ const handleRetrySync = async (id) => {
 
 const handleSyncNow = async (id) => {
   const res = await syncRecord(id)
-  const result = res.data?.data
+  const result = res.data
   if (result?.status === 'failed') {
     ElMessage.error(result.error || t('domainDetail.syncFailed'))
   } else {
