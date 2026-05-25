@@ -410,6 +410,10 @@ func (s *RecordService) TransferRecords(recordIDs []uint64, targetNodeID uint64,
 			return fmt.Errorf("源节点不存在")
 		}
 
+		if record.Host == "@" {
+			return errors.New("根域名记录（@）不能被转移")
+		}
+
 		// Target must be a parent or child of source (source is a subdomain of target, or vice versa)
 		isUpward := strings.HasSuffix(source.FullDomain, "."+target.FullDomain)
 		isDownward := strings.HasSuffix(target.FullDomain, "."+source.FullDomain)

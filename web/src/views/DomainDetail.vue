@@ -793,7 +793,7 @@
       <div class="transfer-dialog-body">
         <el-input
           v-model="transferSearchKeyword"
-          :placeholder="'搜索域名...'"
+          :placeholder="$t('domainDetail.searchDomain')"
           prefix-icon="Search"
           clearable
           style="margin-bottom:12px"
@@ -817,15 +817,15 @@
           <template #default="{ data }">
             <div class="transfer-node">
               <span class="transfer-node-name">{{ data.full_domain }}</span>
-              <el-tag v-if="data.is_materialized" size="small" type="success" style="margin-left:6px">materialized</el-tag>
-              <el-tag v-if="data.status === 'archived'" size="small" type="warning" style="margin-left:6px">archived</el-tag>
+              <el-tag v-if="data.is_materialized" size="small" type="success" style="margin-left:6px">{{ $t('domainDetail.materialized') }}</el-tag>
+              <el-tag v-if="data.status === 'archived'" size="small" type="warning" style="margin-left:6px">{{ $t('domainDetail.archived') }}</el-tag>
             </div>
           </template>
         </el-tree>
       </div>
       <template #footer>
         <el-button @click="showTransferRecords = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="warning" :disabled="!transferTargetNodeId" @click="handleTransferRecords">{{ $t('domainDetail.transferRecords') }}</el-button>
+        <el-button type="warning" :disabled="!transferTargetNodeId || !canTransfer" @click="handleTransferRecords">{{ $t('domainDetail.transferRecords') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -1727,11 +1727,16 @@ const handleAdopt = async (id) => {
 }
 
 const handleTransfer = async () => {
-  await ElMessageBox.confirm(t('domainDetail.confirmTransferMsg'), t('domainDetail.confirmTransfer'), { type: 'warning' })
-  await transferDomain(domainId, transferForm.value)
-  ElMessage.success(t('domainDetail.transferSuccess'))
-  showTransfer.value = false
-  router.push('/dashboard')
+  try {
+    await ElMessageBox.confirm(t('domainDetail.confirmTransferMsg'), t('domainDetail.confirmTransfer'), { type: 'warning' })
+    await transferDomain(domainId, transferForm.value)
+    ElMessage.success(t('domainDetail.transferSuccess'))
+    showTransfer.value = false
+    router.push('/dashboard')
+  } catch (e) {
+    if (e === 'cancel') return
+    showError(e.response?.data?.message || t('domainDetail.transferFailed'), { skipErrorToast: true })
+  }
 }
 
 const handleDeleteDomain = async () => {
@@ -2103,11 +2108,30 @@ const buildNodeTree = (nodes) => {
 }
 
 const onTransferNodeSelect = (data) => {
+  if (data.id === domainId) {
+    ElMessage.error(t('domainDetail.cannotTransferToSelf') || '不能转移给自己')
+    return
+  }
   transferTargetNodeId.value = data.id
 }
 
+const canTransfer = computed(() => {
+  if (!transferTargetNodeId.value) return false
+  return !selectedIds.value.some(id => {
+    const r = records.value.find(rec => rec.id === id)
+    return r && r.host === '@'
+  })
+})
+
 const handleTransferRecords = async () => {
   if (!transferTargetNodeId.value) return
+  if (selectedIds.value.some(id => {
+    const r = records.value.find(rec => rec.id === id)
+    return r && r.host === '@'
+  })) {
+    ElMessage.error(t('domainDetail.cannotTransferRootRecord'))
+    return
+  }
   try {
     await transferRecords({
       record_ids: selectedIds.value,
@@ -2120,7 +2144,7 @@ const handleTransferRecords = async () => {
     selectedRows.value = []
     await loadRecords()
   } catch (e) {
-    showError(e.response?.data?.message || t('common.error'))
+    showError(e.response?.data?.message || t('common.error'), { skipErrorToast: true })
   }
 }
 
