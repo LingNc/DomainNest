@@ -496,6 +496,26 @@ func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, trigg
 			return err
 		}
 
+		// Transfer all sub-domain records (host starting with <host>.)
+		prefix := host + "."
+		var subRecords []model.DNSRecord
+		if err := tx.Where("node_id = ? AND host LIKE ? AND deleted_at IS NULL", parentID, prefix+"%").
+			Find(&subRecords).Error; err != nil {
+			return err
+		}
+
+		for _, rec := range subRecords {
+			newHost := strings.TrimPrefix(rec.Host, prefix)
+			if err := tx.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(map[string]interface{}{
+				"node_id":     node.ID,
+				"host":        newHost,
+				"own_node_id": node.ID,
+				"sync_status": "pending",
+			}).Error; err != nil {
+				return err
+			}
+		}
+
 		// Set materialized_from to first record ID
 		var firstRecord model.DNSRecord
 		if err := tx.Where("node_id = ? AND host = ? AND deleted_at IS NULL", node.ID, "@").
