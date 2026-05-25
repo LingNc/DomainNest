@@ -959,7 +959,7 @@ const pendingCreateData = ref(null)
 // Archive state
 const archiveInfo = ref(null)
 const isProviderOwner = computed(() => archiveInfo.value?.is_provider_owner || false)
-const canSyncFromProvider = computed(() => !!domain.value?.provider_id)
+const canSyncFromProvider = computed(() => !!domain.value?.provider_id && !domain.value?.parent_id)
 const archivedChildren = ref([])
 const archivedLoading = ref(false)
 const multipleTableRef = ref(null)
@@ -973,9 +973,11 @@ let widthUpdatePending = null
 const scheduleUpdateHostColumnWidth = () => {
   if (widthUpdatePending) cancelAnimationFrame(widthUpdatePending)
   widthUpdatePending = requestAnimationFrame(() => {
-    nextTick(() => {
-      updateHostColumnWidth()
-    })
+    setTimeout(() => {
+      nextTick(() => {
+        updateHostColumnWidth()
+      })
+    }, 100) // delay to ensure DOM is fully rendered after tree data changes
   })
 }
 
@@ -985,23 +987,31 @@ const updateHostColumnWidth = () => {
   if (!wrapper) return
   const rows = wrapper.querySelectorAll('tbody tr.el-table__row')
   if (rows.length === 0) {
-    hostColumnMinWidth.value = 140
+    hostColumnMinWidth.value = 180
     return
   }
-  let maxWidth = 140
+  let maxWidth = 180
   for (const row of rows) {
     if (row.style.display === 'none') continue
     const cells = row.querySelectorAll('td')
     if (cells.length > 1) {
       const cell = cells[1]
-      const display = getComputedStyle(cell).display
-      if (display !== 'none') {
-        const w = cell.scrollWidth
-        if (w > maxWidth) maxWidth = w
-      }
+      if (cell.offsetWidth === 0) continue
+      // Measure actual text width by creating a temporary span
+      const span = document.createElement('span')
+      span.style.visibility = 'hidden'
+      span.style.position = 'absolute'
+      span.style.whiteSpace = 'nowrap'
+      span.style.font = getComputedStyle(cell.querySelector('span') || cell).font
+      span.textContent = cell.textContent
+      document.body.appendChild(span)
+      const textWidth = span.getBoundingClientRect().width
+      document.body.removeChild(span)
+      const w = textWidth + 48 // padding + icon space
+      if (w > maxWidth) maxWidth = w
     }
   }
-  hostColumnMinWidth.value = Math.max(140, maxWidth + 24)
+  hostColumnMinWidth.value = Math.max(180, maxWidth + 24)
   widthUpdatePending = null
 }
 

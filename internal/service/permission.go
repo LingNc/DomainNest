@@ -472,7 +472,10 @@ func (s *PermissionService) GetUserPermissions(userID uint64) ([]model.DomainPer
 // OwnedDomainIDs returns all domain IDs owned by the user.
 func (s *PermissionService) OwnedDomainIDs(userID uint64) ([]uint64, error) {
 	var nodes []model.DomainNode
-	if err := s.db.Where("owner_id = ?", userID).Select("id").Find(&nodes).Error; err != nil {
+	// Explicitly include all nodes regardless of is_materialized status.
+	// Use Unscoped() + manual deleted_at check to ensure we get all owned nodes
+	// even if GORM has any internal scoping applied.
+	if err := s.db.Unscoped().Where("owner_id = ? AND deleted_at IS NULL", userID).Select("id").Find(&nodes).Error; err != nil {
 		return nil, err
 	}
 	ids := make([]uint64, len(nodes))

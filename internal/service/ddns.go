@@ -282,8 +282,11 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 				s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
 				return nil
 			}
-			s.recordService.UpdateSyncStatus(record.ID, "failed", record.ProviderRecordID)
-			return err
+			// Record no longer exists on provider (e.g., DomainRecordNotBelongToUser).
+			// Clear ProviderRecordID so next sync will create it fresh.
+			s.recordService.UpdateSyncStatus(record.ID, "pending", "")
+			s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
+			return nil
 		}
 		s.recordService.UpdateSyncStatus(record.ID, "synced", record.ProviderRecordID)
 	} else {
