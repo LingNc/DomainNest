@@ -97,9 +97,15 @@ func (s *DomainService) GetUserNodes(userID uint64) ([]model.DomainNode, error) 
 	}
 
 	// Populate RecordsCount using permission-filtered record count
+	// Also count for preloaded children (they are not in nodes array)
 	for i := range nodes {
 		cnt, _ := s.recordSvc.CountAccessibleRecords(nodes[i].ID, userID)
 		nodes[i].RecordsCount = cnt
+		// Count for children
+		for j := range nodes[i].Children {
+			childCnt, _ := s.recordSvc.CountAccessibleRecords(nodes[i].Children[j].ID, userID)
+			nodes[i].Children[j].RecordsCount = childCnt
+		}
 	}
 
 	var roots []model.DomainNode
