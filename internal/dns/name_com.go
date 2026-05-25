@@ -103,7 +103,7 @@ func (p *NameComProvider) AddRecord(domainName, rr, recordType, value string, tt
 	return fmt.Sprintf("%d", result.ID), nil
 }
 
-func (p *NameComProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *NameComProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	payload := map[string]interface{}{
 		"host":   rr,
 		"type":   recordType,

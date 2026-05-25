@@ -59,8 +59,8 @@ func (p *AliyunProvider) AddRecord(domainName, rr, recordType, value string, ttl
 	return p.client.AddRecord(domainName, rr, recordType, value, ttl, priority)
 }
 
-func (p *AliyunProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
-	return p.client.UpdateRecord(recordID, rr, recordType, value, ttl, priority)
+func (p *AliyunProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+	return p.client.UpdateRecord(domainName, recordID, rr, recordType, value, ttl, priority)
 }
 
 func (p *AliyunProvider) DeleteRecord(recordID string) error {

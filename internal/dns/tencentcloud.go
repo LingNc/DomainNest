@@ -196,7 +196,7 @@ func (p *tencentCloudProvider) AddRecord(domainName, rr, recordType, value strin
 	return strconv.FormatInt(resp.Response.Record.RecordId, 10), nil
 }
 
-func (p *tencentCloudProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *tencentCloudProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	id, err := strconv.ParseInt(recordID, 10, 64)
 	if err != nil {
 		return fmt.Errorf("tencentcloud: invalid record ID: %s", recordID)

@@ -97,7 +97,7 @@ func (p *RainyunProvider) AddRecord(domainName, rr, recordType, value string, tt
 	return rr + "/" + recordType, nil
 }
 
-func (p *RainyunProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *RainyunProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	payload := map[string]interface{}{
 		"host":      rr,
 		"line":      "DEFAULT",

@@ -110,7 +110,7 @@ func (p *DnslaProvider) AddRecord(domainName, rr, recordType, value string, ttl 
 	return result.Data.ID, nil
 }
 
-func (p *DnslaProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *DnslaProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	typeInt := 1
 	if recordType == "AAAA" {
 		typeInt = 28

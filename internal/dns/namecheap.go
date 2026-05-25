@@ -230,7 +230,7 @@ func (p *NamecheapProvider) AddRecord(domainName, rr, recordType, value string, 
 
 // UpdateRecord updates an existing DNS record in Namecheap.
 // recordID format: "domain|hostID|name"
-func (p *NamecheapProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *NamecheapProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	domain, hostID, _, err := parseNamecheapRecordID(recordID)
 	if err != nil {
 		return err

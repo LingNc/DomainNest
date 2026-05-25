@@ -104,7 +104,7 @@ func (p *ClouDNSProvider) AddRecord(domainName, rr, recordType, value string, tt
 	return result.Data, nil
 }
 
-func (p *ClouDNSProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *ClouDNSProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	params := p.baseParams()
 	params.Set("record-id", recordID)
 	params.Set("host", rr)

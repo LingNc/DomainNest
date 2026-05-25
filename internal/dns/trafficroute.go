@@ -130,7 +130,7 @@ func (p *TrafficRouteProvider) AddRecord(domainName, rr, recordType, value strin
 	return result.Result.RecordID, nil
 }
 
-func (p *TrafficRouteProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *TrafficRouteProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	payload := map[string]interface{}{
 		"RecordId": recordID,
 		"Host":     rr,

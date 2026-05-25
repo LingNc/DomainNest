@@ -220,7 +220,7 @@ func (p *PorkbunProvider) AddRecord(domainName, rr, recordType, value string, tt
 
 // UpdateRecord updates an existing DNS record in Porkbun.
 // recordID format: "domain|recordID"
-func (p *PorkbunProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *PorkbunProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	domain, pbID, err := parsePorkbunRecordID(recordID)
 	if err != nil {
 		return err

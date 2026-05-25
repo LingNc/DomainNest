@@ -61,7 +61,7 @@ func (e *DuplicateRecordError) Error() string {
 	return "record already exists: " + e.RecordID
 }
 
-func (c *Client) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (c *Client) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	req := &alidns.UpdateDomainRecordRequest{
 		RecordId: dara.String(recordID),
 		RR:       dara.String(rr),
@@ -78,7 +78,7 @@ func (c *Client) UpdateRecord(recordID, rr, recordType, value string, ttl int64,
 		// DomainRecordDuplicate means a record with the same key fields already exists.
 		// Find the existing record and return DuplicateRecordError so the caller can handle it.
 		if strings.Contains(err.Error(), "DomainRecordDuplicate") {
-			id, findErr := c.findExistingRecordID("", rr, recordType, value)
+			id, findErr := c.findExistingRecordID(domainName, rr, recordType, value)
 			if findErr == nil {
 				return &DuplicateRecordError{RecordID: id}
 			}

@@ -113,7 +113,7 @@ func (p *GcoreProvider) AddRecord(domainName, rr, recordType, value string, ttl 
 	return recordName + "/" + recordType, nil
 }
 
-func (p *GcoreProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *GcoreProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	payload := map[string]interface{}{
 		"ttl": int(ttl),
 		"resource_records": []map[string]interface{}{

@@ -110,7 +110,7 @@ func (p *BaiduCloudProvider) AddRecord(domainName, rr, recordType, value string,
 	return strconv.FormatUint(uint64(result.RecordId), 10), nil
 }
 
-func (p *BaiduCloudProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *BaiduCloudProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	id, _ := strconv.ParseUint(recordID, 10, 64)
 	payload := map[string]interface{}{
 		"recordId": uint(id),

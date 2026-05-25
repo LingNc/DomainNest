@@ -110,7 +110,7 @@ func (p *TnethkProvider) AddRecord(domainName, rr, recordType, value string, ttl
 	return strconv.Itoa(result.Id), nil
 }
 
-func (p *TnethkProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *TnethkProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	params := map[string]string{
 		"Id":     recordID,
 		"Domain": rr,

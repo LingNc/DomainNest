@@ -131,7 +131,7 @@ func (p *AliesaProvider) AddRecord(domainName, rr, recordType, value string, ttl
 	return strconv.FormatInt(result.RecordId, 10), nil
 }
 
-func (p *AliesaProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *AliesaProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	params := url.Values{}
 	params.Set("Action", "UpdateRecord")
 	params.Set("RecordId", recordID)

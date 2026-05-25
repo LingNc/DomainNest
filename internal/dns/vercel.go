@@ -110,7 +110,7 @@ func (p *VercelProvider) AddRecord(domainName, rr, recordType, value string, ttl
 	return result.Record.ID, nil
 }
 
-func (p *VercelProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *VercelProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	ttlInt := int(ttl)
 	if ttlInt < 60 {
 		ttlInt = 60

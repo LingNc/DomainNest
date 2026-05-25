@@ -120,7 +120,7 @@ func (p *EdgeOneProvider) AddRecord(domainName, rr, recordType, value string, tt
 	return result.Response.RecordId, nil
 }
 
-func (p *EdgeOneProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *EdgeOneProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	payload := fmt.Sprintf(`{"RecordId":"%s","Type":"%s","Name":"%s","Content":"%s","TTL":%d}`,
 		recordID, recordType, rr, value, ttl)
 	return p.request("ModifyDnsRecords", payload, nil)

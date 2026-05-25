@@ -169,7 +169,7 @@ func (p *NameSiloProvider) AddRecord(domainName, rr, recordType, value string, t
 
 // UpdateRecord updates an existing DNS record in NameSilo.
 // recordID format: "domain|namesiloRecordID"
-func (p *NameSiloProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *NameSiloProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	domain, nsID, err := parseNameSiloRecordID(recordID)
 	if err != nil {
 		return err

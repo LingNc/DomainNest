@@ -108,7 +108,7 @@ func (p *NSOneProvider) AddRecord(domainName, rr, recordType, value string, ttl 
 	return fullDomain + "/" + recordType, nil
 }
 
-func (p *NSOneProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *NSOneProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	// recordID format: "domain/type"
 	payload := nsoneRecordRequest{
 		Answers: [][]string{{value}},

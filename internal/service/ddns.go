@@ -165,7 +165,7 @@ func (s *DDNSService) updateRecord(record *model.DNSRecord, rootDomain, rrForAli
 	}
 
 	if record.ProviderRecordID != "" {
-		err := client.UpdateRecord(record.ProviderRecordID, rrForAliyun, record.RecordType, ip, int64(ttl), priority)
+		err := client.UpdateRecord(rootDomain, record.ProviderRecordID, rrForAliyun, record.RecordType, ip, int64(ttl), priority)
 		if err != nil {
 			var dupErr *aliyun.DuplicateRecordError
 			if errors.As(err, &dupErr) {
@@ -243,7 +243,7 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 	}
 
 	if record.ProviderRecordID != "" {
-		err := client.UpdateRecord(record.ProviderRecordID, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
+		err := client.UpdateRecord(rootDomain, record.ProviderRecordID, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
 		if err != nil {
 			var dupErr *aliyun.DuplicateRecordError
 			if errors.As(err, &dupErr) {

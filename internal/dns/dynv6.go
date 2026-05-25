@@ -103,7 +103,7 @@ func (p *Dynv6Provider) AddRecord(domainName, rr, recordType, value string, ttl 
 	return fmt.Sprintf("%d", result.ID), nil
 }
 
-func (p *Dynv6Provider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *Dynv6Provider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	payload := map[string]interface{}{
 		"name": rr,
 		"type": recordType,

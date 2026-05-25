@@ -177,7 +177,7 @@ func (p *huaweiCloudProvider) AddRecord(domainName, rr, recordType, value string
 	return resp.ID, nil
 }
 
-func (p *huaweiCloudProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *huaweiCloudProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	zoneID, err := p.findRecordZone(recordID)
 	if err != nil {
 		return fmt.Errorf("huaweicloud: update record: %w", err)

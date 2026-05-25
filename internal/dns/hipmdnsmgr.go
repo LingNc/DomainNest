@@ -134,7 +134,7 @@ func (p *HiPMDnsMgrProvider) AddRecord(domainName, rr, recordType, value string,
 	return fmt.Sprintf("%d/%s", domainID, rr), nil
 }
 
-func (p *HiPMDnsMgrProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *HiPMDnsMgrProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	// recordID format: "domainID/recordID"
 	parts := splitRecordID(recordID)
 	if len(parts) < 2 {

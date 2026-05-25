@@ -89,7 +89,7 @@ func (p *SpaceshipProvider) AddRecord(domainName, rr, recordType, value string, 
 	return rr + "/" + recordType + "/" + value, nil
 }
 
-func (p *SpaceshipProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *SpaceshipProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	// Spaceship uses delete + create for updates
 	return fmt.Errorf("spaceship: use DeleteRecord + AddRecord for updates")
 }

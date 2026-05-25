@@ -14,7 +14,7 @@ type Provider interface {
 	AddRecord(domainName, rr, recordType, value string, ttl int64, priority *int64) (string, error)
 
 	// UpdateRecord updates an existing DNS record by its provider-specific ID.
-	UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error
+	UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error
 
 	// DeleteRecord deletes a DNS record by its provider-specific ID.
 	DeleteRecord(recordID string) error

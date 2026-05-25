@@ -174,7 +174,7 @@ func (p *GoDaddyProvider) AddRecord(domainName, rr, recordType, value string, tt
 
 // UpdateRecord updates an existing DNS record in GoDaddy.
 // recordID format: "domain|TYPE/NAME"
-func (p *GoDaddyProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *GoDaddyProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	domain, origType, origName, err := parseGodaddyRecordID(recordID)
 	if err != nil {
 		return err

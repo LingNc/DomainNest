@@ -72,7 +72,7 @@ func (p *DynadotProvider) AddRecord(domainName, rr, recordType, value string, tt
 	return domainName + "/" + rr, nil
 }
 
-func (p *DynadotProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *DynadotProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	// For Dynadot, update is the same as add (it's a DDNS set operation).
 	_, err := p.AddRecord(recordID, rr, recordType, value, ttl, priority)
 	return err

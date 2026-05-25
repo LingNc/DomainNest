@@ -187,7 +187,7 @@ func (p *cloudflareProvider) AddRecord(domainName, rr, recordType, value string,
 	return "", nil
 }
 
-func (p *cloudflareProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *cloudflareProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	// We need the zone ID. The recordID alone isn't enough for Cloudflare.
 	// We'll search across zones to find the record.
 	zoneID, name, err := p.findRecordZone(recordID, rr)

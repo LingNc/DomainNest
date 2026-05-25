@@ -109,7 +109,7 @@ func (p *NowcnProvider) AddRecord(domainName, rr, recordType, value string, ttl 
 	return strconv.Itoa(result.Id), nil
 }
 
-func (p *NowcnProvider) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
+func (p *NowcnProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	params := map[string]string{
 		"Id":     recordID,
 		"Domain": rr,
