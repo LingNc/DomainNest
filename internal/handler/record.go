@@ -671,6 +671,10 @@ func (h *RecordHandler) SyncNow(c *gin.Context) {
 
 	syncErr := h.ddnsService.SyncRecord(recordID)
 
+	// Reload record to get updated sync_status after DDNSService.SyncRecord
+	var updatedRecord model.DNSRecord
+	h.db.First(&updatedRecord, recordID)
+
 	// Create sync log entry
 	status := "success"
 	errMsg := ""
@@ -699,9 +703,9 @@ func (h *RecordHandler) SyncNow(c *gin.Context) {
 				}
 			}()
 		}
-		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"status": "failed", "error": syncErr.Error()}})
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"status": "failed", "error": syncErr.Error(), "sync_status": updatedRecord.SyncStatus}})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"status": "success"}})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"status": "success", "sync_status": updatedRecord.SyncStatus}})
 }

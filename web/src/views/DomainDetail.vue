@@ -1713,7 +1713,13 @@ const handleSyncNow = async (id) => {
   } else {
     ElMessage.success(t('domainDetail.syncNowSuccess'))
   }
-  loadRecords()
+  // If sync_status was returned, use it to update the specific record in place
+  if (result?.sync_status) {
+    const rec = records.value.find(r => r.id === id)
+    if (rec) rec.sync_status = result.sync_status
+  } else {
+    loadRecords()
+  }
 }
 
 const handleAdopt = async (id) => {
