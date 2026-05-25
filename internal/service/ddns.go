@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"domainnest/internal/aliyun"
 	"domainnest/internal/dns"
 	"domainnest/internal/model"
 
@@ -166,6 +167,17 @@ func (s *DDNSService) updateRecord(record *model.DNSRecord, rootDomain, rrForAli
 	if record.ProviderRecordID != "" {
 		err := client.UpdateRecord(record.ProviderRecordID, rrForAliyun, record.RecordType, ip, int64(ttl), priority)
 		if err != nil {
+			var dupErr *aliyun.DuplicateRecordError
+			if errors.As(err, &dupErr) {
+				s.recordService.UpdateSyncStatus(record.ID, "synced", dupErr.RecordID)
+				s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
+				return &DDNSUpdateResult{
+					Domain:     rootDomain,
+					IP:         ip,
+					RecordType: record.RecordType,
+					Action:     "updated",
+				}, nil
+			}
 			s.recordService.UpdateSyncStatus(record.ID, "failed", record.ProviderRecordID)
 			return nil, fmt.Errorf("failed to sync to aliyun: %w", err)
 		}
@@ -233,6 +245,12 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 	if record.ProviderRecordID != "" {
 		err := client.UpdateRecord(record.ProviderRecordID, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
 		if err != nil {
+			var dupErr *aliyun.DuplicateRecordError
+			if errors.As(err, &dupErr) {
+				s.recordService.UpdateSyncStatus(record.ID, "synced", dupErr.RecordID)
+				s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
+				return nil
+			}
 			s.recordService.UpdateSyncStatus(record.ID, "failed", record.ProviderRecordID)
 			return err
 		}

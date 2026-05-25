@@ -53,6 +53,14 @@ func (c *Client) findExistingRecordID(domainName, rr, recordType, value string) 
 	return "", fmt.Errorf("aliyun: DomainRecordDuplicate but could not find existing record for %s/%s/%s", rr, recordType, value)
 }
 
+type DuplicateRecordError struct {
+	RecordID string
+}
+
+func (e *DuplicateRecordError) Error() string {
+	return "record already exists: " + e.RecordID
+}
+
 func (c *Client) UpdateRecord(recordID, rr, recordType, value string, ttl int64, priority *int64) error {
 	req := &alidns.UpdateDomainRecordRequest{
 		RecordId: dara.String(recordID),
@@ -67,6 +75,14 @@ func (c *Client) UpdateRecord(recordID, rr, recordType, value string, ttl int64,
 
 	_, err := c.client.UpdateDomainRecordWithOptions(req, c.runtime)
 	if err != nil {
+		// DomainRecordDuplicate means a record with the same key fields already exists.
+		// Find the existing record and return DuplicateRecordError so the caller can handle it.
+		if strings.Contains(err.Error(), "DomainRecordDuplicate") {
+			id, findErr := c.findExistingRecordID("", rr, recordType, value)
+			if findErr == nil {
+				return &DuplicateRecordError{RecordID: id}
+			}
+		}
 		return fmt.Errorf("aliyun UpdateRecord failed: %w", err)
 	}
 
