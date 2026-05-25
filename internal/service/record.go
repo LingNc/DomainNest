@@ -389,6 +389,12 @@ func (s *RecordService) TransferRecords(recordIDs []uint64, targetNodeID uint64,
 	if err := s.perm.RequireLevel(userID, targetNodeID, 1); err != nil {
 		return err
 	}
+	var targetNode model.DomainNode
+	if err := s.db.First(&targetNode, targetNodeID).Error; err == nil {
+		if targetNode.Status == "archived" {
+			return fmt.Errorf("目标节点已归档，无法转入记录")
+		}
+	}
 
 	for _, id := range recordIDs {
 		var record model.DNSRecord
@@ -404,15 +410,24 @@ func (s *RecordService) TransferRecords(recordIDs []uint64, targetNodeID uint64,
 			return fmt.Errorf("源节点不存在")
 		}
 
-		// Target must be a parent of source (source is a subdomain of target)
-		if !strings.HasSuffix(source.FullDomain, "."+target.FullDomain) {
-			return fmt.Errorf("只能将记录转移到上层域名，目标域名 %s 不是源域名 %s 的上层域名", target.FullDomain, source.FullDomain)
+		// Target must be a parent or child of source (source is a subdomain of target, or vice versa)
+		isUpward := strings.HasSuffix(source.FullDomain, "."+target.FullDomain)
+		isDownward := strings.HasSuffix(target.FullDomain, "."+source.FullDomain)
+		if !isUpward && !isDownward {
+			return fmt.Errorf("目标域名与源域名之间没有上下级关系")
 		}
 
 		newHost := record.Host
 		if source.FullDomain != target.FullDomain {
-			suffix := strings.TrimSuffix(source.FullDomain, "."+target.FullDomain)
-			newHost = strings.TrimPrefix(record.Host, suffix+".")
+			if len(target.FullDomain) > len(source.FullDomain) {
+				// Downward transfer: target is child of source
+				prefix := strings.TrimPrefix(target.FullDomain, source.FullDomain+".")
+				newHost = strings.TrimPrefix(record.Host, prefix+".")
+			} else {
+				// Upward transfer (original logic)
+				suffix := strings.TrimSuffix(source.FullDomain, "."+target.FullDomain)
+				newHost = strings.TrimPrefix(record.Host, suffix+".")
+			}
 		}
 
 		if err := s.db.Model(&record).Updates(map[string]interface{}{
