@@ -22,6 +22,7 @@
           <el-button size="small" type="warning" @click="showTransfer = true">{{ $t('domainDetail.transferDomain') }}</el-button>
           <el-button size="small" type="danger" @click="handleDeleteDomain">{{ $t('domainDetail.deleteDomain') }}</el-button>
           <el-button v-if="domain.is_materialized && domain.parent_id" size="small" type="warning" plain @click="handleDemoteNode">{{ $t('domainDetail.demoteNode') }}</el-button>
+          <el-button v-if="canSyncFromProvider" size="small" type="primary" @click="handleSyncFromProvider">{{ $t('domainDetail.syncFromProvider') }}</el-button>
         </div>
       </div>
     </el-card>
@@ -835,7 +836,7 @@
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDomain, getDomains, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain, getArchivedChildren, restoreArchivedChild } from '../api/domain'
+import { getDomain, getDomains, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain, getArchivedChildren, restoreArchivedChild, syncFromProvider } from '../api/domain'
 import { getRecords, createRecord, updateRecord, toggleRecord, batchToggleRecords, exportRecords, importRecords, checkRecordConflict, batchTagRecords, syncRecord, adoptRecord, renameGroupTag, deleteGroupTag, transferRecords, takeoverRecords } from '../api/record'
 import { trashRecord, batchTrash } from '../api/trash'
 import { retrySync } from '../api/admin'
@@ -968,6 +969,7 @@ const pendingCreateData = ref(null)
 // Archive state
 const archiveInfo = ref(null)
 const isProviderOwner = computed(() => archiveInfo.value?.is_provider_owner || false)
+const canSyncFromProvider = computed(() => !!domain.value?.provider_id)
 const archivedChildren = ref([])
 const archivedLoading = ref(false)
 const multipleTableRef = ref(null)
@@ -1762,6 +1764,16 @@ const handleDeleteDomain = async () => {
   } catch (e) {
     if (e === 'cancel') return
     showError(e.response?.data?.message || t('domainDetail.deleteDomainFailed'))
+  }
+}
+
+const handleSyncFromProvider = async () => {
+  try {
+    await syncFromProvider(domainId)
+    ElMessage.success(t('domainDetail.syncFromProviderSuccess'))
+    loadRecords()
+  } catch (e) {
+    // skipErrorToast since interceptor already shows error
   }
 }
 

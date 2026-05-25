@@ -155,6 +155,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		domains.POST("/:id/pending-records/delete", permissionHandler.DeletePendingRecords)
 		domains.POST("/:id/sync", syncHandler.ManualSync)
 		domains.GET("/:id/sync-logs", syncHandler.GetSyncLogs)
+		domains.POST("/:id/sync-from-provider", domainHandler.SyncFromProvider)
 	}
 
 	records := v1.Group("/records")

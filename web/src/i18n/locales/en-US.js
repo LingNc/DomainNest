@@ -498,6 +498,8 @@ export default {
     archivedDesc: 'The provider has been deleted. Records are preserved but cannot sync to cloud.',
     reactivate: 'Reactivate',
     reactivateSuccess: 'Domain reactivated',
+    syncFromProvider: 'Sync Domain',
+    syncFromProviderSuccess: 'Sync successful',
     confirmRestoreChild: 'Restore subdomain {domain}? It will become manageable again.',
     restoreChildSuccess: 'Subdomain restored',
     source: 'Source',

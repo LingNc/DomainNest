@@ -24,3 +24,4 @@ export const getTransferHistory = (id) => request.get(`/domains/${id}/transfer-h
 
 export const getArchivedChildren = (id) => request.get(`/domains/${id}/archived-children`)
 export const restoreArchivedChild = (id, childId) => request.post(`/domains/${id}/archived-children/${childId}/restore`)
+export const syncFromProvider = (id) => request.post(`/domains/${id}/sync-from-provider`)

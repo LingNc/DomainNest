@@ -1121,6 +1121,119 @@ func (s *DomainService) GetArchivedDomains(userID uint64) ([]model.DomainNode, e
 	return nodes, err
 }
 
+// SyncFromProvider fetches records from the DNS provider and reconciles them with local records.
+func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
+	var node model.DomainNode
+	if err := s.db.First(&node, domainID).Error; err != nil {
+		return errors.New("域名节点不存在")
+	}
+
+	if err := s.perm.RequireLevel(userID, domainID, 2); err != nil {
+		return err
+	}
+
+	if node.ProviderID == nil {
+		return errors.New("该域名未绑定DNS服务商")
+	}
+
+	p, err := s.providerSvc.GetDNSProvider(*node.ProviderID)
+	if err != nil {
+		return fmt.Errorf("获取DNS服务商失败: %w", err)
+	}
+
+	providerRecords, err := p.ListRecords(node.FullDomain)
+	if err != nil {
+		return fmt.Errorf("获取服务商记录失败: %w", err)
+	}
+
+	// Get existing local provider-source records
+	var localRecords []model.DNSRecord
+	if err := s.db.Where("node_id = ? AND source = 'provider' AND deleted_at IS NULL", domainID).Find(&localRecords).Error; err != nil {
+		return fmt.Errorf("查询本地记录失败: %w", err)
+	}
+
+	// Build map by provider_record_id
+	localByPRID := make(map[string]*model.DNSRecord)
+	for i := range localRecords {
+		localByPRID[localRecords[i].ProviderRecordID] = &localRecords[i]
+	}
+
+	// Tracks which local PRIDs were found on provider (to detect deletions)
+	foundPRIDs := make(map[string]bool)
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		for _, pr := range providerRecords {
+			// Map RR to host: "@" or domainName itself maps to node.Host (root domain)
+			host := pr.Host
+			if pr.Host == "@" || pr.Host == node.FullDomain {
+				host = node.Host
+			} else {
+				suffix := "." + node.FullDomain
+				if strings.HasSuffix(pr.Host, suffix) {
+					host = strings.TrimSuffix(pr.Host, suffix)
+				}
+			}
+
+			priority := convertPriority(pr.Priority)
+
+			if existing, ok := localByPRID[pr.RecordID]; ok {
+				// Update if different
+				needsUpdate := existing.Host != host ||
+					existing.Value != pr.Value ||
+					existing.TTL != int(pr.TTL) ||
+					existing.Enabled != pr.Enabled ||
+					(existing.Priority == nil && priority != nil) ||
+					(existing.Priority != nil && *existing.Priority != *priority)
+
+				if needsUpdate {
+					updates := map[string]interface{}{
+						"host":        host,
+						"value":       pr.Value,
+						"ttl":         int(pr.TTL),
+						"enabled":     pr.Enabled,
+						"priority":    priority,
+						"sync_status": "synced",
+					}
+					if err := tx.Model(&model.DNSRecord{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
+						return fmt.Errorf("更新记录失败: %w", err)
+					}
+				}
+				foundPRIDs[pr.RecordID] = true
+			} else {
+				// Create new local record
+				newRec := &model.DNSRecord{
+					NodeID:           domainID,
+					Host:             host,
+					RecordType:       pr.Type,
+					Value:            pr.Value,
+					TTL:              int(pr.TTL),
+					Priority:         priority,
+					Line:             pr.Line,
+					Enabled:          pr.Enabled,
+					ProviderRecordID: pr.RecordID,
+					SyncStatus:       "synced",
+					Source:           "provider",
+				}
+				if err := tx.Create(newRec).Error; err != nil {
+					return fmt.Errorf("创建记录失败: %w", err)
+				}
+				foundPRIDs[pr.RecordID] = true
+			}
+		}
+
+		// Hard-delete local records that exist in our DB but were NOT found on provider
+		for prID, rec := range localByPRID {
+			if !foundPRIDs[prID] {
+				if err := tx.Unscoped().Delete(&model.DNSRecord{}, "id = ?", rec.ID).Error; err != nil {
+					return fmt.Errorf("删除记录失败: %w", err)
+				}
+			}
+		}
+
+		return nil
+	})
+}
+
 // ReturnSubdomainToClaimer returns a subdomain to its parent owner and trashes the user's DNS records.
 func (s *DomainService) ReturnSubdomainToClaimer(nodeID, userID uint64) error {
 	var node model.DomainNode

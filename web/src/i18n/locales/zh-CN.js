@@ -498,6 +498,8 @@ export default {
     archivedDesc: '服务商已被删除，记录保留但无法同步到云端。',
     reactivate: '重新激活',
     reactivateSuccess: '域名已重新激活',
+    syncFromProvider: '同步域名',
+    syncFromProviderSuccess: '同步成功',
     confirmRestoreChild: '确定恢复子域名 {domain}？恢复后将可正常管理。',
     restoreChildSuccess: '子域名已恢复',
     source: '来源',
