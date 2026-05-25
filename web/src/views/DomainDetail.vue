@@ -180,16 +180,6 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('domainDetail.groupTag')" width="120">
-              <template #default="{ row }">
-                <template v-if="!row.virtual">
-                  <el-tag v-if="row.group_tag" size="small" closable @close="clearGroupTag(row)">{{ row.group_tag }}</el-tag>
-                  <template v-else-if="row.source !== 'provider'">
-                    <el-button link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
-                  </template>
-                </template>
-              </template>
-            </el-table-column>
             <el-table-column :label="$t('common.actions')" min-width="220" fixed="right">
               <template #default="{ row }">
                 <template v-if="row.isGroup" />
