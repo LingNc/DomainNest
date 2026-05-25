@@ -125,7 +125,11 @@ func (s *ProviderService) ListDomainsWithStatus(providerID uint64) ([]DomainWith
 	}
 
 	var nodes []model.DomainNode
-	s.db.Where("full_domain IN ? AND provider_id = ?", names, providerID).
+	// Look up by full_domain only — we need to find domains that exist in the system
+	// regardless of which provider they're currently bound to, so we can show their
+	// true claim status (claimed vs unclaimed) rather than incorrectly showing a
+	// provider-bound domain as "unclaimed" when browsing a different provider.
+	s.db.Where("full_domain IN ?", names).
 		Preload("Owner", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname") }).
 		Find(&nodes)
 
