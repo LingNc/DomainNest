@@ -789,22 +789,40 @@
     </el-dialog>
 
     <!-- transfer records dialog -->
-    <el-dialog v-model="showTransferRecords" :title="$t('domainDetail.transferRecords')" width="500px" destroy-on-close>
-      <el-form label-width="100px">
-        <el-form-item :label="$t('domainDetail.selectTargetNode')">
-          <div v-if="accessibleNodeTree.length === 0" style="display:flex;justify-content:center;align-items:center;min-height:200px">
-            <span style="color:#909399">{{ $t('common.noData') }}</span>
-          </div>
-          <el-tree v-else
-            ref="transferNodeTreeRef"
-            :data="accessibleNodeTree"
-            node-key="id"
-            :props="{ label: 'full_domain', children: 'children' }"
-            highlight-current
-            @node-click="onTransferNodeSelect"
-          />
-        </el-form-item>
-      </el-form>
+    <el-dialog v-model="showTransferRecords" :title="$t('domainDetail.transferRecords')" width="520px" destroy-on-close>
+      <div class="transfer-dialog-body">
+        <el-input
+          v-model="transferSearchKeyword"
+          :placeholder="'搜索域名...'"
+          prefix-icon="Search"
+          clearable
+          style="margin-bottom:12px"
+        />
+        <div v-if="accessibleNodeTree.length === 0" class="transfer-empty">
+          <span>{{ $t('common.noData') }}</span>
+        </div>
+        <el-tree
+          v-else
+          ref="transferNodeTreeRef"
+          :data="accessibleNodeTree"
+          node-key="id"
+          :props="{ label: 'full_domain', children: 'children' }"
+          :filter-node-method="transferFilterNode"
+          default-expand-all
+          highlight-current
+          :expand-on-click-node="false"
+          @node-click="onTransferNodeSelect"
+          class="transfer-tree"
+        >
+          <template #default="{ data }">
+            <div class="transfer-node">
+              <span class="transfer-node-name">{{ data.full_domain }}</span>
+              <el-tag v-if="data.is_materialized" size="small" type="success" style="margin-left:6px">materialized</el-tag>
+              <el-tag v-if="data.status === 'archived'" size="small" type="warning" style="margin-left:6px">archived</el-tag>
+            </div>
+          </template>
+        </el-tree>
+      </div>
       <template #footer>
         <el-button @click="showTransferRecords = false">{{ $t('common.cancel') }}</el-button>
         <el-button type="warning" :disabled="!transferTargetNodeId" @click="handleTransferRecords">{{ $t('domainDetail.transferRecords') }}</el-button>
@@ -881,6 +899,9 @@ const sortOrder = ref('asc')
 const pagination = reactive({ page: 1, pageSize: 20 })
 
 watch(filters, () => { flatPage.value = 1 }, { deep: true })
+watch(transferSearchKeyword, (val) => {
+  transferNodeTreeRef.value?.filter(val)
+})
 
 const recordForm = ref({ host: '', record_type: 'A', value: '', ttl: 600, priority: null, line: 'default' })
 const editForm = ref({ id: null, host: '', record_type: '', value: '', ttl: 600, priority: null })
@@ -910,6 +931,11 @@ const showTransferRecords = ref(false)
 const transferTargetNodeId = ref(null)
 const transferNodeTreeRef = ref(null)
 const accessibleNodeTree = ref([])
+const transferSearchKeyword = ref('')
+const transferFilterNode = (value, data) => {
+  if (!value) return true
+  return data.full_domain.toLowerCase().includes(value.toLowerCase())
+}
 
 // Existing groups for batch dialog
 const existingGroupNames = computed(() => {
@@ -2335,6 +2361,36 @@ onMounted(() => {
 }
 .clickable-tag:hover {
   opacity: 0.8;
+}
+/* Transfer records dialog */
+.transfer-dialog-body {
+  padding: 4px 0;
+}
+.transfer-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  color: #909399;
+}
+.transfer-tree {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.transfer-tree :deep(.el-tree-node__content) {
+  padding: 6px 8px;
+}
+.transfer-tree :deep(.el-tree-node__content:hover) {
+  background-color: #f5f7fa;
+}
+.transfer-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.transfer-node-name {
+  font-size: 14px;
+  color: #303133;
 }
 @media (max-width: 768px) {
   .card-header {
