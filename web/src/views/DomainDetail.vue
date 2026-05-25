@@ -159,8 +159,8 @@
                     <el-tag
                       :type="statusType(row.sync_status)"
                       size="small"
-                      :class="{ 'clickable-tag': row.sync_status === 'pending' || row.sync_status === 'failed' }"
-                      @click="(row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
+                      :class="{ 'clickable-tag': row.sync_status === 'synced' || row.sync_status === 'pending' || row.sync_status === 'failed' }"
+                      @click="(row.sync_status === 'synced' || row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
                     >{{ statusLabel(row.sync_status) }}</el-tag>
                   </el-tooltip>
                 </template>
@@ -280,8 +280,8 @@
                   <el-tag
                     :type="statusType(row.sync_status)"
                     size="small"
-                    :class="{ 'clickable-tag': row.sync_status === 'pending' || row.sync_status === 'failed' }"
-                    @click="(row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
+                    :class="{ 'clickable-tag': row.sync_status === 'synced' || row.sync_status === 'pending' || row.sync_status === 'failed' }"
+                    @click="(row.sync_status === 'synced' || row.sync_status === 'pending' || row.sync_status === 'failed') && handleSyncNow(row.id)"
                   >{{ statusLabel(row.sync_status) }}</el-tag>
                 </el-tooltip>
               </template>
