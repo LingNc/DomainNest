@@ -167,7 +167,58 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 		return nil, fmt.Errorf("无权访问域名 %s: %w", domainName, err)
 	}
 	var existing model.DomainNode
-	if err := s.db.Where("full_domain = ?", domainName).First(&existing).Error; err == nil {
+	if err := s.db.Unscoped().Where("full_domain = ?", domainName).First(&existing).Error; err == nil {
+		if existing.DeletedAt.Valid {
+			// Soft-deleted node exists: reactivate it
+			uid := userID
+			pid := providerID
+			if err := s.db.Transaction(func(tx *gorm.DB) error {
+				if err := tx.Model(&model.DomainNode{}).
+					Where("id = ?", existing.ID).
+					Updates(map[string]interface{}{
+						"deleted_at":  nil,
+						"owner_id":    userID,
+						"claimer_id":  &uid,
+						"provider_id": &pid,
+						"status":      "active",
+					}).Error; err != nil {
+					return err
+				}
+				// Async import provider records
+				go s.importProviderRecords(existing.ID, providerID, domainName)
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+			existing.OwnerID = userID
+			existing.ProviderID = &providerID
+			existing.Status = "active"
+			return &existing, nil
+		}
+		if existing.Status == "archived" {
+			// Archived node exists: reactivate it
+			uid := userID
+			pid := providerID
+			if err := s.db.Transaction(func(tx *gorm.DB) error {
+				return tx.Model(&model.DomainNode{}).
+					Where("id = ?", existing.ID).
+					Updates(map[string]interface{}{
+						"status":               "active",
+						"provider_id":          pid,
+						"archived_provider_id": nil,
+						"owner_id":             userID,
+						"claimer_id":           &uid,
+					}).Error
+			}); err != nil {
+				return nil, err
+			}
+			// Async import provider records
+			go s.importProviderRecords(existing.ID, providerID, domainName)
+			existing.OwnerID = userID
+			existing.ProviderID = &providerID
+			existing.Status = "active"
+			return &existing, nil
+		}
 		return nil, errors.New("域名已存在于系统中")
 	}
 	host := extractHost(domainName)

@@ -240,7 +240,7 @@ func (s *DomainService) deleteProviderRecords(nodeIDs []uint64) error {
 	// Collect all platform records with provider_record_id across all nodes
 	var records []model.DNSRecord
 	if err := s.db.Unscoped().
-		Where("node_id IN ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id != ''", nodeIDs).
+		Where("node_id IN ? AND deleted_at IS NULL AND provider_record_id != ''", nodeIDs).
 		Find(&records).Error; err != nil {
 		return fmt.Errorf("查询DNS记录失败: %w", err)
 	}
@@ -353,7 +353,7 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 			return s.db.Transaction(func(tx *gorm.DB) error {
 				// Platform records: trigger sync to delete from provider, then move to trash
 				if err := tx.Model(&model.DNSRecord{}).
-					Where("node_id = ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id != ''", nodeID).
+					Where("node_id = ? AND deleted_at IS NULL AND provider_record_id != ''", nodeID).
 					Updates(map[string]interface{}{
 						"sync_status": "pending",
 						"enabled":     false,
@@ -361,7 +361,7 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 					return fmt.Errorf("标记待删除失败: %w", err)
 				}
 				if err := tx.Model(&model.DNSRecord{}).
-					Where("node_id = ? AND deleted_at IS NULL AND source = 'platform' AND provider_record_id = ''", nodeID).
+					Where("node_id = ? AND deleted_at IS NULL AND provider_record_id = ''", nodeID).
 					Updates(map[string]interface{}{
 						"trashed_at":  now,
 						"deleted_at":  now,
@@ -397,9 +397,9 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Mark all platform records as trashed (provider already deleted above)
+		// Mark all records as trashed (provider already deleted above)
 		if err := tx.Model(&model.DNSRecord{}).
-			Where("node_id = ? AND deleted_at IS NULL AND source = 'platform'", nodeID).
+			Where("node_id = ? AND deleted_at IS NULL", nodeID).
 			Updates(map[string]interface{}{
 				"trashed_at":   now,
 				"deleted_at":   now,
@@ -1010,6 +1010,12 @@ func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
 		}
 	}
 
+	// Check if an active node already exists for the same full_domain
+	var conflict model.DomainNode
+	if err := s.db.Where("full_domain = ? AND status = 'active' AND deleted_at IS NULL AND id != ?", node.FullDomain, nodeID).First(&conflict).Error; err == nil {
+		return fmt.Errorf("域名 %s 已存在活跃节点 (ID=%d)，无法恢复", node.FullDomain, conflict.ID)
+	}
+
 	// Collect ALL archived subtree nodes (regardless of owner)
 	var nodeIDs []uint64
 	s.db.Raw(`
@@ -1077,6 +1083,12 @@ func (s *DomainService) RestoreArchivedChild(nodeID, callerID uint64) error {
 		return errors.New("节点未处于归档状态")
 	}
 
+	// Check if an active node already exists for the same full_domain
+	var conflict model.DomainNode
+	if err := s.db.Where("full_domain = ? AND status = 'active' AND deleted_at IS NULL", node.FullDomain).First(&conflict).Error; err == nil {
+		return fmt.Errorf("该子域名已存在活跃节点 (ID=%d)，请使用现有节点或先删除后再恢复", conflict.ID)
+	}
+
 	// Find root domain (same full_domain suffix, not archived)
 	var root model.DomainNode
 	err := s.db.Where("full_domain = ? AND status != 'archived' AND deleted_at IS NULL",
@@ -1109,6 +1121,11 @@ func (s *DomainService) RestoreArchivedChild(nodeID, callerID uint64) error {
 		}
 		tx.Where("node_id = ? AND host = ? AND deleted_at IS NULL", root.ID, node.Host).
 			Delete(&model.DNSRecord{})
+		if err := tx.Model(&model.DomainPermission{}).
+			Where("domain_node_id = ? AND status = 'frozen'", nodeID).
+			Update("status", "active").Error; err != nil {
+			return err
+		}
 		return tx.Model(&node).Updates(updates).Error
 	})
 }
