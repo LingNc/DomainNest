@@ -2029,8 +2029,14 @@ const openTransferRecords = async () => {
     const tree = buildNodeTree(res.data || [])
     console.log('[transfer] tree roots:', tree.map(n => ({ id: n.id, full_domain: n.full_domain, childCount: n.children ? n.children.length : 0 })))
 
-    // Filter out only the current node (by id) - its descendants stay visible as transfer targets
-    const filtered = tree.filter(n => n.id !== currentId)
+    // Filter out the current node and promote its children to root level
+    const filtered = tree.flatMap(n => {
+      if (n.id === currentId) {
+        // Return children of removed node as top-level candidates
+        return n.children || []
+      }
+      return [n]
+    })
     console.log('[transfer] filtered nodes:', filtered.map(n => ({ id: n.id, full_domain: n.full_domain })))
 
     accessibleNodeTree.value = filtered

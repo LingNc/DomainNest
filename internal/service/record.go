@@ -421,8 +421,9 @@ func (s *RecordService) TransferRecords(recordIDs []uint64, targetNodeID uint64,
 		if source.FullDomain != target.FullDomain {
 			if len(target.FullDomain) > len(source.FullDomain) {
 				// Downward transfer: target is child of source
-				prefix := strings.TrimPrefix(target.FullDomain, source.FullDomain+".")
-				newHost = strings.TrimPrefix(record.Host, prefix+".")
+				// prefix should be "." + target.FullDomain so we can strip it from full-domain hosts
+				prefix := "." + target.FullDomain
+				newHost = strings.TrimPrefix(record.Host, prefix)
 			} else {
 				// Upward transfer (original logic)
 				suffix := strings.TrimSuffix(source.FullDomain, "."+target.FullDomain)
