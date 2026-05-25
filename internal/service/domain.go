@@ -496,16 +496,18 @@ func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, trigg
 			return err
 		}
 
-		// Transfer all sub-domain records (host starting with <host>.)
-		prefix := host + "."
+		// Transfer all sub-domain records (host ending with .<host>)
+		// e.g., for host="zzuli", matches "image.zzuli", "1.image.zzuli", etc.
+		suffix := "." + host
 		var subRecords []model.DNSRecord
-		if err := tx.Where("node_id = ? AND host LIKE ? AND deleted_at IS NULL", parentID, prefix+"%").
+		if err := tx.Where("node_id = ? AND host LIKE ? AND host != ? AND deleted_at IS NULL", parentID, "%"+suffix, host).
 			Find(&subRecords).Error; err != nil {
 			return err
 		}
 
 		for _, rec := range subRecords {
-			newHost := strings.TrimPrefix(rec.Host, prefix)
+			// Strip the .zzuli suffix to get relative host: "image.zzuli" → "image"
+			newHost := strings.TrimSuffix(rec.Host, suffix)
 			if err := tx.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(map[string]interface{}{
 				"node_id":     node.ID,
 				"host":        newHost,
