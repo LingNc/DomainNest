@@ -247,7 +247,7 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 	return record, nil
 }
 
-func (s *RecordService) UpdateRecord(recordID, userID uint64, value string, ttl *int, priority *int) (*model.DNSRecord, error) {
+func (s *RecordService) UpdateRecord(recordID, userID uint64, value string, ttl *int, priority *int, host string) (*model.DNSRecord, error) {
 	var record model.DNSRecord
 	if err := s.db.First(&record, recordID).Error; err != nil {
 		return nil, errors.New("记录不存在")
@@ -274,6 +274,9 @@ func (s *RecordService) UpdateRecord(recordID, userID uint64, value string, ttl 
 	}
 	if priority != nil {
 		updates["priority"] = *priority
+	}
+	if host != "" {
+		updates["host"] = host
 	}
 
 	if err := s.db.Model(&record).Updates(updates).Error; err != nil {

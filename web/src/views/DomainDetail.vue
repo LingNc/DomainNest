@@ -564,7 +564,7 @@
     <el-dialog v-model="showEditRecord" :title="$t('domainDetail.editDnsRecord')" width="480px" destroy-on-close>
       <el-form :model="editForm" label-width="80px">
         <el-form-item :label="$t('domainDetail.host')">
-          <el-input v-model="editForm.host" disabled />
+          <el-input v-model="editForm.host" />
         </el-form-item>
         <el-form-item :label="$t('domainDetail.recordType')">
           <el-input v-model="editForm.record_type" disabled />
@@ -1530,7 +1530,7 @@ const editRecord = (row) => {
 }
 
 const handleUpdateRecord = async () => {
-  const data = { value: editForm.value.value, ttl: editForm.value.ttl }
+  const data = { value: editForm.value.value, ttl: editForm.value.ttl, host: editForm.value.host }
   if (editForm.value.record_type === 'MX' && editForm.value.priority != null) {
     data.priority = editForm.value.priority
   }

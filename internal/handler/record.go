@@ -121,6 +121,7 @@ func (h *RecordHandler) Update(c *gin.Context) {
 		Value    string `json:"value"`
 		TTL      *int   `json:"ttl"`
 		Priority *int   `json:"priority"`
+		Host     string `json:"host"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -128,7 +129,7 @@ func (h *RecordHandler) Update(c *gin.Context) {
 		return
 	}
 
-	record, err := h.recordService.UpdateRecord(recordID, userID, req.Value, req.TTL, req.Priority)
+	record, err := h.recordService.UpdateRecord(recordID, userID, req.Value, req.TTL, req.Priority, req.Host)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
