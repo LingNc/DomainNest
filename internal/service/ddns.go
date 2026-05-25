@@ -243,6 +243,37 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 	}
 
 	if record.ProviderRecordID != "" {
+		// Check if host (RR) changed — Aliyun UpdateRecord cannot change RR,
+		// so we must delete old + add new if it differs
+		providerRecords, listErr := client.ListRecords(rootDomain)
+		oldRR := ""
+		recordChanged := false
+		if listErr == nil {
+			for _, pr := range providerRecords {
+				if pr.RecordID == record.ProviderRecordID {
+					oldRR = pr.Host
+					break
+				}
+			}
+			recordChanged = oldRR != "" && oldRR != rrForAliyun
+		}
+
+		if recordChanged {
+			// Host changed: delete old record, add new one
+			if err := client.DeleteRecord(record.ProviderRecordID); err != nil {
+				s.recordService.UpdateSyncStatus(record.ID, "failed", record.ProviderRecordID)
+				return fmt.Errorf("failed to delete old record: %w", err)
+			}
+			newID, err := client.AddRecord(rootDomain, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
+			if err != nil {
+				s.recordService.UpdateSyncStatus(record.ID, "failed", "")
+				return fmt.Errorf("failed to add new record after host change: %w", err)
+			}
+			s.recordService.UpdateSyncStatus(record.ID, "synced", newID)
+			s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
+			return nil
+		}
+
 		err := client.UpdateRecord(rootDomain, record.ProviderRecordID, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
 		if err != nil {
 			var dupErr *aliyun.DuplicateRecordError
