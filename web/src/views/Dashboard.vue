@@ -1059,4 +1059,83 @@ watch(activeTab, (tab) => {
   padding: 1px 6px;
   border-radius: 3px;
 }
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .page-header h2 {
+    font-size: 18px;
+  }
+  .page-header .el-button {
+    width: 100%;
+  }
+  .batch-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .batch-bar .el-button {
+    flex: 1 1 auto;
+    min-width: 80px;
+  }
+  .tree-node {
+    gap: 4px;
+    padding: 1px 0;
+  }
+  .tree-node .el-tag {
+    font-size: 11px;
+    padding: 0 4px;
+  }
+  .domain-name {
+    font-size: 13px;
+    max-width: 160px;
+  }
+  .node-actions {
+    flex: 1 1 100%;
+    margin-left: 0;
+    margin-top: 4px;
+    justify-content: flex-start;
+    gap: 2px;
+  }
+  .node-actions .el-button {
+    padding: 2px 6px;
+    font-size: 12px;
+  }
+  .filter-bar {
+    gap: 6px;
+  }
+  .filter-bar .el-input,
+  .filter-bar .el-select {
+    flex: 1 1 100%;
+    width: 100% !important;
+  }
+  .filter-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .filter-actions .el-button {
+    flex: 1;
+  }
+  .group-header {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .group-grantor {
+    flex-basis: 100%;
+    margin-left: 24px;
+  }
+  .managed-entry {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .entry-actions {
+    width: 100%;
+  }
+  .entry-actions .el-button {
+    width: 100%;
+  }
+}
 </style>
