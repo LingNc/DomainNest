@@ -2022,32 +2022,19 @@ const openTransferRecords = async () => {
   transferTargetNodeId.value = null
   try {
     const res = await getDomains()
-    console.log('transfer getDomains result:', res.data)
+    const allNodes = res.data || []
     const currentId = Number(domainId)
-    // Collect all descendant node IDs of the current node (to exclude them)
-    const descendantIds = new Set()
-    const collectDescendants = (nodes, parentId) => {
-      for (const n of nodes) {
-        if (n.parent_id === parentId) {
-          descendantIds.add(n.id)
-          if (n.children && n.children.length > 0) {
-            collectDescendants(n.children, n.id)
-          }
-        }
-      }
-    }
-    collectDescendants(res.data || [], currentId)
-    descendantIds.add(currentId)
+    console.log('[transfer] currentId:', currentId)
 
-    const filtered = (res.data || []).filter(n => {
-      // Exclude current node and all its descendants
-      if (descendantIds.has(n.id)) return false
-      return true
-    })
-    console.log('transfer filtered:', filtered.map(n => ({ id: n.id, full_domain: n.full_domain, parent_id: n.parent_id })))
-    accessibleNodeTree.value = buildNodeTree(filtered)
+    // Exclude only the current node itself (not its descendants - they may be valid transfer targets
+    // since the backend validates that target is a parent of source, which is checked at API time)
+    const filtered = allNodes.filter(n => n.id !== currentId)
+    console.log('[transfer] filtered nodes:', filtered.map(n => ({ id: n.id, full_domain: n.full_domain, parent_id: n.parent_id })))
+
+    const tree = buildNodeTree(filtered)
+    accessibleNodeTree.value = tree
   } catch (e) {
-    console.error('transfer getDomains failed:', e)
+    console.error('[transfer] failed:', e)
     accessibleNodeTree.value = []
   }
   showTransferRecords.value = true
