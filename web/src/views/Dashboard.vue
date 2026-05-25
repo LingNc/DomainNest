@@ -31,7 +31,7 @@
             <el-button size="small" type="danger" @click="handleBatchDelete">{{ $t('dashboard.batchDelete') }}</el-button>
           </div>
 
-          <el-card>
+          <el-card class="tree-card">
             <el-tree
               ref="treeRef"
               :data="domains"
@@ -990,6 +990,9 @@ watch(activeTab, (tab) => {
   align-items: center;
   justify-content: center;
 }
+.tree-card {
+  overflow-x: auto;
+}
 .batch-bar {
   display: flex;
   align-items: center;
@@ -1081,34 +1084,49 @@ watch(activeTab, (tab) => {
     flex: 1 1 auto;
     min-width: 80px;
   }
+  .tree-card {
+    overflow-x: auto;
+  }
+  /* Allow tree node content to grow vertically when wrapping on mobile */
+  .tree-card :deep(.el-tree-node__content) {
+    height: auto;
+    min-height: 30px;
+    padding: 2px 0;
+  }
   .tree-node {
     gap: 4px;
     padding: 1px 0;
   }
   .tree-node .el-tag {
     font-size: 11px;
-    padding: 0 4px;
+    padding: 0 5px;
+    height: 20px;
+    line-height: 20px;
   }
   .domain-name {
     font-size: 13px;
-    max-width: 160px;
+    flex: 1 1 auto;
+    min-width: 60px;
+    max-width: none;
   }
   .node-actions {
     flex: 1 1 100%;
     margin-left: 0;
-    margin-top: 4px;
+    margin-top: 2px;
     justify-content: flex-start;
-    gap: 2px;
+    gap: 4px;
   }
   .node-actions .el-button {
-    padding: 2px 6px;
+    padding: 3px 8px;
     font-size: 12px;
+    min-height: 28px;
   }
   .filter-bar {
     gap: 6px;
   }
   .filter-bar .el-input,
-  .filter-bar .el-select {
+  .filter-bar .el-select,
+  .filter-bar .el-date-editor {
     flex: 1 1 100%;
     width: 100% !important;
   }
@@ -1136,6 +1154,55 @@ watch(activeTab, (tab) => {
   }
   .entry-actions .el-button {
     width: 100%;
+  }
+}
+
+/* Extra-small screens */
+@media (max-width: 480px) {
+  .page-header h2 {
+    font-size: 16px;
+  }
+  .subtitle {
+    font-size: 12px;
+  }
+  .tree-card :deep(.el-tree-node__content) {
+    min-height: 28px;
+  }
+  .tree-node {
+    gap: 3px;
+    padding: 0;
+  }
+  .domain-name {
+    font-size: 12px;
+  }
+  .tree-node .el-tag {
+    font-size: 10px;
+    padding: 0 4px;
+    height: 18px;
+    line-height: 18px;
+  }
+  .node-actions {
+    gap: 3px;
+  }
+  .node-actions .el-button {
+    padding: 2px 6px;
+    font-size: 11px;
+    min-height: 26px;
+  }
+  .batch-bar {
+    gap: 4px;
+    padding: 6px 8px;
+  }
+  .batch-bar .el-button {
+    min-width: 60px;
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+  .group-domain {
+    font-size: 13px;
+  }
+  .managed-entry {
+    gap: 6px;
   }
 }
 </style>

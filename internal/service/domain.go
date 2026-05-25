@@ -1139,10 +1139,19 @@ func (s *DomainService) GetArchivedDomains(userID uint64) ([]model.DomainNode, e
 }
 
 // SyncFromProvider fetches records from the DNS provider and reconciles them with local records.
+// It ONLY syncs records for domains that are ALREADY managed locally - it does NOT create new domain nodes.
 func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, domainID).Error; err != nil {
 		return errors.New("域名节点不存在")
+	}
+
+	// Ensure the domain exists and is actively managed (not deleted/archived)
+	if node.DeletedAt.Valid {
+		return errors.New("域名已被删除，无法同步")
+	}
+	if node.Status == "archived" {
+		return errors.New("域名已归档，请先恢复后再同步")
 	}
 
 	if err := s.perm.RequireLevel(userID, domainID, 2); err != nil {

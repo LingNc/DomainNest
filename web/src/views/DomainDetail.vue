@@ -2371,6 +2371,15 @@ onMounted(() => {
 .tree-records-table :deep(.el-table__body) {
   table-layout: auto !important;
 }
+.tree-records-table {
+  overflow-x: auto;
+  display: block;
+  width: 100%;
+}
+.tree-records-table :deep(.el-table__header),
+.tree-records-table :deep(.el-table__body) {
+  min-width: 600px;
+}
 .group-header-content {
   display: flex;
   align-items: center;
@@ -2420,6 +2429,30 @@ onMounted(() => {
   color: #303133;
 }
 @media (max-width: 768px) {
+  .domain-info-bar :deep(.el-card__body) {
+    padding: 10px 12px;
+  }
+  .info-bar-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .info-bar-left {
+    gap: 8px;
+  }
+  .info-bar-domain {
+    font-size: 15px;
+  }
+  .info-bar-right {
+    width: 100%;
+    gap: 6px;
+  }
+  .info-bar-right .el-button {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 12px;
+    padding: 5px 10px;
+  }
   .card-header {
     flex-direction: column;
     align-items: flex-start;
@@ -2434,6 +2467,75 @@ onMounted(() => {
   }
   .header-actions .el-button {
     flex-shrink: 0;
+    min-height: 28px;
+  }
+  .view-toggle {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .view-toggle .el-select {
+    width: 120px !important;
+  }
+  .batch-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .batch-bar .el-button {
+    flex: 1 1 auto;
+    min-width: 80px;
+  }
+  .filter-bar {
+    gap: 6px;
+  }
+  .filter-bar .el-input,
+  .filter-bar .el-select,
+  .filter-bar .el-date-editor {
+    flex: 1 1 100%;
+    width: 100% !important;
+  }
+  .perm-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .perm-actions {
+    width: 100%;
+  }
+  .perm-actions .el-button {
+    width: 100%;
+  }
+  .host-rule-row {
+    flex-wrap: wrap;
+  }
+  .pagination-bar {
+    justify-content: center;
+  }
+}
+
+/* Extra-small screens */
+@media (max-width: 480px) {
+  .info-bar-domain {
+    font-size: 14px;
+  }
+  .info-bar-meta {
+    font-size: 12px;
+  }
+  .info-bar-right .el-button {
+    font-size: 11px;
+    padding: 4px 8px;
+    min-height: 28px;
+  }
+  .header-actions .el-button {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+  .batch-bar {
+    gap: 4px;
+    padding: 6px 8px;
+  }
+  .batch-bar .el-button {
+    min-width: 60px;
+    font-size: 11px;
+    padding: 4px 6px;
   }
 }
 </style>
