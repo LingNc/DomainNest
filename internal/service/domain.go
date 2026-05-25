@@ -613,9 +613,16 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 
 		recordIDs := make([]uint64, 0, len(records))
 		for _, rec := range records {
+			// Restore host: "@" becomes node.Host (the subdomain name); sub-records get prefix restored
+			var newHost string
+			if rec.Host == "@" {
+				newHost = node.Host
+			} else {
+				newHost = node.Host + "." + rec.Host
+			}
 			updates := map[string]interface{}{
 				"node_id":     parentID,
-				"host":        node.Host,
+				"host":        newHost,
 				"own_node_id": nil,
 			}
 			if err := tx.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(updates).Error; err != nil {
