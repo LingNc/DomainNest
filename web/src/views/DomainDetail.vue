@@ -893,6 +893,12 @@ const batchTransferSelectRef = ref(null)
 const returnSelectRef = ref(null)
 const grantPermSelectRef = ref(null)
 
+const transferSearchKeyword = ref('')
+const transferFilterNode = (value, data) => {
+  if (!value) return true
+  return data.full_domain.toLowerCase().includes(value.toLowerCase())
+}
+
 const filters = ref({ host: '', recordType: [], value: '', status: '', source: '' })
 const sortBy = ref('')
 const sortOrder = ref('asc')
@@ -931,11 +937,6 @@ const showTransferRecords = ref(false)
 const transferTargetNodeId = ref(null)
 const transferNodeTreeRef = ref(null)
 const accessibleNodeTree = ref([])
-const transferSearchKeyword = ref('')
-const transferFilterNode = (value, data) => {
-  if (!value) return true
-  return data.full_domain.toLowerCase().includes(value.toLowerCase())
-}
 
 // Existing groups for batch dialog
 const existingGroupNames = computed(() => {
