@@ -123,7 +123,10 @@ func (s *RecordService) ListRecords(nodeID, userID uint64, q RecordQuery) (*Reco
 // CountAccessibleRecords returns the number of records visible to a user on a given node,
 // applying the same permission filters as ListRecords.
 func (s *RecordService) CountAccessibleRecords(nodeID, userID uint64) (int64, error) {
-	query := s.db.Model(&model.DNSRecord{}).Where("node_id = ?", nodeID)
+	// Count records directly on this node OR owned by this node (own_node_id).
+	// Records may live on a parent node but belong to a materialized subdomain via own_node_id.
+	// Also include records from any materialized children (subtree aggregation).
+	query := s.db.Model(&model.DNSRecord{}).Where("(node_id = ? OR own_node_id = ?) AND deleted_at IS NULL", nodeID, nodeID)
 
 	var perm model.DomainPermission
 	isOwner := false
