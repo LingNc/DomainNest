@@ -615,12 +615,14 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 
 		recordIDs := make([]uint64, 0, len(records))
 		for _, rec := range records {
-			// Restore host: "@" becomes node.Host (the subdomain name); sub-records get prefix restored
+			// Restore host: "@" becomes node.Host (the subdomain name);
+			// sub-records get the subdomain suffix restored as prefix.
+			// e.g. node.Host="zzuli": host "@" → "zzuli", host "image" → "image.zzuli"
 			var newHost string
 			if rec.Host == "@" {
 				newHost = node.Host
 			} else {
-				newHost = node.Host + "." + rec.Host
+				newHost = rec.Host + "." + node.Host
 			}
 			updates := map[string]interface{}{
 				"node_id":     parentID,
