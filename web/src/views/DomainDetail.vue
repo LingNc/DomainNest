@@ -105,13 +105,11 @@
             stripe
             v-loading="loading"
             @selection-change="handleSelectionChange"
-            @tree-node-expand="onTreeNodeExpand"
-            @tree-node-collapse="onTreeNodeCollapse"
             :row-class-name="treeRowClass"
             class="tree-records-table"
           >
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.virtual" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" :style="{ minWidth: hostColumnMinWidth + 'px' }" show-overflow-tooltip>
+            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="220" show-overflow-tooltip>
               <template #default="{ row }">
                 <template v-if="row.isGroup">
                   <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
@@ -205,7 +203,7 @@
           <!-- flat view -->
           <el-table v-else :data="paginatedFlatRecords" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id" :row-class-name="flatRowClass" :span-method="flatSpanMethod">
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.isGroupHeader" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="140">
+            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="180">
               <template #default="{ row }">
                 <template v-if="row.isGroupHeader">
                   <div class="group-header-content">
@@ -964,64 +962,7 @@ const archivedChildren = ref([])
 const archivedLoading = ref(false)
 const multipleTableRef = ref(null)
 
-// Tree column auto-width
 const treeTableRef = ref(null)
-const hostColumnMinWidth = ref(140)
-
-let widthUpdatePending = null
-
-const scheduleUpdateHostColumnWidth = () => {
-  if (widthUpdatePending) cancelAnimationFrame(widthUpdatePending)
-  widthUpdatePending = requestAnimationFrame(() => {
-    setTimeout(() => {
-      nextTick(() => {
-        updateHostColumnWidth()
-      })
-    }, 100) // delay to ensure DOM is fully rendered after tree data changes
-  })
-}
-
-const updateHostColumnWidth = () => {
-  if (!treeTableRef.value) return
-  const wrapper = treeTableRef.value.$el.querySelector('.el-table__body-wrapper')
-  if (!wrapper) return
-  const rows = wrapper.querySelectorAll('tbody tr.el-table__row')
-  if (rows.length === 0) {
-    hostColumnMinWidth.value = 180
-    return
-  }
-  let maxWidth = 180
-  for (const row of rows) {
-    if (row.style.display === 'none') continue
-    const cells = row.querySelectorAll('td')
-    if (cells.length > 1) {
-      const cell = cells[1]
-      if (cell.offsetWidth === 0) continue
-      // Measure actual text width by creating a temporary span
-      const span = document.createElement('span')
-      span.style.visibility = 'hidden'
-      span.style.position = 'absolute'
-      span.style.whiteSpace = 'nowrap'
-      span.style.font = getComputedStyle(cell.querySelector('span') || cell).font
-      span.textContent = cell.textContent
-      document.body.appendChild(span)
-      const textWidth = span.getBoundingClientRect().width
-      document.body.removeChild(span)
-      const w = textWidth + 48 // padding + icon space
-      if (w > maxWidth) maxWidth = w
-    }
-  }
-  hostColumnMinWidth.value = Math.max(180, maxWidth + 24)
-  widthUpdatePending = null
-}
-
-const onTreeNodeExpand = () => {
-  scheduleUpdateHostColumnWidth()
-}
-
-const onTreeNodeCollapse = () => {
-  scheduleUpdateHostColumnWidth()
-}
 
 // Tree view & group tag state
 const recordViewMode = ref('flat')
@@ -1215,12 +1156,6 @@ const treeRecords = computed(() => {
 })
 
 const treeRowClass = ({ row }) => row.virtual ? 'virtual-row' : ''
-
-watch(() => treeRecords.value, () => {
-  nextTick(() => {
-    scheduleUpdateHostColumnWidth()
-  })
-}, { deep: true })
 
 const groupedFlatRecords = computed(() => {
   const recs = [...sortedRecords.value]
@@ -1706,19 +1641,23 @@ const handleRetrySync = async (id) => {
 }
 
 const handleSyncNow = async (id) => {
-  const res = await syncRecord(id)
-  const result = res.data
-  if (result?.status === 'failed') {
-    ElMessage.error(result.error || t('domainDetail.syncFailed'))
-  } else {
-    ElMessage.success(t('domainDetail.syncNowSuccess'))
-  }
-  // If sync_status was returned, use it to update the specific record in place
-  if (result?.sync_status) {
-    const rec = records.value.find(r => r.id === id)
-    if (rec) rec.sync_status = result.sync_status
-  } else {
-    loadRecords()
+  try {
+    const res = await syncRecord(id)
+    const result = res.data
+    if (result?.status === 'failed') {
+      ElMessage.error(result.error || t('domainDetail.syncFailed'))
+    } else {
+      ElMessage.success(t('domainDetail.syncNowSuccess'))
+    }
+    // If sync_status was returned, use it to update the specific record in place
+    if (result?.sync_status) {
+      const rec = records.value.find(r => r.id === id)
+      if (rec) rec.sync_status = result.sync_status
+    } else {
+      loadRecords()
+    }
+  } catch (e) {
+    // Interceptor already shows error toast for network/HTTP errors
   }
 }
 
@@ -2382,10 +2321,6 @@ onMounted(() => {
 }
 :deep(.group-header-row:hover td) {
   background-color: #e8f5d6 !important;
-}
-/* Tree view: allow table to size columns based on content */
-.tree-records-table :deep(.el-table__body) {
-  table-layout: auto !important;
 }
 .tree-records-table {
   overflow-x: auto;

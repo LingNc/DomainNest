@@ -634,6 +634,7 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 				"node_id":     parentID,
 				"host":        newHost,
 				"own_node_id": nil,
+				"sync_status": "pending",
 			}
 			if err := tx.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(updates).Error; err != nil {
 				return err
