@@ -1222,7 +1222,6 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 				needsUpdate := existing.Host != host ||
 					existing.Value != pr.Value ||
 					existing.TTL != int(pr.TTL) ||
-					existing.Enabled != pr.Enabled ||
 					(existing.Priority == nil && priority != nil) ||
 					(existing.Priority != nil && *existing.Priority != *priority)
 
@@ -1231,7 +1230,6 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 						"host":               host,
 						"value":              pr.Value,
 						"ttl":                int(pr.TTL),
-						"enabled":            pr.Enabled,
 						"priority":           priority,
 						"sync_status":        "synced",
 						"provider_record_id": pr.RecordID,
@@ -1246,7 +1244,6 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 				needsUpdate := existing.Host != host ||
 					existing.Value != pr.Value ||
 					existing.TTL != int(pr.TTL) ||
-					existing.Enabled != pr.Enabled ||
 					(existing.Priority == nil && priority != nil) ||
 					(existing.Priority != nil && *existing.Priority != *priority)
 
@@ -1258,7 +1255,6 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 					updates["host"] = host
 					updates["value"] = pr.Value
 					updates["ttl"] = int(pr.TTL)
-					updates["enabled"] = pr.Enabled
 					updates["priority"] = priority
 				}
 				if err := tx.Model(&model.DNSRecord{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
@@ -1275,7 +1271,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 					TTL:              int(pr.TTL),
 					Priority:         priority,
 					Line:             pr.Line,
-					Enabled:          pr.Enabled,
+					Enabled:          true,
 					ProviderRecordID: pr.RecordID,
 					SyncStatus:       "synced",
 					Source:           "provider",
