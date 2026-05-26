@@ -109,7 +109,7 @@
             class="tree-records-table"
           >
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.virtual" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="220" show-overflow-tooltip>
+            <el-table-column prop="host" :label="$t('domainDetail.host')" :min-width="hostColMinWidth" show-overflow-tooltip>
               <template #default="{ row }">
                 <template v-if="row.isGroup">
                   <el-icon style="margin-right:4px"><component :is="'Folder'" /></el-icon>
@@ -203,7 +203,7 @@
           <!-- flat view -->
           <el-table v-else :data="paginatedFlatRecords" stripe v-loading="loading" @selection-change="handleSelectionChange" row-key="id" :row-class-name="flatRowClass" :span-method="flatSpanMethod">
             <el-table-column v-if="selectMode" type="selection" width="40" :selectable="(row) => !row.isGroupHeader" />
-            <el-table-column prop="host" :label="$t('domainDetail.host')" min-width="180">
+            <el-table-column prop="host" :label="$t('domainDetail.host')" :min-width="hostColMinWidth">
               <template #default="{ row }">
                 <template v-if="row.isGroupHeader">
                   <div class="group-header-content">
@@ -821,7 +821,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getDomain, getDomains, transferDomain, deleteDomain, demoteNode, convertToNode, transferRecordsByHost, getArchiveInfo, reactivateDomain, getArchivedChildren, restoreArchivedChild, syncFromProvider } from '../api/domain'
@@ -963,6 +963,96 @@ const archivedLoading = ref(false)
 const multipleTableRef = ref(null)
 
 const treeTableRef = ref(null)
+
+// Dynamic host column width
+const HOST_COL_MIN = 140
+const HOST_COL_MAX = 500
+const HOST_COL_PADDING = 60 // icon + padding + actions buffer
+const hostColMinWidth = ref(HOST_COL_MIN)
+
+// Measure text width using canvas (shared context)
+let measureCtx = null
+function getMeasureCtx() {
+  if (!measureCtx) {
+    measureCtx = document.createElement('canvas').getContext('2d')
+  }
+  return measureCtx
+}
+
+function measureTextWidth(text, font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif') {
+  const ctx = getMeasureCtx()
+  ctx.font = font
+  return ctx.measureText(text || '').width
+}
+
+// Get tree depth for a row (how many levels deep in the tree)
+function getTreeDepth(row) {
+  // treeRecords are nested; we need to find the depth by walking
+  // Since the row itself doesn't carry depth info, we infer from host
+  if (row.isGroup) return 0
+  if (row.host === '@') return 0
+  const parts = row.host.split('.')
+  // Root is 0, each subdomain level adds 1
+  return parts.length - 1
+}
+
+// Compute dynamic min-width for host column
+function updateHostColumnWidth() {
+  nextTick(() => {
+    let maxTextWidth = 0
+
+    if (recordViewMode.value === 'tree') {
+      // Measure all visible tree rows
+      const measureTreeRows = (rows, depth = 0) => {
+        for (const row of rows || []) {
+          const text = row.host || ''
+          const textWidth = measureTextWidth(text)
+          // Each tree level adds ~16px indentation (Element Plus default)
+          const indentWidth = depth * 16
+          const totalWidth = textWidth + indentWidth + HOST_COL_PADDING
+          if (totalWidth > maxTextWidth) {
+            maxTextWidth = totalWidth
+          }
+          // Measure children if expanded
+          if (row.children && row.children.length > 0) {
+            measureTreeRows(row.children, depth + 1)
+          }
+        }
+      }
+      measureTreeRows(treeRecords.value)
+    } else {
+      // Flat view: measure all visible flat records (including group headers)
+      for (const row of paginatedFlatRecords.value || []) {
+        const text = row.host || row.groupLabel || ''
+        const textWidth = measureTextWidth(text)
+        // Group headers have checkbox + chevron, add extra ~40px
+        const extra = row.isGroupHeader ? 40 : 0
+        const totalWidth = textWidth + extra + HOST_COL_PADDING
+        if (totalWidth > maxTextWidth) {
+          maxTextWidth = totalWidth
+        }
+      }
+    }
+
+    const newWidth = Math.max(HOST_COL_MIN, Math.min(HOST_COL_MAX, Math.ceil(maxTextWidth)))
+    hostColMinWidth.value = newWidth
+  })
+}
+
+// Update width when data or view mode changes
+watch([treeRecords, paginatedFlatRecords, recordViewMode], updateHostColumnWidth, { flush: 'post' })
+
+// Update on window resize
+let resizeTimer = null
+function onWindowResize() {
+  clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(updateHostColumnWidth, 150)
+}
+
+onMounted(() => {
+  loadData()
+  window.addEventListener('resize', onWindowResize)
+})
 
 // Tree view & group tag state
 const recordViewMode = ref('flat')
@@ -2172,8 +2262,9 @@ const handleDeleteGroup = async (row) => {
   }
 }
 
-onMounted(() => {
-  loadData()
+onUnmounted(() => {
+  window.removeEventListener('resize', onWindowResize)
+  clearTimeout(resizeTimer)
 })
 </script>
 
