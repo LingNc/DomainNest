@@ -962,6 +962,7 @@ watch(activeTab, (tab) => {
   padding: 2px 0;
   width: 100%;
   flex-wrap: wrap;
+  line-height: 1.6;
 }
 .tree-node.archived {
   opacity: 0.6;
@@ -1095,31 +1096,38 @@ watch(activeTab, (tab) => {
   }
   .tree-node {
     gap: 4px;
-    padding: 1px 0;
+    padding: 2px 0;
+    line-height: 1.6;
   }
   .tree-node .el-tag {
     font-size: 11px;
     padding: 0 5px;
     height: 20px;
     line-height: 20px;
+    margin: 1px 0;
   }
   .domain-name {
     font-size: 13px;
     flex: 1 1 auto;
     min-width: 60px;
     max-width: none;
+    word-break: break-all;
+    white-space: normal;
+    line-height: 1.5;
   }
   .node-actions {
     flex: 1 1 100%;
     margin-left: 0;
-    margin-top: 2px;
+    margin-top: 4px;
     justify-content: flex-start;
     gap: 4px;
+    flex-wrap: wrap;
   }
   .node-actions .el-button {
     padding: 3px 8px;
     font-size: 12px;
     min-height: 28px;
+    margin: 1px 0;
   }
   .filter-bar {
     gap: 6px;
