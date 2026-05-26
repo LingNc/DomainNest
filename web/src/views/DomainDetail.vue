@@ -1039,9 +1039,6 @@ function updateHostColumnWidth() {
   })
 }
 
-// Update width when data or view mode changes
-watch([treeRecords, paginatedFlatRecords, recordViewMode], updateHostColumnWidth, { flush: 'post' })
-
 // Update on window resize
 let resizeTimer = null
 function onWindowResize() {
@@ -1310,6 +1307,9 @@ const paginatedFlatRecords = computed(() => {
   const start = (flatPage.value - 1) * flatPageSize.value
   return all.slice(start, start + flatPageSize.value)
 })
+
+// Update host column width when data or view mode changes
+watch([treeRecords, paginatedFlatRecords, recordViewMode], updateHostColumnWidth, { flush: 'post' })
 
 const flatSpanMethod = ({ row, columnIndex }) => {
   if (row.isGroupHeader) {

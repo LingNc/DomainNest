@@ -1096,8 +1096,9 @@ watch(activeTab, (tab) => {
   }
   .tree-node {
     gap: 4px;
-    padding: 2px 0;
+    padding: 4px 0;
     line-height: 1.6;
+    align-items: flex-start;
   }
   .tree-node .el-tag {
     font-size: 11px;
@@ -1105,20 +1106,23 @@ watch(activeTab, (tab) => {
     height: 20px;
     line-height: 20px;
     margin: 1px 0;
+    flex-shrink: 0;
   }
   .domain-name {
     font-size: 13px;
-    flex: 1 1 auto;
-    min-width: 60px;
+    flex: 1 1 100%;
+    min-width: 0;
     max-width: none;
     word-break: break-all;
     white-space: normal;
-    line-height: 1.5;
+    line-height: 1.6;
+    align-items: flex-start;
+    margin-bottom: 2px;
   }
   .node-actions {
     flex: 1 1 100%;
     margin-left: 0;
-    margin-top: 4px;
+    margin-top: 2px;
     justify-content: flex-start;
     gap: 4px;
     flex-wrap: wrap;
@@ -1178,19 +1182,24 @@ watch(activeTab, (tab) => {
   }
   .tree-node {
     gap: 3px;
-    padding: 0;
+    padding: 2px 0;
+    align-items: flex-start;
   }
   .domain-name {
     font-size: 12px;
+    flex: 1 1 100%;
+    margin-bottom: 1px;
   }
   .tree-node .el-tag {
     font-size: 10px;
     padding: 0 4px;
     height: 18px;
     line-height: 18px;
+    flex-shrink: 0;
   }
   .node-actions {
     gap: 3px;
+    margin-top: 1px;
   }
   .node-actions .el-button {
     padding: 2px 6px;
