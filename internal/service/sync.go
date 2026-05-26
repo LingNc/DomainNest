@@ -12,19 +12,29 @@ import (
 	"gorm.io/gorm"
 )
 
+// DomainSyncer defines the interface for pulling from providers
+type DomainSyncer interface {
+	SyncFromProvider(nodeID, userID uint64) error
+	GetDomainNodesWithProvider() ([]model.DomainNode, error)
+}
+
 type SyncService struct {
 	db          *gorm.DB
 	ddnsService *DDNSService
+	domainSvc   DomainSyncer
 	cfg         *config.SyncConfig
 	stopCh      chan struct{}
+	pullCounter int
 }
 
-func NewSyncService(db *gorm.DB, ddnsService *DDNSService, cfg *config.SyncConfig) *SyncService {
+func NewSyncService(db *gorm.DB, ddnsService *DDNSService, domainSvc DomainSyncer, cfg *config.SyncConfig) *SyncService {
 	s := &SyncService{
 		db:          db,
 		ddnsService: ddnsService,
+		domainSvc:   domainSvc,
 		cfg:         cfg,
 		stopCh:      make(chan struct{}),
+		pullCounter: 0,
 	}
 	s.applyDefaults()
 	return s
@@ -73,6 +83,11 @@ func (s *SyncService) loop() {
 			return
 		case <-ticker.C:
 			s.processBatch()
+			s.pullCounter++
+			if s.pullCounter >= 10 {
+				s.pullCounter = 0
+				s.pullFromProviders()
+			}
 		}
 	}
 }
@@ -189,4 +204,20 @@ func (s *SyncService) GetSyncLogs(nodeID uint64, page, pageSize int) ([]model.Sy
 	}
 
 	return logs, total, nil
+}
+
+func (s *SyncService) pullFromProviders() {
+	if s.domainSvc == nil {
+		return
+	}
+	nodes, err := s.domainSvc.GetDomainNodesWithProvider()
+	if err != nil {
+		log.Printf("获取绑定服务商的域名节点失败: %v", err)
+		return
+	}
+	for _, node := range nodes {
+		if err := s.domainSvc.SyncFromProvider(node.ID, node.OwnerID); err != nil {
+			log.Printf("同步域名 %s 从服务商失败: %v", node.FullDomain, err)
+		}
+	}
 }

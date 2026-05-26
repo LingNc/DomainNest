@@ -1181,16 +1181,22 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 		return fmt.Errorf("获取服务商记录失败: %w", err)
 	}
 
-	// Get existing local provider-source records
+	// Get all local records (including platform-created ones that have provider_record_id)
 	var localRecords []model.DNSRecord
-	if err := s.db.Where("node_id = ? AND source = 'provider' AND deleted_at IS NULL", domainID).Find(&localRecords).Error; err != nil {
+	if err := s.db.Where("node_id = ? AND deleted_at IS NULL", domainID).Find(&localRecords).Error; err != nil {
 		return fmt.Errorf("查询本地记录失败: %w", err)
 	}
 
-	// Build map by provider_record_id
+	// Build map by provider_record_id and by host+type (for fallback matching)
 	localByPRID := make(map[string]*model.DNSRecord)
+	localByHostType := make(map[string]*model.DNSRecord)
 	for i := range localRecords {
-		localByPRID[localRecords[i].ProviderRecordID] = &localRecords[i]
+		rec := &localRecords[i]
+		if rec.ProviderRecordID != "" {
+			localByPRID[rec.ProviderRecordID] = rec
+		}
+		key := rec.Host + "|" + rec.RecordType
+		localByHostType[key] = rec
 	}
 
 	// Tracks which local PRIDs were found on provider (to detect deletions)
@@ -1222,16 +1228,41 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 
 				if needsUpdate {
 					updates := map[string]interface{}{
-						"host":        host,
-						"value":       pr.Value,
-						"ttl":         int(pr.TTL),
-						"enabled":     pr.Enabled,
-						"priority":    priority,
-						"sync_status": "synced",
+						"host":               host,
+						"value":              pr.Value,
+						"ttl":                int(pr.TTL),
+						"enabled":            pr.Enabled,
+						"priority":           priority,
+						"sync_status":        "synced",
+						"provider_record_id": pr.RecordID,
 					}
 					if err := tx.Model(&model.DNSRecord{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
 						return fmt.Errorf("更新记录失败: %w", err)
 					}
+				}
+				foundPRIDs[pr.RecordID] = true
+			} else if existing, ok := localByHostType[host+"|"+pr.Type]; ok {
+				// Fallback: match by host+type, update provider_record_id and values
+				needsUpdate := existing.Host != host ||
+					existing.Value != pr.Value ||
+					existing.TTL != int(pr.TTL) ||
+					existing.Enabled != pr.Enabled ||
+					(existing.Priority == nil && priority != nil) ||
+					(existing.Priority != nil && *existing.Priority != *priority)
+
+				updates := map[string]interface{}{
+					"provider_record_id": pr.RecordID,
+					"sync_status":        "synced",
+				}
+				if needsUpdate {
+					updates["host"] = host
+					updates["value"] = pr.Value
+					updates["ttl"] = int(pr.TTL)
+					updates["enabled"] = pr.Enabled
+					updates["priority"] = priority
+				}
+				if err := tx.Model(&model.DNSRecord{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
+					return fmt.Errorf("更新记录ID失败: %w", err)
 				}
 				foundPRIDs[pr.RecordID] = true
 			} else {
@@ -1256,9 +1287,10 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 			}
 		}
 
-		// Hard-delete local records that exist in our DB but were NOT found on provider
+		// Hard-delete local provider records that exist in our DB but were NOT found on provider
+		// Platform-created records (source='platform') are kept even if not found on provider
 		for prID, rec := range localByPRID {
-			if !foundPRIDs[prID] {
+			if !foundPRIDs[prID] && rec.Source == "provider" {
 				if err := tx.Unscoped().Delete(&model.DNSRecord{}, "id = ?", rec.ID).Error; err != nil {
 					return fmt.Errorf("删除记录失败: %w", err)
 				}
@@ -1308,4 +1340,15 @@ func (s *DomainService) ReturnSubdomainToClaimer(nodeID, userID uint64) error {
 
 		return nil
 	})
+}
+
+// GetDomainNodesWithProvider returns all active nodes bound to a DNS provider
+func (s *DomainService) GetDomainNodesWithProvider() ([]model.DomainNode, error) {
+	var nodes []model.DomainNode
+	err := s.db.Where("provider_id IS NOT NULL AND status = 'active' AND deleted_at IS NULL").
+		Find(&nodes).Error
+	if err != nil {
+		return nil, err
+	}
+	return nodes, nil
 }

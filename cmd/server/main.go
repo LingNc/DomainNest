@@ -59,7 +59,7 @@ func main() {
 	messageService := service.NewMessageService(db)
 	filterPresetService := service.NewFilterPresetService(db)
 
-	syncService := service.NewSyncService(db, ddnsService, &cfg.Sync)
+	syncService := service.NewSyncService(db, ddnsService, domainService, &cfg.Sync)
 	syncService.Start()
 	defer syncService.Stop()
 
