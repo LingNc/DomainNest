@@ -278,6 +278,19 @@
             </el-form-item>
           </el-form>
         </el-tab-pane>
+        <el-tab-pane :label="$t('admin.providerManagement')" name="providers">
+          <el-table :data="adminProviders" stripe v-loading="loadingAdminProviders" style="width:100%">
+            <el-table-column prop="id" :label="$t('admin.id')" width="60" />
+            <el-table-column prop="name" :label="$t('admin.providerName')" min-width="120" />
+            <el-table-column prop="provider_type" :label="$t('admin.providerType')" width="120" />
+            <el-table-column :label="$t('admin.belongsToUser')" min-width="120">
+              <template #default="{ row }">
+                {{ row.user?.username || row.user_id }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+          </el-table>
+        </el-tab-pane>
         <el-tab-pane :label="$t('admin.inviteCodeManagement')" name="inviteCodes">
           <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
             <el-input v-model="inviteCodeFilter" :placeholder="$t('admin.filterByCreatorOrUsedBy')" clearable style="width:200px" size="default" />
@@ -416,7 +429,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, adminBatchDeleteDomains, listInviteCodes, deleteInviteCode } from '../api/admin'
+import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, adminBatchDeleteDomains, listInviteCodes, deleteInviteCode, adminListProviders } from '../api/admin'
 import { listProviders, listProviderDomains } from '../api/provider'
 import { grantInviteQuota, revokeInviteQuota } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
@@ -688,7 +701,7 @@ const filteredInviteCodes = computed(() => {
 const loadAdminProviders = async () => {
   loadingAdminProviders.value = true
   try {
-    const res = await listProviders()
+    const res = await adminListProviders()
     adminProviders.value = res.data || []
   } catch { /* ignore */ } finally {
     loadingAdminProviders.value = false

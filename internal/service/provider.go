@@ -50,6 +50,12 @@ func (s *ProviderService) List(userID uint64) ([]model.DNSProvider, error) {
 	return providers, err
 }
 
+func (s *ProviderService) ListAll() ([]model.DNSProvider, error) {
+	var providers []model.DNSProvider
+	err := s.db.Order("id DESC").Preload("User").Find(&providers).Error
+	return providers, err
+}
+
 func (s *ProviderService) Get(providerID, userID uint64) (*model.DNSProvider, error) {
 	var p model.DNSProvider
 	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&p).Error; err != nil {

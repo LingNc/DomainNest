@@ -23,10 +23,11 @@ type AdminHandler struct {
 	domainService     *service.DomainService
 	notifSvc          *notification.Service
 	inviteCodeService *service.InviteCodeService
+	providerService  *service.ProviderService
 }
 
-func NewAdminHandler(db *gorm.DB, domainService *service.DomainService, notifSvc *notification.Service, inviteCodeService *service.InviteCodeService) *AdminHandler {
-	return &AdminHandler{db: db, domainService: domainService, notifSvc: notifSvc, inviteCodeService: inviteCodeService}
+func NewAdminHandler(db *gorm.DB, domainService *service.DomainService, notifSvc *notification.Service, inviteCodeService *service.InviteCodeService, providerService *service.ProviderService) *AdminHandler {
+	return &AdminHandler{db: db, domainService: domainService, notifSvc: notifSvc, inviteCodeService: inviteCodeService, providerService: providerService}
 }
 
 func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
@@ -1083,4 +1084,17 @@ func (h *AdminHandler) DeleteInviteCode(c *gin.Context) {
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "邀请码已删除", "data": gin.H{"creator_id": creatorID, "creator_username": creatorUsername}})
+}
+
+func (h *AdminHandler) ListAllProviders(c *gin.Context) {
+	providers, err := h.providerService.ListAll()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	// Hide access_key_secret
+	for i := range providers {
+		providers[i].AccessKeySecret = ""
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": providers})
 }

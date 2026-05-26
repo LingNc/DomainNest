@@ -28,3 +28,5 @@ export const adminToggleRecord = (domainId, recordId, data) => request.post(`/ad
 export const generateInviteCodes = (count) => request.post('/admin/invite-codes', { count })
 export const listInviteCodes = (params) => request.get('/admin/invite-codes', { params })
 export const deleteInviteCode = (id) => request.delete(`/admin/invite-codes/${id}`)
+
+export const adminListProviders = () => request.get('/admin/providers')

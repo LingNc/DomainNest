@@ -58,7 +58,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	domainHandler := handler.NewDomainHandler(domainService, permissionService, notificationService, db)
 	recordHandler := handler.NewRecordHandler(recordService, providerService, ddnsService, notificationService, permissionService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
-	adminHandler := handler.NewAdminHandler(db, domainService, notificationService, inviteCodeService)
+	adminHandler := handler.NewAdminHandler(db, domainService, notificationService, inviteCodeService, providerService)
 	notificationHandler := handler.NewNotificationHandler(messageService)
 	notificationSettingHandler := handler.NewNotificationSettingHandler(db)
 	settingsHandler := handler.NewSettingsHandler(db, settingsService)
@@ -224,6 +224,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		admin.POST("/invite-codes", adminHandler.GenerateInviteCodes)
 		admin.GET("/invite-codes", adminHandler.ListInviteCodes)
 		admin.DELETE("/invite-codes/:id", adminHandler.DeleteInviteCode)
+		admin.GET("/providers", adminHandler.ListAllProviders)
 	}
 
 	friends := v1.Group("/friends")
