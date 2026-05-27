@@ -1185,7 +1185,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 
 	// Skip records belonging to materialized (independent) child domains
 	var materializedChildren []model.DomainNode
-	s.db.Where("parent_id = ? AND is_materialized = true AND deleted_at IS NULL", domainID).Find(&materializedChildren)
+	s.db.Where("parent_id = ? AND deleted_at IS NULL", domainID).Find(&materializedChildren)
 	childHosts := make(map[string]bool)
 	for _, child := range materializedChildren {
 		childHosts[child.Host] = true
@@ -1333,6 +1333,21 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 				localByPRID[pr.RecordID] = newRec
 				localByHostType[host+"|"+pr.Type] = append(localByHostType[host+"|"+pr.Type], newRec)
 				foundPRIDs[pr.RecordID] = true
+			}
+		}
+
+		// Deduplicate: delete provider-source records whose host+type matches a platform-source record
+		matchedHostTypes := make(map[string]bool)
+		for _, rec := range localRecords {
+			if matchedLocalIDs[rec.ID] && rec.Source == "platform" {
+				matchedHostTypes[rec.Host+"|"+rec.RecordType] = true
+			}
+		}
+		for _, rec := range localRecords {
+			if rec.Source == "provider" && matchedHostTypes[rec.Host+"|"+rec.RecordType] {
+				if err := tx.Unscoped().Delete(&model.DNSRecord{}, "id = ?", rec.ID).Error; err != nil {
+					return fmt.Errorf("删除重复记录失败: %w", err)
+				}
 			}
 		}
 
