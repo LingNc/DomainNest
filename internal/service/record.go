@@ -434,9 +434,8 @@ func (s *RecordService) TransferRecords(recordIDs []uint64, targetNodeID uint64,
 		}
 
 		if err := s.db.Model(&record).Updates(map[string]interface{}{
-			"node_id":      targetNodeID,
-			"host":         newHost,
-			"own_node_id": targetNodeID,
+			"node_id":     targetNodeID,
+			"host":        newHost,
 			"sync_status": "pending",
 		}).Error; err != nil {
 			return err
