@@ -240,6 +240,7 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		Enabled:          true,
 		SyncStatus:       syncStatus,
 		ProviderRecordID: providerRecordID,
+		Source:           "platform",
 		CreatedBy:        userID,
 	}
 

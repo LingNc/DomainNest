@@ -1191,14 +1191,14 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 
 	// Build map by provider_record_id and by host+type (for fallback matching)
 	localByPRID := make(map[string]*model.DNSRecord)
-	localByHostType := make(map[string]*model.DNSRecord)
+	localByHostType := make(map[string][]*model.DNSRecord)
 	for i := range localRecords {
 		rec := &localRecords[i]
 		if rec.ProviderRecordID != "" {
 			localByPRID[rec.ProviderRecordID] = rec
 		}
 		key := rec.Host + "|" + rec.RecordType
-		localByHostType[key] = rec
+		localByHostType[key] = append(localByHostType[key], rec)
 	}
 
 	// Tracks which local PRIDs were found on provider (to detect deletions)
@@ -1241,8 +1241,19 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 					}
 				}
 				foundPRIDs[pr.RecordID] = true
-			} else if existing, ok := localByHostType[host+"|"+pr.Type]; ok {
-				// Fallback: match by host+type, update provider_record_id and values
+			} else if candidates, ok := localByHostType[host+"|"+pr.Type]; ok {
+				// Find best match: exact value match first, then first candidate
+				var existing *model.DNSRecord
+				for _, cand := range candidates {
+					if cand.Value == pr.Value {
+						existing = cand
+						break
+					}
+				}
+				if existing == nil {
+					existing = candidates[0]
+				}
+
 				needsUpdate := existing.Host != host ||
 					existing.Value != pr.Value ||
 					existing.TTL != int(pr.TTL) ||
@@ -1252,6 +1263,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 				updates := map[string]interface{}{
 					"provider_record_id": pr.RecordID,
 					"sync_status":        "synced",
+					"source":             "platform",
 				}
 				if needsUpdate {
 					updates["host"] = host
@@ -1288,7 +1300,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 		// Hard-delete local provider records that exist in our DB but were NOT found on provider
 		// Platform-created records (source='platform') are kept even if not found on provider
 		for prID, rec := range localByPRID {
-			if !foundPRIDs[prID] && rec.Source == "provider" {
+			if !foundPRIDs[prID] && (rec.Source == "provider" || rec.Source == "") {
 				if err := tx.Unscoped().Delete(&model.DNSRecord{}, "id = ?", rec.ID).Error; err != nil {
 					return fmt.Errorf("删除记录失败: %w", err)
 				}
