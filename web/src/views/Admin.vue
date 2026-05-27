@@ -294,7 +294,7 @@
           </div>
           <el-table :data="filteredProviders" stripe v-loading="loadingAdminProviders" style="width:100%"
             @sort-change="handleProviderSortChange">
-            <el-table-column prop="id" :label="$t('admin.id')" width="60" sortable="custom" />
+            <el-table-column prop="id" :label="$t('admin.id')" width="80" sortable="custom" />
             <el-table-column prop="name" :label="$t('admin.providerName')" min-width="120" sortable="custom" />
             <el-table-column prop="provider_type" :label="$t('admin.providerType')" width="120" />
             <el-table-column :label="$t('admin.belongsToUser')" min-width="120">
@@ -451,7 +451,7 @@
           <el-descriptions-item :label="$t('admin.id')">{{ providerDetail.id }}</el-descriptions-item>
           <el-descriptions-item :label="$t('admin.providerName')">{{ providerDetail.name }}</el-descriptions-item>
           <el-descriptions-item :label="$t('admin.providerType')">{{ providerDetail.provider_type }}</el-descriptions-item>
-          <el-descriptions-item :label="$t('admin.providerEndpoint')">{{ providerDetail.endpoint || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('admin.providerEndpoint')">{{ providerDetail.endpoint || $t('common.default') }}</el-descriptions-item>
           <el-descriptions-item :label="$t('admin.belongsToUser')">{{ providerDetail.user?.username || providerDetail.user_id }}</el-descriptions-item>
           <el-descriptions-item :label="$t('common.createdAt')">{{ providerDetail.created_at }}</el-descriptions-item>
         </el-descriptions>
