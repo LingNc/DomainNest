@@ -440,16 +440,9 @@ func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, trigg
 
 	fullDomain := host + "." + parent.FullDomain
 
-	// Check for existing node of any status (including soft-deleted)
+	// Check for existing active node
 	var existing model.DomainNode
-	if err := s.db.Unscoped().Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
-		if existing.DeletedAt.Valid {
-			// Soft-deleted node found — restore it instead of creating new
-			if err := s.db.Unscoped().Model(&existing).Update("deleted_at", nil).Error; err != nil {
-				return nil, fmt.Errorf("恢复节点失败: %w", err)
-			}
-			return &existing, nil
-		}
+	if err := s.db.Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
 		if existing.Status == "archived" {
 			// If target is the same owner → restore
 			if targetUserID == existing.OwnerID {
