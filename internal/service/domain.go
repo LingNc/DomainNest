@@ -495,9 +495,11 @@ func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, trigg
 		if err := tx.Model(&model.DNSRecord{}).
 			Where("node_id = ? AND host = ? AND deleted_at IS NULL", parentID, host).
 			Updates(map[string]interface{}{
-				"node_id":     node.ID,
-				"host":        "@",
-				"own_node_id": node.ID,
+				"node_id":            node.ID,
+				"host":               "@",
+				"own_node_id":        node.ID,
+				"sync_status":        "pending",
+				"provider_record_id": "",
 			}).Error; err != nil {
 			return err
 		}
@@ -1222,6 +1224,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 				needsUpdate := existing.Host != host ||
 					existing.Value != pr.Value ||
 					existing.TTL != int(pr.TTL) ||
+					existing.Enabled != pr.Enabled ||
 					(existing.Priority == nil && priority != nil) ||
 					(existing.Priority != nil && *existing.Priority != *priority)
 
@@ -1231,6 +1234,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 						"value":              pr.Value,
 						"ttl":                int(pr.TTL),
 						"priority":           priority,
+						"enabled":            pr.Enabled,
 						"sync_status":        "synced",
 						"provider_record_id": pr.RecordID,
 					}
@@ -1244,12 +1248,14 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 				needsUpdate := existing.Host != host ||
 					existing.Value != pr.Value ||
 					existing.TTL != int(pr.TTL) ||
+					existing.Enabled != pr.Enabled ||
 					(existing.Priority == nil && priority != nil) ||
 					(existing.Priority != nil && *existing.Priority != *priority)
 
 				updates := map[string]interface{}{
 					"provider_record_id": pr.RecordID,
 					"sync_status":        "synced",
+					"enabled":            pr.Enabled,
 				}
 				if needsUpdate {
 					updates["host"] = host
