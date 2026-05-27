@@ -16,13 +16,14 @@ import (
 )
 
 type FriendHandler struct {
-	friendService *service.FriendService
-	notifSvc      *notification.Service
-	db            *gorm.DB
+	friendService   *service.FriendService
+	notifSvc        *notification.Service
+	messageService  *service.MessageService
+	db              *gorm.DB
 }
 
-func NewFriendHandler(friendService *service.FriendService, notifSvc *notification.Service, db *gorm.DB) *FriendHandler {
-	return &FriendHandler{friendService: friendService, notifSvc: notifSvc, db: db}
+func NewFriendHandler(friendService *service.FriendService, notifSvc *notification.Service, messageService *service.MessageService, db *gorm.DB) *FriendHandler {
+	return &FriendHandler{friendService: friendService, notifSvc: notifSvc, messageService: messageService, db: db}
 }
 
 // SendRequest sends a friend request to another user.
@@ -85,9 +86,6 @@ func (h *FriendHandler) AcceptRequest(c *gin.Context) {
 	}
 
 	// Notify sender that their request was accepted
-	ws.BroadcastToUser(friendReq.SenderID, ws.TypeNewNotification, gin.H{"type": "friend_accepted", "from_user_id": userID})
-
-	// Send persistent notification to the sender
 	go func() {
 		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
 		acceptorUsername := c.GetString("username")
@@ -95,6 +93,10 @@ func (h *FriendHandler) AcceptRequest(c *gin.Context) {
 			log.Printf("[Notification] FriendRequestAccepted failed: %v", err)
 		}
 	}()
+
+	if count, err := h.messageService.UnreadCount(friendReq.SenderID); err == nil {
+		ws.BroadcastToUser(friendReq.SenderID, ws.TypeUnreadUpdate, gin.H{"count": count})
+	}
 
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	middleware.LogOperationUser(h.db, userID, friendReq.SenderID, "accept_friend", "friend", &friendID, nil, c.ClientIP())
@@ -124,9 +126,6 @@ func (h *FriendHandler) RejectRequest(c *gin.Context) {
 	}
 
 	// Notify sender that their request was rejected
-	ws.BroadcastToUser(friendReq.SenderID, ws.TypeNewNotification, gin.H{"type": "friend_rejected", "from_user_id": userID})
-
-	// Send persistent notification to the sender
 	go func() {
 		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
 		rejectorUsername := c.GetString("username")
@@ -134,6 +133,10 @@ func (h *FriendHandler) RejectRequest(c *gin.Context) {
 			log.Printf("[Notification] FriendRequestRejected failed: %v", err)
 		}
 	}()
+
+	if count, err := h.messageService.UnreadCount(friendReq.SenderID); err == nil {
+		ws.BroadcastToUser(friendReq.SenderID, ws.TypeUnreadUpdate, gin.H{"count": count})
+	}
 
 	friendID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	middleware.LogOperationUser(h.db, userID, friendReq.SenderID, "reject_friend", "friend", &friendID, nil, c.ClientIP())
