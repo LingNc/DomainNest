@@ -305,6 +305,16 @@ func (h *RecordHandler) TransferRecords(c *gin.Context) {
 		return
 	}
 
+	// Trigger immediate sync for transferred records
+	go func() {
+		for _, rid := range req.RecordIDs {
+			var rec model.DNSRecord
+			if h.db.First(&rec, rid).Error == nil && rec.ProviderRecordID != "" {
+				h.ddnsService.SyncRecord(rid)
+			}
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "转移成功"})
 }
 
