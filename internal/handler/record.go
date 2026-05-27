@@ -152,13 +152,16 @@ func (h *RecordHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	var record model.DNSRecord
+	h.db.First(&record, recordID)
+
 	if err := h.recordService.DeleteRecord(recordID, userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
 	middleware.LogOperation(h.db, userID, "delete_record", "dns_record", &recordID,
-		nil, c.ClientIP())
+		map[string]interface{}{"host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }
@@ -190,7 +193,7 @@ func (h *RecordHandler) Toggle(c *gin.Context) {
 		action = "disable_record"
 	}
 	middleware.LogOperation(h.db, userID, action, "dns_record", &recordID,
-		map[string]interface{}{"enabled": req.Enabled}, c.ClientIP())
+		map[string]interface{}{"enabled": req.Enabled, "host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": record})
 }

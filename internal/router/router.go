@@ -225,6 +225,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		admin.GET("/invite-codes", adminHandler.ListInviteCodes)
 		admin.DELETE("/invite-codes/:id", adminHandler.DeleteInviteCode)
 		admin.GET("/providers", adminHandler.ListAllProviders)
+		admin.GET("/providers/:id", adminHandler.GetProviderDetail)
+		admin.PUT("/providers/:id", adminHandler.UpdateProvider)
+		admin.DELETE("/providers/:id", adminHandler.DeleteProvider)
 	}
 
 	friends := v1.Group("/friends")

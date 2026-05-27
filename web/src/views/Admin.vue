@@ -279,16 +279,37 @@
           </el-form>
         </el-tab-pane>
         <el-tab-pane :label="$t('admin.providerManagement')" name="providers">
-          <el-table :data="adminProviders" stripe v-loading="loadingAdminProviders" style="width:100%">
-            <el-table-column prop="id" :label="$t('admin.id')" width="60" />
-            <el-table-column prop="name" :label="$t('admin.providerName')" min-width="120" />
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+            <el-input v-model="providerSearch" :placeholder="$t('admin.providerSearchPlaceholder')" clearable style="width:200px" size="default" />
+            <el-select v-model="providerTypeFilter" :placeholder="$t('admin.providerTypeFilter')" clearable style="width:150px" size="default">
+              <el-option :label="$t('common.all')" value="" />
+              <el-option label="aliyun" value="aliyun" />
+              <el-option label="aliesa" value="aliesa" />
+              <el-option label="tencentcloud" value="tencentcloud" />
+              <el-option label="huaweicloud" value="huaweicloud" />
+              <el-option label="baiducloud" value="baiducloud" />
+              <el-option label="trafficroute" value="trafficroute" />
+              <el-option label="rainyun" value="rainyun" />
+            </el-select>
+          </div>
+          <el-table :data="filteredProviders" stripe v-loading="loadingAdminProviders" style="width:100%"
+            @sort-change="handleProviderSortChange">
+            <el-table-column prop="id" :label="$t('admin.id')" width="60" sortable="custom" />
+            <el-table-column prop="name" :label="$t('admin.providerName')" min-width="120" sortable="custom" />
             <el-table-column prop="provider_type" :label="$t('admin.providerType')" width="120" />
             <el-table-column :label="$t('admin.belongsToUser')" min-width="120">
               <template #default="{ row }">
                 {{ row.user?.username || row.user_id }}
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" />
+            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" sortable="custom" />
+            <el-table-column :label="$t('common.action')" width="140" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click="openProviderDetail(row)">{{ $t('admin.viewDetail') }}</el-button>
+                <el-button link type="success" size="small" @click="openEditProvider(row)">{{ $t('common.edit') }}</el-button>
+                <el-button link type="danger" size="small" @click="handleDeleteProvider(row)">{{ $t('common.delete') }}</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
         <el-tab-pane :label="$t('admin.inviteCodeManagement')" name="inviteCodes">
@@ -422,6 +443,56 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 提供商详情对话框 -->
+    <el-dialog v-model="showProviderDetail" :title="$t('admin.providerDetailTitle')" width="600px" destroy-on-close>
+      <div v-if="providerDetail">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item :label="$t('admin.id')">{{ providerDetail.id }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('admin.providerName')">{{ providerDetail.name }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('admin.providerType')">{{ providerDetail.provider_type }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('admin.providerEndpoint')">{{ providerDetail.endpoint || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('admin.belongsToUser')">{{ providerDetail.user?.username || providerDetail.user_id }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('common.createdAt')">{{ providerDetail.created_at }}</el-descriptions-item>
+        </el-descriptions>
+        <el-divider>{{ $t('admin.providerDomainsCount', { count: providerDomains.length }) }}</el-divider>
+        <el-table :data="providerDomains" stripe size="small" max-height="300">
+          <el-table-column prop="domain_name" :label="$t('domainDetail.fullDomain')" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="record_count" :label="$t('providers.recordCount')" width="80" />
+          <el-table-column :label="$t('admin.claimStatus')" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.claimed ? 'success' : 'info'" size="small">
+                {{ row.claimed ? $t('admin.claimed') : $t('admin.unclaimed') }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('admin.owner')" width="100">
+            <template #default="{ row }">
+              {{ row.owner_name || '-' }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="showProviderDetail = false">{{ $t('common.back') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 编辑提供商对话框 -->
+    <el-dialog v-model="showEditProvider" :title="$t('admin.editProvider')" width="480px" destroy-on-close>
+      <el-form :model="editProviderForm" label-width="100px">
+        <el-form-item :label="$t('admin.providerName')">
+          <el-input v-model="editProviderForm.name" />
+        </el-form-item>
+        <el-form-item :label="$t('admin.providerEndpoint')">
+          <el-input v-model="editProviderForm.endpoint" :placeholder="$t('admin.providerEndpoint')" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditProvider = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="editProviderLoading" @click="handleUpdateProvider">{{ $t('common.save') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -429,7 +500,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, adminBatchDeleteDomains, listInviteCodes, deleteInviteCode, adminListProviders } from '../api/admin'
+import { listUsers, listLogs, createRootDomain, updateUser, adminResetPassword, disableUser, getSettings, updateSettings, testSMTP, promoteToAdmin, demoteFromAdmin, getAdminDomainTree, adminBatchDeleteDomains, listInviteCodes, deleteInviteCode, adminListProviders, getAdminProviderDetail, adminUpdateProvider, adminDeleteProvider } from '../api/admin'
 import { listProviders, listProviderDomains } from '../api/provider'
 import { grantInviteQuota, revokeInviteQuota } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
@@ -467,6 +538,18 @@ const inviteCodeFilter = ref('')
 const inviteCodeStatus = ref('')
 const inviteCodeSortBy = ref('created_at')
 const inviteCodeSortOrder = ref('desc')
+
+const providerSearch = ref('')
+const providerTypeFilter = ref('')
+const providerSortBy = ref('id')
+const providerSortOrder = ref('desc')
+const showProviderDetail = ref(false)
+const providerDetail = ref(null)
+const providerDomains = ref([])
+const showEditProvider = ref(false)
+const editProviderForm = reactive({ name: '', endpoint: '' })
+const editProviderLoading = ref(false)
+const editProviderTarget = ref(null)
 
 const showEditUser = ref(false)
 const editTarget = ref(null)
@@ -693,6 +776,32 @@ const filteredInviteCodes = computed(() => {
     if (typeof bVal === 'string') bVal = bVal.toLowerCase()
     if (aVal < bVal) return inviteCodeSortOrder.value === 'asc' ? -1 : 1
     if (aVal > bVal) return inviteCodeSortOrder.value === 'asc' ? 1 : -1
+    return 0
+  })
+  return result
+})
+
+const filteredProviders = computed(() => {
+  let result = [...adminProviders.value]
+  const q = providerSearch.value.toLowerCase()
+  if (q) {
+    result = result.filter(p =>
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.provider_type || '').toLowerCase().includes(q)
+    )
+  }
+  if (providerTypeFilter.value) {
+    result = result.filter(p => p.provider_type === providerTypeFilter.value)
+  }
+  result.sort((a, b) => {
+    let aVal = a[providerSortBy.value]
+    let bVal = b[providerSortBy.value]
+    if (aVal == null) aVal = ''
+    if (bVal == null) bVal = ''
+    if (typeof aVal === 'string') aVal = aVal.toLowerCase()
+    if (typeof bVal === 'string') bVal = bVal.toLowerCase()
+    if (aVal < bVal) return providerSortOrder.value === 'asc' ? -1 : 1
+    if (aVal > bVal) return providerSortOrder.value === 'asc' ? 1 : -1
     return 0
   })
   return result
@@ -1035,6 +1144,69 @@ const handleInviteCodeSizeChange = (s) => {
 const handleInviteCodeSortChange = ({ prop, order }) => {
   inviteCodeSortBy.value = prop || 'created_at'
   inviteCodeSortOrder.value = order === 'ascending' ? 'asc' : 'desc'
+}
+
+const openProviderDetail = async (row) => {
+  try {
+    const res = await getAdminProviderDetail(row.id)
+    providerDetail.value = res.data.provider
+    providerDomains.value = res.data.domains || []
+    showProviderDetail.value = true
+  } catch (e) {
+    showError(e.response?.data?.message || t('admin.requestFailed'))
+  }
+}
+
+const openEditProvider = (row) => {
+  editProviderTarget.value = row
+  editProviderForm.name = row.name || ''
+  editProviderForm.endpoint = row.endpoint || ''
+  showEditProvider.value = true
+}
+
+const handleUpdateProvider = async () => {
+  editProviderLoading.value = true
+  try {
+    await adminUpdateProvider(editProviderTarget.value.id, { name: editProviderForm.name, endpoint: editProviderForm.endpoint })
+    ElMessage.success(t('admin.providerUpdated'))
+    showEditProvider.value = false
+    loadAdminProviders()
+  } catch (e) {
+    showError(e.response?.data?.message || t('admin.requestFailed'))
+  } finally {
+    editProviderLoading.value = false
+  }
+}
+
+const handleDeleteProvider = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      t('admin.deleteProviderConfirm', { name: row.name, count: 0 }),
+      t('common.confirmDelete'),
+      { type: 'warning' }
+    )
+    await adminDeleteProvider(row.id, true)
+    ElMessage.success(t('admin.providerDeleted'))
+    loadAdminProviders()
+  } catch (e) {
+    if (e === 'cancel') return
+    const errMsg = e.response?.data?.message || ''
+    if (errMsg.includes('归档')) {
+      try {
+        await ElMessageBox.confirm(errMsg, t('common.confirmDelete'), { type: 'warning' })
+        await adminDeleteProvider(row.id, true)
+        ElMessage.success(t('admin.providerDeleted'))
+        loadAdminProviders()
+      } catch { /* cancelled */ }
+    } else {
+      showError(e.response?.data?.message || t('admin.requestFailed'))
+    }
+  }
+}
+
+const handleProviderSortChange = ({ prop, order }) => {
+  providerSortBy.value = prop || 'id'
+  providerSortOrder.value = order === 'ascending' ? 'asc' : 'desc'
 }
 
 

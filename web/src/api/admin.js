@@ -30,3 +30,6 @@ export const listInviteCodes = (params) => request.get('/admin/invite-codes', { 
 export const deleteInviteCode = (id) => request.delete(`/admin/invite-codes/${id}`)
 
 export const adminListProviders = () => request.get('/admin/providers')
+export const getAdminProviderDetail = (id) => request.get(`/admin/providers/${id}`)
+export const adminUpdateProvider = (id, data) => request.put(`/admin/providers/${id}`, data)
+export const adminDeleteProvider = (id, confirm = false) => request.delete(`/admin/providers/${id}?confirm=${confirm}`)

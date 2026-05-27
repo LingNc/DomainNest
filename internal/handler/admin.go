@@ -119,7 +119,7 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 
 	callerID := c.GetUint64("user_id")
 	middleware.LogOperationUser(h.db, callerID, req.UserID, "assign_domain", "domain_node", &nodeID,
-		map[string]interface{}{"old_owner_id": oldOwnerID, "new_owner_id": req.UserID}, c.ClientIP())
+		map[string]interface{}{"full_domain": node.FullDomain, "old_owner_id": oldOwnerID, "new_owner_id": req.UserID}, c.ClientIP())
 
 	ws.BroadcastToUser(oldOwnerID, ws.TypeDomainTreeUpdate, gin.H{
 		"action":  "transfer",
@@ -171,6 +171,12 @@ func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
 		FullDomain string
 	}
 	var toNotify []nodeOwner
+	var nodes []model.DomainNode
+	h.db.Where("id IN ?", req.NodeIDs).Find(&nodes)
+	domainNames := make(map[uint64]string)
+	for _, n := range nodes {
+		domainNames[n.ID] = n.FullDomain
+	}
 	for _, nodeID := range req.NodeIDs {
 		var n model.DomainNode
 		if err := h.db.First(&n, nodeID).Error; err != nil {
@@ -196,8 +202,14 @@ func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
 	}
 
 	callerID := c.GetUint64("user_id")
+	var domainNameList []string
+	for _, id := range req.NodeIDs {
+		if name, ok := domainNames[id]; ok {
+			domainNameList = append(domainNameList, name)
+		}
+	}
 	middleware.LogOperation(h.db, callerID, "batch_delete_domains", "domain_node", nil,
-		map[string]interface{}{"node_ids": req.NodeIDs, "deleted": deleted, "skipped": skipped}, c.ClientIP())
+		map[string]interface{}{"node_ids": req.NodeIDs, "domains": domainNameList, "deleted": deleted, "skipped": skipped}, c.ClientIP())
 
 	// Send notifications to affected owners
 	go func() {
@@ -822,6 +834,9 @@ func (h *AdminHandler) AdminDeleteRecord(c *gin.Context) {
 		return
 	}
 
+	var record model.DNSRecord
+	h.db.First(&record, recordID)
+
 	result := h.db.Unscoped().Where("id = ?", recordID).Delete(&model.DNSRecord{})
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
@@ -834,7 +849,7 @@ func (h *AdminHandler) AdminDeleteRecord(c *gin.Context) {
 
 	callerID := c.GetUint64("user_id")
 	middleware.LogOperation(h.db, callerID, "admin_delete_record", "dns_record", &recordID,
-		nil, c.ClientIP())
+		map[string]interface{}{"host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "记录已永久删除"})
 }
@@ -865,13 +880,16 @@ func (h *AdminHandler) AdminToggleRecord(c *gin.Context) {
 		return
 	}
 
+	var record model.DNSRecord
+	h.db.First(&record, recordID)
+
 	action := "admin_enable_record"
 	if !req.Enabled {
 		action = "admin_disable_record"
 	}
 	callerID := c.GetUint64("user_id")
 	middleware.LogOperation(h.db, callerID, action, "dns_record", &recordID,
-		map[string]interface{}{"enabled": req.Enabled}, c.ClientIP())
+		map[string]interface{}{"enabled": req.Enabled, "host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "状态已更新"})
 }
@@ -1164,4 +1182,84 @@ func (h *AdminHandler) ListAllProviders(c *gin.Context) {
 		providers[i].AccessKeySecret = ""
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": providers})
+}
+
+func (h *AdminHandler) GetProviderDetail(c *gin.Context) {
+	providerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的提供商ID"})
+		return
+	}
+
+	var provider model.DNSProvider
+	if err := h.db.Preload("User").First(&provider, providerID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "提供商不存在"})
+		return
+	}
+	provider.AccessKeySecret = ""
+
+	domains, err := h.providerService.ListDomainsWithStatus(providerID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{
+		"provider": provider,
+		"domains":  domains,
+	}})
+}
+
+func (h *AdminHandler) UpdateProvider(c *gin.Context) {
+	providerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的提供商ID"})
+		return
+	}
+
+	var req struct {
+		Name     string `json:"name"`
+		Endpoint string `json:"endpoint"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	if err := h.providerService.AdminUpdate(providerID, req.Name, req.Endpoint); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	userID := c.GetUint64("user_id")
+	middleware.LogOperation(h.db, userID, "update_provider", "dns_provider", &providerID,
+		map[string]interface{}{"name": req.Name, "endpoint": req.Endpoint}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "更新成功"})
+}
+
+func (h *AdminHandler) DeleteProvider(c *gin.Context) {
+	providerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的提供商ID"})
+		return
+	}
+
+	confirm := c.Query("confirm") == "true"
+
+	affected, err := h.providerService.AdminDelete(providerID, confirm)
+	if err != nil {
+		if affected > 0 {
+			c.JSON(http.StatusConflict, gin.H{"code": 409, "message": err.Error(), "data": gin.H{"linked_domains": affected}})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	userID := c.GetUint64("user_id")
+	middleware.LogOperation(h.db, userID, "delete_provider", "dns_provider", &providerID,
+		map[string]interface{}{"affected_domains": affected}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }

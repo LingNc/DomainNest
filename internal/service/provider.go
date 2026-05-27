@@ -64,6 +64,36 @@ func (s *ProviderService) Get(providerID, userID uint64) (*model.DNSProvider, er
 	return &p, nil
 }
 
+func (s *ProviderService) AdminUpdate(providerID uint64, name, endpoint string) error {
+	return s.db.Model(&model.DNSProvider{}).Where("id = ?", providerID).
+		Updates(map[string]interface{}{"name": name, "endpoint": endpoint}).Error
+}
+
+func (s *ProviderService) AdminDelete(providerID uint64, confirm bool) (int, error) {
+	var count int64
+	s.db.Model(&model.DomainNode{}).Where("provider_id = ?", providerID).Count(&count)
+
+	if count > 0 && !confirm {
+		return int(count), fmt.Errorf("此操作将归档 %d 个关联域名，请确认", count)
+	}
+
+	if count > 0 && confirm {
+		return int(count), s.db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&model.DomainNode{}).Where("provider_id = ?", providerID).
+				Updates(map[string]interface{}{
+					"status":              "archived",
+					"archived_provider_id": providerID,
+					"provider_id":         nil,
+				}).Error; err != nil {
+				return err
+			}
+			return tx.Where("id = ?", providerID).Delete(&model.DNSProvider{}).Error
+		})
+	}
+
+	return 0, s.db.Where("id = ?", providerID).Delete(&model.DNSProvider{}).Error
+}
+
 func (s *ProviderService) Update(providerID, userID uint64, name, endpoint string) error {
 	return s.db.Model(&model.DNSProvider{}).Where("id = ? AND user_id = ?", providerID, userID).
 		Updates(map[string]interface{}{"name": name, "endpoint": endpoint}).Error
