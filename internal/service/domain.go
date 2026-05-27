@@ -644,26 +644,14 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 			recordIDs = append(recordIDs, rec.ID)
 		}
 
-		// Soft-delete the node
-		if err := tx.Delete(&node).Error; err != nil {
+		// Mark as demoted before soft-deleting
+		if err := tx.Model(&node).Update("status", "demoted").Error; err != nil {
 			return err
 		}
 
-		// Purge old soft-deleted nodes for the same domain to prevent accumulation.
-		// The node just soft-deleted above is excluded; it remains for transaction
-		// safety and so the provider-service reactivation path (provider.go:210)
-		// can still find exactly one soft-deleted candidate per full_domain.
-		var staleIDs []uint64
-		tx.Unscoped().
-			Model(&model.DomainNode{}).
-			Where("full_domain = ? AND deleted_at IS NOT NULL AND id != ?", node.FullDomain, node.ID).
-			Pluck("id", &staleIDs)
-		if len(staleIDs) > 0 {
-			// Remove FK dependents first (node_conversion_logs, domain_transfer_logs)
-			tx.Unscoped().Delete(&model.NodeConversionLog{}, "domain_node_id IN ?", staleIDs)
-			tx.Unscoped().Delete(&model.DomainTransferLog{}, "node_id IN ?", staleIDs)
-			// Hard-delete the stale soft-deleted nodes
-			tx.Unscoped().Where("id IN ?", staleIDs).Delete(&model.DomainNode{})
+		// Soft-delete the node
+		if err := tx.Delete(&node).Error; err != nil {
+			return err
 		}
 
 		// Log conversion
