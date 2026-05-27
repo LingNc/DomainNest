@@ -24,7 +24,7 @@
         <template v-else>
           <!-- Batch action bar -->
           <div class="batch-bar" v-if="checkedNodes.length > 0">
-            <span>{{ $t('domainDetail.selectedCount', { count: checkedNodes.length }) }}</span>
+            <span>{{ $t('dashboard.selectedDomainCount', { count: checkedNodes.length }) }}</span>
             <el-button size="small" type="warning" @click="openBatchTransfer">{{ $t('domainDetail.batchTransfer') }}</el-button>
             <el-button size="small" type="primary" @click="openBatchAuthorize">{{ $t('domainDetail.batchAuthorize') }}</el-button>
             <el-button size="small" type="danger" @click="handleBatchCancelIndependence" v-if="hasMaterializedSelected">{{ $t('domainDetail.batchCancelIndependence') }}</el-button>
@@ -146,14 +146,14 @@
           <el-table-column :label="$t('admin.owner')" width="140">
             <template #default="{ row }">
               <span v-if="row.owner && row.owner.username">{{ row.owner.nickname || row.owner.username }}</span>
-              <el-tag v-if="row.owner_id !== auth.user?.id && row.archived_by === auth.user?.id" type="warning" size="small" style="margin-left:6px">已转让</el-tag>
+              <el-tag v-if="row.owner_id !== auth.user?.id && row.archived_by === auth.user?.id" type="warning" size="small" style="margin-left:6px">{{ $t('dashboard.transferred') }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="archived_at" :label="$t('dashboard.archivedAt')" width="170" />
           <el-table-column :label="$t('common.actions')" width="120" fixed="right">
             <template #default="{ row }">
               <el-button v-if="row.owner_id === auth.user?.id" link type="primary" size="small" @click="handleRestoreArchived(row)">{{ $t('dashboard.restoreDomain') }}</el-button>
-              <el-tooltip v-else :content="'域名已转让给 '+getOwnerName(row)+'，无法由你恢复'" placement="top">
+              <el-tooltip v-else :content="$t('dashboard.transferredTooltip', { user: getOwnerName(row) })" placement="top">
                 <el-button link type="info" size="small" disabled>{{ $t('dashboard.restoreDomain') }}</el-button>
               </el-tooltip>
             </template>
@@ -622,7 +622,7 @@ const handleTransferConfirm = async () => {
       return
     }
     await ElMessageBox.confirm(
-      t('domainDetail.confirmBatchTransferMsg', { count: nodes.length }),
+      t('dashboard.confirmBatchTransferMsg', { count: nodes.length }),
       t('domainDetail.batchTransfer'),
       { type: 'warning' }
     )
@@ -683,7 +683,7 @@ const handleReturnSubdomain = async (data) => {
   loadDomains()
 }
 
-const getOwnerName = (row) => row.owner?.nickname || row.owner?.username || `用户${row.owner_id}`
+const getOwnerName = (row) => row.owner?.nickname || row.owner?.username || t('dashboard.userId', { id: row.owner_id })
 
 const handleRestoreArchived = async (data) => {
   await restoreDomain(data.id)
@@ -776,7 +776,7 @@ const handleBatchDelete = async () => {
     const data = res.data || {}
     let msg = t('dashboard.batchDeleteSuccess')
     if (data.skipped > 0) {
-      msg += `（${data.skipped} 个跳过）`
+      msg += t('dashboard.skippedCount', { count: data.skipped })
     }
     ElMessage.success(msg)
   } catch (e) {

@@ -2156,7 +2156,7 @@ const buildNodeTree = (nodes) => {
 
 const onTransferNodeSelect = (data) => {
   if (data.id === domainId) {
-    ElMessage.error(t('domainDetail.cannotTransferToSelf') || '不能转移给自己')
+    ElMessage.error(t('domainDetail.cannotTransferToSelf'))
     return
   }
   transferTargetNodeId.value = data.id
