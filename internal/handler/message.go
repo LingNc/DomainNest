@@ -186,7 +186,10 @@ func (h *MessageHandler) MarkAllNotificationsAsRead(c *gin.Context) {
 		return
 	}
 
-	ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": 0})
+	// Broadcast updated unread count to the current user
+	if count, err := h.messageService.UnreadCount(userID); err == nil {
+		ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
+	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已全部标记为已读"})
 }

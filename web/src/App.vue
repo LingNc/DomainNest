@@ -39,8 +39,9 @@
         <el-menu-item index="/messages">
           <el-icon><component :is="'ChatDotRound'" /></el-icon>
           <template #title>
-            <span>{{ $t('sidebar.messages') }}</span>
-            <el-badge v-if="unreadCount > 0" :value="unreadCount" :max="99" :offset="[10, 0]" />
+            <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+              <span>{{ $t('sidebar.messages') }}</span>
+            </el-badge>
           </template>
         </el-menu-item>
         <el-menu-item index="/settings">

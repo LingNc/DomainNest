@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Bell, View, BellFilled, WarningFilled, InfoFilled, Promotion } from '@element-plus/icons-vue'
@@ -66,6 +66,8 @@ const router = useRouter()
 const { t } = useI18n()
 const store = useNotificationStore()
 const loading = ref(false)
+
+onMounted(() => store.fetchUnreadCount())
 
 const latest = computed(() => store.notifications.slice(0, 8))
 
