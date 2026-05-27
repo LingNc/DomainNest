@@ -186,7 +186,7 @@
                   <el-button link type="primary" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
                 </template>
                 <template v-else>
-                  <template v-if="row.own_node_id === domain?.id && row.host === '@' && auth.user?.id === domain?.owner_id">
+                  <template v-if="row.own_node_id === domain?.id && row.host === '@' && auth.user?.id === domain?.owner_id && !domain?.parent_id">
                     <el-button link type="primary" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
                   </template>
                   <el-button v-if="!row.group_tag && row.source !== 'provider'" link type="primary" size="small" @click="openTagDialog(row)">+</el-button>
@@ -295,7 +295,7 @@
                     <el-button link type="primary" size="small" @click="handleAdopt(row.id)">{{ $t('domainDetail.adopt') }}</el-button>
                   </template>
                   <template v-else>
-                    <template v-if="row.own_node_id === domain?.id && row.host === '@' && auth.user?.id === domain?.owner_id">
+                    <template v-if="row.own_node_id === domain?.id && row.host === '@' && auth.user?.id === domain?.owner_id && !domain?.parent_id">
                       <el-button link type="primary" size="small" @click="handleCancelIndependence(row)">{{ $t('domainDetail.cancelIndependence') }}</el-button>
                     </template>
                     <el-button v-if="!row.group_tag && row.source !== 'provider'" link type="primary" size="small" @click="openTagDialog(row)">+</el-button>

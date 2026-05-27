@@ -1183,6 +1183,14 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 		return fmt.Errorf("获取服务商记录失败: %w", err)
 	}
 
+	// Skip records belonging to materialized (independent) child domains
+	var materializedChildren []model.DomainNode
+	s.db.Where("parent_id = ? AND is_materialized = true AND deleted_at IS NULL", domainID).Find(&materializedChildren)
+	childHosts := make(map[string]bool)
+	for _, child := range materializedChildren {
+		childHosts[child.Host] = true
+	}
+
 	// Get all local records (including platform-created ones that have provider_record_id)
 	var localRecords []model.DNSRecord
 	if err := s.db.Where("node_id = ? AND deleted_at IS NULL", domainID).Find(&localRecords).Error; err != nil {
@@ -1215,6 +1223,10 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 				if strings.HasSuffix(pr.Host, suffix) {
 					host = strings.TrimSuffix(pr.Host, suffix)
 				}
+			}
+
+			if childHosts[host] {
+				continue
 			}
 
 			priority := convertPriority(pr.Priority)
