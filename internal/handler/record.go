@@ -139,7 +139,7 @@ func (h *RecordHandler) Update(c *gin.Context) {
 	}
 
 	middleware.LogOperation(h.db, userID, "update_record", "dns_record", &recordID,
-		map[string]interface{}{"value": record.Value}, c.ClientIP())
+		map[string]interface{}{"value": record.Value, "host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": record})
 }

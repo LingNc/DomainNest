@@ -488,7 +488,8 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperationUser(h.db, callerID, userID, "admin_reset_password", "user", &userID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, userID, "admin_reset_password", "user", &userID,
+		map[string]interface{}{"target_username": targetUser.Username}, c.ClientIP())
 
 	go func() {
 		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
@@ -582,7 +583,8 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 
 	tx.Commit()
 
-	middleware.LogOperationUser(h.db, callerID, userID, "disable_user", "user", &userID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, userID, "disable_user", "user", &userID,
+		map[string]interface{}{"target_username": user.Username}, c.ClientIP())
 
 	go func() {
 		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
@@ -625,7 +627,8 @@ func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperationUser(h.db, callerID, targetID, "promote_to_admin", "user", &targetID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, targetID, "promote_to_admin", "user", &targetID,
+		map[string]interface{}{"target_username": target.Username, "from_role": target.Role}, c.ClientIP())
 
 	go func() {
 		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
@@ -672,7 +675,8 @@ func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
 		return
 	}
 
-	middleware.LogOperationUser(h.db, callerID, targetID, "demote_from_admin", "user", &targetID, nil, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, targetID, "demote_from_admin", "user", &targetID,
+		map[string]interface{}{"target_username": target.Username}, c.ClientIP())
 
 	go func() {
 		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
@@ -837,6 +841,10 @@ func (h *AdminHandler) AdminDeleteRecord(c *gin.Context) {
 	var record model.DNSRecord
 	h.db.First(&record, recordID)
 
+	// Load node to get owner
+	var node model.DomainNode
+	h.db.First(&node, record.NodeID)
+
 	result := h.db.Unscoped().Where("id = ?", recordID).Delete(&model.DNSRecord{})
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
@@ -848,8 +856,8 @@ func (h *AdminHandler) AdminDeleteRecord(c *gin.Context) {
 	}
 
 	callerID := c.GetUint64("user_id")
-	middleware.LogOperation(h.db, callerID, "admin_delete_record", "dns_record", &recordID,
-		map[string]interface{}{"host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, node.OwnerID, "admin_delete_record", "dns_record", &recordID,
+		map[string]interface{}{"host": record.Host, "type": record.RecordType, "node_id": record.NodeID, "domain": node.FullDomain}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "记录已永久删除"})
 }
@@ -883,13 +891,17 @@ func (h *AdminHandler) AdminToggleRecord(c *gin.Context) {
 	var record model.DNSRecord
 	h.db.First(&record, recordID)
 
+	// Load node to get owner
+	var node model.DomainNode
+	h.db.First(&node, record.NodeID)
+
 	action := "admin_enable_record"
 	if !req.Enabled {
 		action = "admin_disable_record"
 	}
 	callerID := c.GetUint64("user_id")
-	middleware.LogOperation(h.db, callerID, action, "dns_record", &recordID,
-		map[string]interface{}{"enabled": req.Enabled, "host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
+	middleware.LogOperationUser(h.db, callerID, node.OwnerID, action, "dns_record", &recordID,
+		map[string]interface{}{"enabled": req.Enabled, "host": record.Host, "type": record.RecordType, "node_id": record.NodeID, "domain": node.FullDomain}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "状态已更新"})
 }

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"domainnest/internal/domain/notification"
+	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
 	"domainnest/internal/ws"
@@ -51,10 +52,17 @@ func (h *TrashHandler) Trash(c *gin.Context) {
 		return
 	}
 
+	// Load record for logging before trashing
+	var record model.DNSRecord
+	h.db.First(&record, id)
+
 	if err := h.trashService.TrashRecord(id, userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "trash_record", "dns_record", &id,
+		map[string]interface{}{"host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
 
 	// Notify the user
 	go func() {
@@ -86,10 +94,17 @@ func (h *TrashHandler) Restore(c *gin.Context) {
 		return
 	}
 
+	// Load record for logging before restoring
+	var record model.DNSRecord
+	h.db.First(&record, id)
+
 	if err := h.trashService.RestoreRecord(id, userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "restore_record", "dns_record", &id,
+		map[string]interface{}{"host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
 
 	// Notify the user
 	go func() {
@@ -121,10 +136,17 @@ func (h *TrashHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	// Load record for logging before deleting
+	var record model.DNSRecord
+	h.db.First(&record, id)
+
 	if err := h.trashService.PermanentDelete(id, userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "permanent_delete", "dns_record", &id,
+		map[string]interface{}{"host": record.Host, "type": record.RecordType, "node_id": record.NodeID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已永久删除"})
 }
@@ -137,6 +159,9 @@ func (h *TrashHandler) Empty(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
+
+	middleware.LogOperation(h.db, userID, "empty_trash", "dns_record", nil,
+		map[string]interface{}{"count": count}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已清空回收站", "data": gin.H{"deleted": count}})
 }
@@ -153,6 +178,10 @@ func (h *TrashHandler) BatchTrash(c *gin.Context) {
 	}
 
 	trashed, failed := h.trashService.BatchTrash(req.RecordIDs, userID)
+
+	middleware.LogOperation(h.db, userID, "batch_trash", "dns_record", nil,
+		map[string]interface{}{"ids": req.RecordIDs, "trashed": trashed, "failed": failed}, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"trashed": trashed, "failed": failed}})
 }
 
@@ -168,5 +197,9 @@ func (h *TrashHandler) BatchRestore(c *gin.Context) {
 	}
 
 	restored, failed := h.trashService.BatchRestore(req.RecordIDs, userID)
+
+	middleware.LogOperation(h.db, userID, "batch_restore", "dns_record", nil,
+		map[string]interface{}{"ids": req.RecordIDs, "restored": restored, "failed": failed}, c.ClientIP())
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"restored": restored, "failed": failed}})
 }

@@ -109,8 +109,12 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 		return
 	}
 
+	// Load node for logging
+	var node model.DomainNode
+	h.db.First(&node, nodeID)
+
 	middleware.LogOperationUser(h.db, userID, req.TargetUserID, "transfer_domain", "domain_node", &nodeID,
-		map[string]interface{}{}, c.ClientIP())
+		map[string]interface{}{"full_domain": node.FullDomain}, c.ClientIP())
 
 	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
 		"action":  "transfer",
@@ -177,7 +181,7 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 	}
 
 	middleware.LogOperation(h.db, userID, "delete_domain", "domain_node", &nodeID,
-		nil, c.ClientIP())
+		map[string]interface{}{"full_domain": node.FullDomain}, c.ClientIP())
 
 	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
 		"action":  "delete",
@@ -316,8 +320,12 @@ func (h *DomainHandler) DemoteNode(c *gin.Context) {
 		return
 	}
 
+	// Load node for logging
+	var node model.DomainNode
+	h.db.First(&node, nodeID)
+
 	middleware.LogOperation(h.db, userID, "demote_node", "domain_node", &nodeID,
-		nil, c.ClientIP())
+		map[string]interface{}{"full_domain": node.FullDomain, "host": node.Host}, c.ClientIP())
 
 	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
 		"action":  "demote",
@@ -378,7 +386,7 @@ func (h *DomainHandler) ReclaimDomain(c *gin.Context) {
 	}
 
 	middleware.LogOperation(h.db, userID, "reclaim_domain", "domain_node", &domainNodeID,
-		map[string]interface{}{"provider_id": providerID, "old_owner_id": oldOwnerID}, c.ClientIP())
+		map[string]interface{}{"provider_id": providerID, "old_owner_id": oldOwnerID, "full_domain": node.FullDomain}, c.ClientIP())
 
 	ws.BroadcastToUser(oldOwnerID, ws.TypeDomainTreeUpdate, gin.H{
 		"action":  "reclaimed",
@@ -425,8 +433,12 @@ func (h *DomainHandler) ReactivateDomain(c *gin.Context) {
 		return
 	}
 
+	// Load node for logging
+	var node model.DomainNode
+	h.db.First(&node, nodeID)
+
 	middleware.LogOperation(h.db, userID, "reactivate_domain", "domain_node", &nodeID,
-		map[string]interface{}{"provider_id": req.ProviderID}, c.ClientIP())
+		map[string]interface{}{"provider_id": req.ProviderID, "full_domain": node.FullDomain}, c.ClientIP())
 
 	ws.BroadcastToUser(userID, ws.TypeDomainTreeUpdate, gin.H{
 		"action":  "reactivate",
@@ -637,8 +649,12 @@ func (h *DomainHandler) SyncFromProvider(c *gin.Context) {
 		return
 	}
 
+	// Load node for logging
+	var node model.DomainNode
+	h.db.First(&node, domainID)
+
 	middleware.LogOperation(h.db, userID, "sync_from_provider", "domain_node", &domainID,
-		nil, c.ClientIP())
+		map[string]interface{}{"full_domain": node.FullDomain}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "同步成功"})
 }

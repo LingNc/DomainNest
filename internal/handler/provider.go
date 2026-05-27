@@ -125,7 +125,8 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
 		return
 	}
-	middleware.LogOperation(h.db, userID, "delete_provider", "dns_provider", &id, nil, c.ClientIP())
+	middleware.LogOperation(h.db, userID, "delete_provider", "dns_provider", &id,
+		map[string]interface{}{"provider_name": providerName}, c.ClientIP())
 
 	// Notify the user
 	if providerName != "" {
