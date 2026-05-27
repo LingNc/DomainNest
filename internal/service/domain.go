@@ -1204,7 +1204,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for _, pr := range providerRecords {
-			// Map RR to host: "@" or domainName itself maps to node.Host (root domain)
+			// Map RR to host: "@" or domainName itself maps to "@" (root domain)
 			host := pr.Host
 			if pr.Host == "@" || pr.Host == node.FullDomain {
 				host = "@"
