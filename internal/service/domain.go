@@ -1207,7 +1207,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 			// Map RR to host: "@" or domainName itself maps to node.Host (root domain)
 			host := pr.Host
 			if pr.Host == "@" || pr.Host == node.FullDomain {
-				host = node.Host
+				host = "@"
 			} else {
 				suffix := "." + node.FullDomain
 				if strings.HasSuffix(pr.Host, suffix) {
