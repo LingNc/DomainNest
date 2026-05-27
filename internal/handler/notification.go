@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"domainnest/internal/service"
+	"domainnest/internal/ws"
 
 	"github.com/gin-gonic/gin"
 )
@@ -77,6 +78,9 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 	if err := h.messageService.MarkAllNotificationsAsRead(userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
+	}
+	if count, err := h.messageService.GetNotificationUnreadCount(userID); err == nil {
+		ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已全部标记为已读"})
 }

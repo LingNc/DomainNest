@@ -236,6 +236,7 @@ const handleSysMarkRead = async (n) => {
 
 const handleSysMarkAllRead = async () => {
   await notifStore.markAllNotificationsAsRead()
+  notifStore.fetchUnreadCount()
 }
 
 const handleSysDelete = async (n) => {
@@ -302,6 +303,7 @@ const handleMarkAllRead = async () => {
     await markAllNotificationsAsRead()
     notifications.value.forEach(n => { n.read_at = new Date().toISOString() })
     notifUnread.value = 0
+    notifStore.fetchUnreadCount()
   } catch { /* ignore */ }
 }
 

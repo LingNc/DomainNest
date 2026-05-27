@@ -152,7 +152,7 @@
                 <el-table-column :label="$t('admin.source')" min-width="80">
                   <template #default="{ row }">
                     <template v-if="!row.virtual">
-                      <el-tag :type="row.source === 'provider' ? 'warning' : 'info'" size="small">
+                      <el-tag :type="row.source === 'provider' ? 'warning' : 'success'" size="small">
                         {{ row.source === 'provider' ? $t('admin.recordSourceProvider') : $t('admin.recordSourcePlatform') }}
                       </el-tag>
                     </template>
@@ -214,7 +214,7 @@
                 <el-table-column :label="$t('admin.source')" min-width="80">
                   <template #default="{ row }">
                     <template v-if="!row.isGroupHeader">
-                      <el-tag :type="row.source === 'provider' ? 'warning' : 'info'" size="small">
+                      <el-tag :type="row.source === 'provider' ? 'warning' : 'success'" size="small">
                         {{ row.source === 'provider' ? $t('admin.recordSourceProvider') : $t('admin.recordSourcePlatform') }}
                       </el-tag>
                     </template>
