@@ -9,6 +9,7 @@ import (
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
+	"domainnest/internal/ws"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -16,12 +17,13 @@ import (
 
 type ProviderHandler struct {
 	providerService *service.ProviderService
-	notifSvc        *notification.Service
-	db              *gorm.DB
+	notifSvc       *notification.Service
+	messageService *service.MessageService
+	db             *gorm.DB
 }
 
-func NewProviderHandler(providerService *service.ProviderService, notifSvc *notification.Service, db *gorm.DB) *ProviderHandler {
-	return &ProviderHandler{providerService: providerService, notifSvc: notifSvc, db: db}
+func NewProviderHandler(providerService *service.ProviderService, notifSvc *notification.Service, messageService *service.MessageService, db *gorm.DB) *ProviderHandler {
+	return &ProviderHandler{providerService: providerService, notifSvc: notifSvc, messageService: messageService, db: db}
 }
 
 func (h *ProviderHandler) Create(c *gin.Context) {
@@ -132,6 +134,9 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 			if err := h.notifSvc.Send(userID, notification.ProviderDeleted(providerName)); err != nil {
 				log.Printf("[Notification] ProviderDeleted failed: %v", err)
 			}
+			if count, err := h.messageService.UnreadCount(userID); err == nil {
+				ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
 		}()
 	}
 
@@ -179,6 +184,9 @@ func (h *ProviderHandler) ClaimDomain(c *gin.Context) {
 		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
 		if err := h.notifSvc.Send(userID, notification.DomainClaimed(node)); err != nil {
 			log.Printf("[Notification] DomainClaimed failed: %v", err)
+		}
+		if count, err := h.messageService.UnreadCount(userID); err == nil {
+			ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
 		}
 	}()
 

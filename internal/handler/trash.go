@@ -8,19 +8,21 @@ import (
 	"domainnest/internal/domain/notification"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
+	"domainnest/internal/ws"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 type TrashHandler struct {
-	trashService *service.TrashService
-	notifSvc     *notification.Service
-	db           *gorm.DB
+	trashService   *service.TrashService
+	notifSvc       *notification.Service
+	messageService *service.MessageService
+	db             *gorm.DB
 }
 
-func NewTrashHandler(trashService *service.TrashService, notifSvc *notification.Service, db *gorm.DB) *TrashHandler {
-	return &TrashHandler{trashService: trashService, notifSvc: notifSvc, db: db}
+func NewTrashHandler(trashService *service.TrashService, notifSvc *notification.Service, messageService *service.MessageService, db *gorm.DB) *TrashHandler {
+	return &TrashHandler{trashService: trashService, notifSvc: notifSvc, messageService: messageService, db: db}
 }
 
 func (h *TrashHandler) List(c *gin.Context) {
@@ -67,6 +69,9 @@ func (h *TrashHandler) Trash(c *gin.Context) {
 			if err := h.notifSvc.Send(userID, notification.RecordTrashed(&record, domain)); err != nil {
 				log.Printf("[Notification] RecordTrashed failed: %v", err)
 			}
+			if count, err := h.messageService.UnreadCount(userID); err == nil {
+				ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
 		}
 	}()
 
@@ -98,6 +103,9 @@ func (h *TrashHandler) Restore(c *gin.Context) {
 			}
 			if err := h.notifSvc.Send(userID, notification.RecordRestored(&record, domain)); err != nil {
 				log.Printf("[Notification] RecordRestored failed: %v", err)
+			}
+			if count, err := h.messageService.UnreadCount(userID); err == nil {
+				ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
 		}
 	}()

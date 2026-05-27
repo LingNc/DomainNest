@@ -55,7 +55,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 
 	emailVerifySvc := service.NewEmailVerifyService(db, emailService)
 	authHandler := handler.NewAuthHandler(authService, emailService, emailVerifySvc, settingsService, notificationService, db, &cfg.JWT)
-	domainHandler := handler.NewDomainHandler(domainService, permissionService, notificationService, db)
+	domainHandler := handler.NewDomainHandler(domainService, permissionService, notificationService, messageService, db)
 	recordHandler := handler.NewRecordHandler(recordService, providerService, ddnsService, notificationService, permissionService, db)
 	ddnsHandler := handler.NewDDNSHandler(ddnsService, ramTokenService)
 	adminHandler := handler.NewAdminHandler(db, domainService, notificationService, inviteCodeService, providerService)
@@ -66,9 +66,9 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 	ramTokenHandler := handler.NewRAMTokenHandler(ramTokenService, db)
 	friendHandler := handler.NewFriendHandler(friendService, notificationService, db)
 	messageHandler := handler.NewMessageHandler(messageService, friendService, db)
-	providerHandler := handler.NewProviderHandler(providerService, notificationService, db)
+	providerHandler := handler.NewProviderHandler(providerService, notificationService, messageService, db)
 	syncHandler := handler.NewSyncHandler(syncService, recordService, db)
-	trashHandler := handler.NewTrashHandler(trashService, notificationService, db)
+	trashHandler := handler.NewTrashHandler(trashService, notificationService, messageService, db)
 	filterPresetHandler := handler.NewFilterPresetHandler(filterPresetService, db)
 	inviteCodeHandler := handler.NewInviteCodeHandler(inviteCodeService)
 

@@ -17,14 +17,15 @@ import (
 )
 
 type DomainHandler struct {
-	domainService *service.DomainService
-	permService   *service.PermissionService
-	notifSvc      *notification.Service
-	db            *gorm.DB
+	domainService   *service.DomainService
+	permService     *service.PermissionService
+	notifSvc        *notification.Service
+	messageService  *service.MessageService
+	db              *gorm.DB
 }
 
-func NewDomainHandler(domainService *service.DomainService, permService *service.PermissionService, notifSvc *notification.Service, db *gorm.DB) *DomainHandler {
-	return &DomainHandler{domainService: domainService, permService: permService, notifSvc: notifSvc, db: db}
+func NewDomainHandler(domainService *service.DomainService, permService *service.PermissionService, notifSvc *notification.Service, messageService *service.MessageService, db *gorm.DB) *DomainHandler {
+	return &DomainHandler{domainService: domainService, permService: permService, notifSvc: notifSvc, messageService: messageService, db: db}
 }
 
 func (h *DomainHandler) List(c *gin.Context) {
@@ -133,8 +134,14 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 			if err := h.notifSvc.Send(req.TargetUserID, notification.DomainTransferredTo(&node, fromUsername)); err != nil {
 				log.Printf("[Notification] DomainTransferredTo failed: %v", err)
 			}
+			if count, err := h.messageService.UnreadCount(req.TargetUserID); err == nil {
+				ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
 			if err := h.notifSvc.Send(userID, notification.DomainTransferredAway(&node, targetUser.Username)); err != nil {
 				log.Printf("[Notification] DomainTransferredAway failed: %v", err)
+			}
+			if count, err := h.messageService.UnreadCount(userID); err == nil {
+				ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
 		}
 
@@ -142,6 +149,9 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 		if transferResult.DelegationCount > 0 {
 			if err := h.notifSvc.Send(req.TargetUserID, notification.DomainTransferredWithDelegations(&node, transferResult.DelegationCount)); err != nil {
 				log.Printf("[Notification] DomainTransferredWithDelegations failed: %v", err)
+			}
+			if count, err := h.messageService.UnreadCount(req.TargetUserID); err == nil {
+				ws.BroadcastToUser(req.TargetUserID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
 		}
 	}()
@@ -180,6 +190,9 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 			defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
 			if err := h.notifSvc.Send(node.OwnerID, notification.DomainDeleted(&node)); err != nil {
 				log.Printf("[Notification] DomainDeleted failed: %v", err)
+			}
+			if count, err := h.messageService.UnreadCount(node.OwnerID); err == nil {
+				ws.BroadcastToUser(node.OwnerID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
 		}()
 	}
@@ -383,6 +396,9 @@ func (h *DomainHandler) ReclaimDomain(c *gin.Context) {
 		if err := h.notifSvc.Send(oldOwnerID, notification.DomainReclaimed(&node, byUsername)); err != nil {
 			log.Printf("[Notification] DomainReclaimed failed: %v", err)
 		}
+		if count, err := h.messageService.UnreadCount(oldOwnerID); err == nil {
+			ws.BroadcastToUser(oldOwnerID, ws.TypeUnreadUpdate, gin.H{"count": count})
+		}
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "回收成功"})
@@ -424,6 +440,9 @@ func (h *DomainHandler) ReactivateDomain(c *gin.Context) {
 		if h.db.First(&node, nodeID).Error == nil {
 			if err := h.notifSvc.Send(userID, notification.DomainReactivated(&node)); err != nil {
 				log.Printf("[Notification] DomainReactivated failed: %v", err)
+			}
+			if count, err := h.messageService.UnreadCount(userID); err == nil {
+				ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
 		}
 	}()
@@ -494,6 +513,9 @@ func (h *DomainHandler) ArchiveDomain(c *gin.Context) {
 			if err := h.notifSvc.Send(p.UserID, notification.DomainArchived(&node, byUsername)); err != nil {
 				log.Printf("[Notification] DomainArchived failed: %v", err)
 			}
+			if count, err := h.messageService.UnreadCount(p.UserID); err == nil {
+				ws.BroadcastToUser(p.UserID, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
 		}
 	}()
 
@@ -519,6 +541,9 @@ func (h *DomainHandler) RestoreDomain(c *gin.Context) {
 		if h.db.First(&node, nodeID).Error == nil {
 			if err := h.notifSvc.Send(userID, notification.DomainRestored(&node)); err != nil {
 				log.Printf("[Notification] DomainRestored failed: %v", err)
+			}
+			if count, err := h.messageService.UnreadCount(userID); err == nil {
+				ws.BroadcastToUser(userID, ws.TypeUnreadUpdate, gin.H{"count": count})
 			}
 		}
 	}()
