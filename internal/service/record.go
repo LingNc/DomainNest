@@ -187,6 +187,17 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		return nil, err
 	}
 
+	// Normalize host: strip domain suffix if user provided full FQDN
+	if host != "@" && host != "" {
+		var parentNode model.DomainNode
+		if err := s.db.First(&parentNode, nodeID).Error; err == nil {
+			suffix := "." + parentNode.FullDomain
+			if strings.HasSuffix(host, suffix) {
+				host = strings.TrimSuffix(host, suffix)
+			}
+		}
+	}
+
 	if err := validateRecordValue(recordType, value, priority); err != nil {
 		return nil, err
 	}

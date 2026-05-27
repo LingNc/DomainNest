@@ -1212,6 +1212,9 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 	// Tracks which local PRIDs were found on provider (to detect deletions)
 	foundPRIDs := make(map[string]bool)
 
+	// Tracks which local record IDs have been matched to avoid duplicate matching
+	matchedLocalIDs := make(map[uint64]bool)
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for _, pr := range providerRecords {
 			// Map RR to host: "@" or domainName itself maps to "@" (root domain)
@@ -1230,6 +1233,8 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 			}
 
 			priority := convertPriority(pr.Priority)
+
+			matched := false
 
 			if existing, ok := localByPRID[pr.RecordID]; ok {
 				// Update if different
@@ -1252,42 +1257,62 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 						return fmt.Errorf("更新记录失败: %w", err)
 					}
 				}
+				matchedLocalIDs[existing.ID] = true
 				foundPRIDs[pr.RecordID] = true
-			} else if candidates, ok := localByHostType[host+"|"+pr.Type]; ok {
-				// Find best match: exact value match first, then first candidate
-				var existing *model.DNSRecord
-				for _, cand := range candidates {
-					if cand.Value == pr.Value {
-						existing = cand
-						break
+				matched = true
+			}
+
+			if !matched {
+				if candidates, ok := localByHostType[host+"|"+pr.Type]; ok {
+					var existing *model.DNSRecord
+					// Try exact value match first, skip already-matched
+					for _, cand := range candidates {
+						if matchedLocalIDs[cand.ID] {
+							continue
+						}
+						if cand.Value == pr.Value {
+							existing = cand
+							break
+						}
+					}
+					// Fallback to first unmatched candidate
+					if existing == nil {
+						for _, cand := range candidates {
+							if !matchedLocalIDs[cand.ID] {
+								existing = cand
+								break
+							}
+						}
+					}
+					if existing != nil {
+						needsUpdate := existing.Host != host ||
+							existing.Value != pr.Value ||
+							existing.TTL != int(pr.TTL) ||
+							(existing.Priority == nil && priority != nil) ||
+							(existing.Priority != nil && *existing.Priority != *priority)
+
+						updates := map[string]interface{}{
+							"provider_record_id": pr.RecordID,
+							"sync_status":        "synced",
+							"source":             "platform",
+						}
+						if needsUpdate {
+							updates["host"] = host
+							updates["value"] = pr.Value
+							updates["ttl"] = int(pr.TTL)
+							updates["priority"] = priority
+						}
+						if err := tx.Model(&model.DNSRecord{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
+							return fmt.Errorf("更新记录ID失败: %w", err)
+						}
+						matchedLocalIDs[existing.ID] = true
+						foundPRIDs[pr.RecordID] = true
+						matched = true
 					}
 				}
-				if existing == nil {
-					existing = candidates[0]
-				}
+			}
 
-				needsUpdate := existing.Host != host ||
-					existing.Value != pr.Value ||
-					existing.TTL != int(pr.TTL) ||
-					(existing.Priority == nil && priority != nil) ||
-					(existing.Priority != nil && *existing.Priority != *priority)
-
-				updates := map[string]interface{}{
-					"provider_record_id": pr.RecordID,
-					"sync_status":        "synced",
-					"source":             "platform",
-				}
-				if needsUpdate {
-					updates["host"] = host
-					updates["value"] = pr.Value
-					updates["ttl"] = int(pr.TTL)
-					updates["priority"] = priority
-				}
-				if err := tx.Model(&model.DNSRecord{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
-					return fmt.Errorf("更新记录ID失败: %w", err)
-				}
-				foundPRIDs[pr.RecordID] = true
-			} else {
+			if !matched {
 				// Create new local record
 				newRec := &model.DNSRecord{
 					NodeID:           domainID,
@@ -1305,6 +1330,8 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 				if err := tx.Create(newRec).Error; err != nil {
 					return fmt.Errorf("创建记录失败: %w", err)
 				}
+				localByPRID[pr.RecordID] = newRec
+				localByHostType[host+"|"+pr.Type] = append(localByHostType[host+"|"+pr.Type], newRec)
 				foundPRIDs[pr.RecordID] = true
 			}
 		}
