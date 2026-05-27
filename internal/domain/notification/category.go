@@ -33,4 +33,6 @@ const (
 	CatProviderDeleted     = "provider_deleted"
 	CatPermissionReturnRejected = "permission_return_rejected"
 	CatAdminBroadcast           = "admin_broadcast"
+	CatAdminAssignedDomain     = "admin_assigned_domain"
+	CatAdminRemovedDomain      = "admin_removed_domain"
 )

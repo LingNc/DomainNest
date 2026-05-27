@@ -130,6 +130,28 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 		"node_id": nodeID,
 	})
 
+	// Send notifications to both owners
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		// Notify new owner
+		if err := h.notifSvc.Send(req.UserID, notification.AdminAssignedDomain(&node)); err != nil {
+			log.Printf("[Notification] AdminAssignedDomain failed: %v", err)
+		}
+		// Notify old owner
+		if oldOwnerID != req.UserID {
+			if err := h.notifSvc.Send(oldOwnerID, notification.AdminRemovedDomain(&node)); err != nil {
+				log.Printf("[Notification] AdminRemovedDomain failed: %v", err)
+			}
+		}
+		// Broadcast unread counts to both
+		svc := service.NewMessageService(h.db)
+		for _, uid := range []uint64{req.UserID, oldOwnerID} {
+			if count, err := svc.GetNotificationUnreadCount(uid); err == nil {
+				ws.BroadcastToUser(uid, ws.TypeUnreadUpdate, gin.H{"count": count})
+			}
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "域名分配成功"})
 }
 
@@ -142,6 +164,31 @@ func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
 		return
 	}
 
+	// Fetch nodes and owners before deletion so we can notify them
+	type nodeOwner struct {
+		NodeID   uint64
+		OwnerID  uint64
+		FullDomain string
+	}
+	var toNotify []nodeOwner
+	for _, nodeID := range req.NodeIDs {
+		var n model.DomainNode
+		if err := h.db.First(&n, nodeID).Error; err != nil {
+			continue
+		}
+		var childCount int64
+		h.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL", nodeID).Count(&childCount)
+		if childCount > 0 {
+			continue
+		}
+		var recordCount int64
+		h.db.Model(&model.DNSRecord{}).Where("node_id = ? AND deleted_at IS NULL", nodeID).Count(&recordCount)
+		if recordCount > 0 {
+			continue
+		}
+		toNotify = append(toNotify, nodeOwner{NodeID: n.ID, OwnerID: n.OwnerID, FullDomain: n.FullDomain})
+	}
+
 	deleted, skipped, err := h.domainService.AdminBatchDeleteNodes(req.NodeIDs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
@@ -151,6 +198,26 @@ func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
 	callerID := c.GetUint64("user_id")
 	middleware.LogOperation(h.db, callerID, "batch_delete_domains", "domain_node", nil,
 		map[string]interface{}{"node_ids": req.NodeIDs, "deleted": deleted, "skipped": skipped}, c.ClientIP())
+
+	// Send notifications to affected owners
+	go func() {
+		defer func() { if r := recover(); r != nil { log.Printf("[Notification] panic: %v", r) } }()
+		svc := service.NewMessageService(h.db)
+		notified := make(map[uint64]struct{})
+		for _, n := range toNotify {
+			node := &model.DomainNode{ID: n.NodeID, FullDomain: n.FullDomain}
+			if err := h.notifSvc.Send(n.OwnerID, notification.AdminRemovedDomain(node)); err != nil {
+				log.Printf("[Notification] AdminRemovedDomain failed for node %d: %v", n.NodeID, err)
+			} else {
+				if _, ok := notified[n.OwnerID]; !ok {
+					notified[n.OwnerID] = struct{}{}
+					if count, err := svc.GetNotificationUnreadCount(n.OwnerID); err == nil {
+						ws.BroadcastToUser(n.OwnerID, ws.TypeUnreadUpdate, gin.H{"count": count})
+					}
+				}
+			}
+		}
+	}()
 
 	msg := fmt.Sprintf("成功删除 %d 个域名", deleted)
 	if skipped > 0 {

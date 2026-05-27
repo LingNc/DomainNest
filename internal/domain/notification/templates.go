@@ -262,6 +262,27 @@ func SyncFailedNotification(domain string, recordID uint64, detail string) Notif
 	}
 }
 
+func AdminAssignedDomain(node *model.DomainNode) Notification {
+	return Notification{
+		Category:   CatAdminAssignedDomain,
+		Title:      "域名已分配",
+		Content:    fmt.Sprintf("管理员将域名 %s 分配给你", node.FullDomain),
+		ActionType: "view_domain",
+		TargetType: "domain_node",
+		TargetID:   node.ID,
+		Priority:   PriorityWarning,
+	}
+}
+
+func AdminRemovedDomain(node *model.DomainNode) Notification {
+	return Notification{
+		Category:   CatAdminRemovedDomain,
+		Title:      "域名已被移除",
+		Content:    fmt.Sprintf("管理员收回了你的域名 %s", node.FullDomain),
+		Priority:   PriorityWarning,
+	}
+}
+
 func DomainDeleted(node *model.DomainNode) Notification {
 	return Notification{
 		Category:   CatDomainDeleted,
