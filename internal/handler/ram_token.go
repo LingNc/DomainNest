@@ -140,7 +140,19 @@ func (h *RAMTokenHandler) ResetToken(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "reset_ram_token", "ram_token", &tokenID,
 		nil, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "data": token})
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"id":                token.ID,
+			"name":              token.Name,
+			"token":             token.Token,
+			"access_key_id":     token.AccessKeyID,
+			"access_key_secret": token.AccessKeySecret,
+			"enabled":           token.Enabled,
+			"created_at":        token.CreatedAt,
+		},
+		"message": "重置成功，请妥善保管新的凭证信息",
+	})
 }
 
 func (h *RAMTokenHandler) Delete(c *gin.Context) {

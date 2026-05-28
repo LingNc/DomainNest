@@ -117,11 +117,68 @@
         <el-button type="primary" @click="handleUpdate">{{ $t('ramTokens.save') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- 创建成功，显示密钥 -->
+    <el-dialog v-model="showCreatedSecret" :title="$t('ramTokens.createSuccessTitle')" width="520px" :close-on-click-modal="false">
+      <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 16px">
+        {{ $t('ramTokens.secretShownOnce') }}
+      </el-alert>
+      <el-form label-width="130px">
+        <el-form-item label="AccessKeyID">
+          <div style="display: flex; align-items: center; gap: 8px; width: 100%">
+            <code style="flex: 1; word-break: break-all">{{ createdToken.access_key_id }}</code>
+            <el-button link type="primary" @click="copyText(createdToken.access_key_id)">{{ $t('common.copy') }}</el-button>
+          </div>
+        </el-form-item>
+        <el-form-item label="AccessKeySecret">
+          <div style="display: flex; align-items: center; gap: 8px; width: 100%">
+            <code style="flex: 1; word-break: break-all">{{ createdToken.access_key_secret }}</code>
+            <el-button link type="primary" @click="copyText(createdToken.access_key_secret)">{{ $t('common.copy') }}</el-button>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button type="primary" @click="showCreatedSecret = false">{{ $t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 使用帮助 -->
+    <el-card style="margin-top: 20px">
+      <template #header>
+        <span>{{ $t('ramTokens.usageHelp') }}</span>
+      </template>
+
+      <el-descriptions :column="1" border size="small">
+        <el-descriptions-item :label="$t('ramTokens.endpointUrl')">
+          <code>{{ endpointUrl }}</code>
+          <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(endpointUrl)">{{ $t('common.copy') }}</el-button>
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <el-divider />
+
+      <h4>{{ $t('ramTokens.with1Panel') }}</h4>
+      <ol style="line-height: 2">
+        <li>{{ $t('ramTokens.step1CreateToken') }}</li>
+        <li>{{ $t('ramTokens.step2CopyCreds') }}</li>
+        <li v-html="$t('ramTokens.step3HostsFile')"></li>
+        <li>{{ $t('ramTokens.step4SelectAliyun') }}</li>
+      </ol>
+      <el-alert type="warning" :closable="false" show-icon>
+        {{ $t('ramTokens.hostsWarning') }}
+      </el-alert>
+
+      <el-divider />
+
+      <h4>{{ $t('ramTokens.withDdnsGo') }}</h4>
+      <p>{{ $t('ramTokens.ddnsGoCallbackHint') }}</p>
+      <el-button type="primary" size="small" @click="$router.push('/settings')">{{ $t('ramTokens.goToSettings') }}</el-button>
+    </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listRAMTokens, createRAMToken, updateRAMToken, resetRAMToken, deleteRAMToken } from '../api/ramToken'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -134,6 +191,8 @@ const tokens = ref([])
 const loading = ref(false)
 const showCreate = ref(false)
 const showEdit = ref(false)
+const showCreatedSecret = ref(false)
+const createdToken = ref({})
 const editTargetId = ref(null)
 
 const form = ref({ name: '', allowed_domains_text: '', allowed_types: [], allowed_ips_text: '' })
@@ -148,6 +207,15 @@ const copyToken = (token) => {
   navigator.clipboard.writeText(token)
   ElMessage.success(t('ramTokens.copied'))
 }
+
+const copyText = (text) => {
+  navigator.clipboard.writeText(text)
+  ElMessage.success(t('common.copied'))
+}
+
+const endpointUrl = computed(() => {
+  return window.location.origin + '/alidns'
+})
 
 const loadTokens = async () => {
   loading.value = true
@@ -182,8 +250,9 @@ const handleCreate = async () => {
   const ips = parseIPsText(form.value.allowed_ips_text)
   if (ips.length > 0) data.allowed_ips = ips
 
-  await createRAMToken(data)
-  ElMessage.success(t('ramTokens.createSuccess'))
+  const res = await createRAMToken(data)
+  createdToken.value = res.data
+  showCreatedSecret.value = true
   showCreate.value = false
   loadTokens()
 }
