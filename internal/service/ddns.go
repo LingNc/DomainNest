@@ -3,10 +3,8 @@ package service
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
-	"domainnest/internal/aliyun"
 	"domainnest/internal/dns"
 	"domainnest/internal/model"
 
@@ -62,6 +60,10 @@ func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 		}
 	}
 	return nil, errors.New("该域名没有可用的DNS提供商")
+}
+
+func (s *DDNSService) GetProviderForNode(nodeID uint64) (dns.Provider, error) {
+	return s.getClientForNode(nodeID)
 }
 
 type DDNSUpdateResult struct {
@@ -167,7 +169,7 @@ func (s *DDNSService) updateRecord(record *model.DNSRecord, rootDomain, rrForAli
 	if record.ProviderRecordID != "" {
 		err := client.UpdateRecord(rootDomain, record.ProviderRecordID, rrForAliyun, record.RecordType, ip, int64(ttl), priority)
 		if err != nil {
-			var dupErr *aliyun.DuplicateRecordError
+			var dupErr *dns.DuplicateRecordError
 			if errors.As(err, &dupErr) {
 				s.recordService.UpdateSyncStatus(record.ID, "synced", dupErr.RecordID)
 				s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
@@ -276,7 +278,7 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 
 		err := client.UpdateRecord(rootDomain, record.ProviderRecordID, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
 		if err != nil {
-			var dupErr *aliyun.DuplicateRecordError
+			var dupErr *dns.DuplicateRecordError
 			if errors.As(err, &dupErr) {
 				s.recordService.UpdateSyncStatus(record.ID, "synced", dupErr.RecordID)
 				s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
@@ -292,20 +294,10 @@ func (s *DDNSService) SyncRecord(recordID uint64) error {
 	} else {
 		providerRecordID, err := client.AddRecord(rootDomain, rrForAliyun, record.RecordType, record.Value, int64(record.TTL), priority)
 		if err != nil {
-			if strings.Contains(err.Error(), "DomainRecordDuplicate") {
-				// Record already exists on provider — find its ID and update local record
-				records, listErr := client.ListRecords(rootDomain)
-				if listErr == nil {
-					for _, r := range records {
-						if r.Host == rrForAliyun && r.Type == record.RecordType && r.Value == record.Value {
-							s.recordService.UpdateSyncStatus(record.ID, "synced", r.RecordID)
-							s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
-							return nil
-						}
-					}
-				}
-				// Duplicate confirmed but couldn't list - treat as synced with empty provider_record_id
-				s.recordService.UpdateSyncStatus(record.ID, "synced", "")
+			var dupErr *dns.DuplicateRecordError
+			if errors.As(err, &dupErr) {
+				s.recordService.UpdateSyncStatus(record.ID, "synced", dupErr.RecordID)
+				s.db.Model(record).UpdateColumn("last_resolved_at", time.Now())
 				return nil
 			}
 			s.recordService.UpdateSyncStatus(record.ID, "failed", "")

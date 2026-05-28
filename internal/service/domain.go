@@ -1367,9 +1367,21 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 		// Hard-delete local provider records that exist in our DB but were NOT found on provider
 		// Platform-created records (source='platform') are kept even if not found on provider
 		for prID, rec := range localByPRID {
-			if !foundPRIDs[prID] && (rec.Source == "provider" || rec.Source == "") {
+			if foundPRIDs[prID] {
+				continue
+			}
+			if rec.Source == "provider" || rec.Source == "" {
 				if err := tx.Unscoped().Delete(&model.DNSRecord{}, "id = ?", rec.ID).Error; err != nil {
 					return fmt.Errorf("删除记录失败: %w", err)
+				}
+			} else if rec.Source == "platform" && rec.ProviderRecordID != "" {
+				if err := tx.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(map[string]interface{}{
+					"sync_status":     "pending",
+					"provider_record_id": "",
+					"sync_attempts":   0,
+					"next_sync_at":    nil,
+				}).Error; err != nil {
+					return fmt.Errorf("更新平台记录状态失败: %w", err)
 				}
 			}
 		}

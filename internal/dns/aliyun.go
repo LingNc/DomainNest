@@ -1,6 +1,7 @@
 package dns
 
 import (
+	"errors"
 	"domainnest/internal/aliyun"
 )
 
@@ -60,7 +61,14 @@ func (p *AliyunProvider) AddRecord(domainName, rr, recordType, value string, ttl
 }
 
 func (p *AliyunProvider) UpdateRecord(domainName, recordID, rr, recordType, value string, ttl int64, priority *int64) error {
-	return p.client.UpdateRecord(domainName, recordID, rr, recordType, value, ttl, priority)
+	err := p.client.UpdateRecord(domainName, recordID, rr, recordType, value, ttl, priority)
+	if err != nil {
+		var dupErr *aliyun.DuplicateRecordError
+		if errors.As(err, &dupErr) {
+			return &DuplicateRecordError{RecordID: dupErr.RecordID}
+		}
+	}
+	return err
 }
 
 func (p *AliyunProvider) DeleteRecord(recordID string) error {

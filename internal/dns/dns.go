@@ -41,6 +41,14 @@ type Record struct {
 	Enabled  bool   `json:"enabled,omitempty"`
 }
 
+type DuplicateRecordError struct {
+	RecordID string
+}
+
+func (e *DuplicateRecordError) Error() string {
+	return "duplicate DNS record: " + e.RecordID
+}
+
 // ProviderFactory creates a Provider from credentials.
 type ProviderFactory func(accessKeyID, accessKeySecret, endpoint string) (Provider, error)
 

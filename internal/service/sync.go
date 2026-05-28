@@ -25,6 +25,7 @@ type SyncService struct {
 	cfg         *config.SyncConfig
 	stopCh      chan struct{}
 	pullCounter int
+	verifyCounter int
 }
 
 func NewSyncService(db *gorm.DB, ddnsService *DDNSService, domainSvc DomainSyncer, cfg *config.SyncConfig) *SyncService {
@@ -87,6 +88,11 @@ func (s *SyncService) loop() {
 			if s.pullCounter >= 10 {
 				s.pullCounter = 0
 				s.pullFromProviders()
+			}
+			s.verifyCounter++
+			if s.verifyCounter >= 3 {
+				s.verifyCounter = 0
+				s.verifySyncedRecords()
 			}
 		}
 	}
@@ -219,5 +225,57 @@ func (s *SyncService) pullFromProviders() {
 		if err := s.domainSvc.SyncFromProvider(node.ID, node.OwnerID); err != nil {
 			log.Printf("同步域名 %s 从服务商失败: %v", node.FullDomain, err)
 		}
+	}
+}
+
+func (s *SyncService) verifySyncedRecords() {
+	if s.domainSvc == nil {
+		return
+	}
+	nodes, err := s.domainSvc.GetDomainNodesWithProvider()
+	if err != nil {
+		log.Printf("verifySyncedRecords: 获取域名节点失败: %v", err)
+		return
+	}
+
+	var verified, cleared int
+	for _, node := range nodes {
+		if node.ProviderID == nil {
+			continue
+		}
+		p, err := s.ddnsService.GetProviderForNode(node.ID)
+		if err != nil {
+			continue
+		}
+		providerRecords, err := p.ListRecords(node.FullDomain)
+		if err != nil {
+			continue
+		}
+
+		providerIDs := make(map[string]bool, len(providerRecords))
+		for _, pr := range providerRecords {
+			providerIDs[pr.RecordID] = true
+		}
+
+		var syncedRecords []model.DNSRecord
+		s.db.Where("node_id = ? AND sync_status = ? AND provider_record_id != '' AND deleted_at IS NULL",
+			node.ID, "synced").Find(&syncedRecords)
+
+		for _, rec := range syncedRecords {
+			verified++
+			if !providerIDs[rec.ProviderRecordID] {
+				cleared++
+				s.db.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(map[string]interface{}{
+					"sync_status":     "pending",
+					"provider_record_id": "",
+					"sync_attempts":   0,
+					"next_sync_at":    nil,
+					"last_sync_error": "record missing on provider",
+				})
+			}
+		}
+	}
+	if cleared > 0 {
+		log.Printf("verifySyncedRecords: verified %d records, marked %d for re-sync", verified, cleared)
 	}
 }
