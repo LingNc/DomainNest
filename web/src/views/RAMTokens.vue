@@ -14,7 +14,14 @@
 
     <el-card>
       <el-table :data="tokens" stripe v-loading="loading" style="width:100%">
-        <el-table-column prop="name" :label="$t('ramTokens.name')" min-width="120" />
+        <el-table-column prop="id" :label="$t('ramTokens.id')" width="80" sortable="custom" />
+        <el-table-column prop="name" :label="$t('ramTokens.name')" min-width="120" sortable="custom" />
+        <el-table-column prop="access_key_id" label="AccessKeyID" min-width="180">
+          <template #default="{ row }">
+            <span v-if="row.access_key_id" style="font-family: monospace; font-size: 12px">{{ row.access_key_id }}</span>
+            <span v-else style="color: #909399">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="Token" min-width="220">
           <template #default="{ row }">
             <div class="token-cell">
@@ -50,6 +57,7 @@
         <el-table-column prop="last_used_at" :label="$t('ramTokens.lastUsed')" width="170">
           <template #default="{ row }">{{ row.last_used_at || '-' }}</template>
         </el-table-column>
+        <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" sortable="custom" />
         <el-table-column :label="$t('ramTokens.action')" width="200" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openEdit(row)">{{ $t('ramTokens.edit') }}</el-button>

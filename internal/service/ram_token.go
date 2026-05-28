@@ -146,7 +146,22 @@ func (s *RAMTokenService) ResetToken(tokenID, userID uint64) (*model.RAMToken, e
 		return nil, err
 	}
 
-	if err := s.db.Model(&token).Update("token", newToken).Error; err != nil {
+	accessKeyID, err := generateAccessKeyID()
+	if err != nil {
+		return nil, err
+	}
+	accessKeySecret, err := generateAccessKeySecret()
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{
+		"token":            newToken,
+		"access_key_id":    accessKeyID,
+		"access_key_secret": accessKeySecret,
+	}
+
+	if err := s.db.Model(&token).Updates(updates).Error; err != nil {
 		return nil, err
 	}
 

@@ -56,7 +56,22 @@ func (h *RAMTokenHandler) Create(c *gin.Context) {
 	middleware.LogOperation(h.db, userID, "create_ram_token", "ram_token", &token.ID,
 		map[string]interface{}{"name": token.Name}, c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "data": token})
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"id":                token.ID,
+			"name":              token.Name,
+			"token":             token.Token,
+			"access_key_id":     token.AccessKeyID,
+			"access_key_secret": token.AccessKeySecret,
+			"enabled":           token.Enabled,
+			"allowed_domains":   token.AllowedDomains,
+			"allowed_types":     token.AllowedTypes,
+			"allowed_ips":       token.AllowedIPs,
+			"created_at":        token.CreatedAt,
+		},
+		"message": "创建成功，请妥善保管AccessKeySecret，它不会再次显示",
+	})
 }
 
 func (h *RAMTokenHandler) Get(c *gin.Context) {
