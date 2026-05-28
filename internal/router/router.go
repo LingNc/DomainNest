@@ -308,5 +308,14 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		filterPresets.DELETE("/:id", filterPresetHandler.Delete)
 	}
 
+	// Aliyun DNS API compatibility endpoint
+	aliyunCompatSvc := service.NewAliyunCompatService(db, domainService, recordService, permissionService)
+	aliyunCompatHandler := handler.NewAliyunCompatHandler(aliyunCompatSvc)
+	alidns := r.Group("/alidns")
+	alidns.Use(middleware.AliyunAuth(ramTokenService))
+	{
+		alidns.Any("", aliyunCompatHandler.Dispatch)
+	}
+
 	return r
 }
