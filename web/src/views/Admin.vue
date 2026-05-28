@@ -243,7 +243,7 @@
               <div class="el-form-item__tip" style="color:#909399;font-size:12px;margin-top:4px">{{ $t('admin.senderAddressTip') }}</div>
             </el-form-item>
             <el-form-item :label="$t('admin.senderName')">
-              <el-input v-model="smtpForm.from_name" placeholder="DomainNest" />
+              <el-input v-model="smtpForm.from_name" :placeholder="$t('admin.smtpFromNamePlaceholder')" />
             </el-form-item>
             <el-form-item :label="$t('admin.testRecipient')">
               <el-input v-model="testEmail" :placeholder="$t('admin.testRecipientPlaceholder')" />

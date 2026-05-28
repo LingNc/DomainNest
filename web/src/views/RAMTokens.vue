@@ -12,62 +12,100 @@
       </el-button>
     </div>
 
-    <el-card>
-      <el-table :data="tokens" stripe v-loading="loading" style="width:100%">
-        <el-table-column prop="id" :label="$t('ramTokens.id')" width="80" sortable="custom" />
-        <el-table-column prop="name" :label="$t('ramTokens.name')" min-width="120" sortable="custom" />
-        <el-table-column prop="access_key_id" label="AccessKeyID" min-width="180">
-          <template #default="{ row }">
-            <span v-if="row.access_key_id" style="font-family: monospace; font-size: 12px">{{ row.access_key_id }}</span>
-            <span v-else style="color: #909399">-</span>
+    <el-tabs>
+      <el-tab-pane :label="$t('ramTokens.managementTab')">
+        <el-card>
+          <el-table :data="tokens" stripe v-loading="loading" style="width:100%">
+            <el-table-column prop="id" :label="$t('ramTokens.id')" width="80" sortable="custom" />
+            <el-table-column prop="name" :label="$t('ramTokens.name')" min-width="120" sortable="custom" />
+            <el-table-column prop="access_key_id" :label="$t('ramTokens.accessKeyID')" min-width="180">
+              <template #default="{ row }">
+                <span v-if="row.access_key_id" style="font-family: monospace; font-size: 12px">{{ row.access_key_id }}</span>
+                <span v-else style="color: #909399">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('ramTokens.tokenValue')" min-width="220">
+              <template #default="{ row }">
+                <div class="token-cell">
+                  <code class="token-masked">{{ maskToken(row.token) }}</code>
+                  <el-button link type="primary" size="small" @click="copyToken(row.token)">{{ $t('common.copy') }}</el-button>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('ramTokens.enabled')" width="70">
+              <template #default="{ row }">
+                <el-switch v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('ramTokens.domainRestriction')" min-width="120">
+              <template #default="{ row }">
+                <span v-if="row.allowed_domains">{{ row.allowed_domains }}</span>
+                <span v-else style="color:#909399">{{ $t('ramTokens.all') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('ramTokens.typeRestriction')" min-width="120">
+              <template #default="{ row }">
+                <span v-if="row.allowed_types">{{ row.allowed_types }}</span>
+                <span v-else style="color:#909399">{{ $t('ramTokens.all') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('ramTokens.ipRestriction')" min-width="120">
+              <template #default="{ row }">
+                <span v-if="row.allowed_ips">{{ row.allowed_ips }}</span>
+                <span v-else style="color:#909399">{{ $t('ramTokens.unlimited') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="usage_count" :label="$t('ramTokens.usageCount')" width="90" />
+            <el-table-column prop="last_used_at" :label="$t('ramTokens.lastUsed')" width="170">
+              <template #default="{ row }">{{ row.last_used_at || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" sortable="custom" />
+            <el-table-column :label="$t('ramTokens.action')" width="200" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click="openEdit(row)">{{ $t('ramTokens.edit') }}</el-button>
+                <el-button link type="warning" size="small" @click="handleReset(row.id)">{{ $t('ramTokens.reset') }}</el-button>
+                <el-button link type="danger" size="small" @click="handleDelete(row.id)">{{ $t('ramTokens.delete') }}</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="!loading && tokens.length === 0" :description="$t('ramTokens.noTokens')" />
+        </el-card>
+      </el-tab-pane>
+      <el-tab-pane :label="$t('ramTokens.helpTab')">
+        <!-- 使用帮助 -->
+        <el-card style="margin-top: 20px">
+          <template #header>
+            <span>{{ $t('ramTokens.usageHelp') }}</span>
           </template>
-        </el-table-column>
-        <el-table-column label="Token" min-width="220">
-          <template #default="{ row }">
-            <div class="token-cell">
-              <code class="token-masked">{{ maskToken(row.token) }}</code>
-              <el-button link type="primary" size="small" @click="copyToken(row.token)">{{ $t('common.copy') }}</el-button>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('ramTokens.enabled')" width="70">
-          <template #default="{ row }">
-            <el-switch v-model="row.enabled" size="small" @change="(val) => handleToggle(row.id, val)" />
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('ramTokens.domainRestriction')" min-width="120">
-          <template #default="{ row }">
-            <span v-if="row.allowed_domains">{{ row.allowed_domains }}</span>
-            <span v-else style="color:#909399">{{ $t('ramTokens.all') }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('ramTokens.typeRestriction')" min-width="120">
-          <template #default="{ row }">
-            <span v-if="row.allowed_types">{{ row.allowed_types }}</span>
-            <span v-else style="color:#909399">{{ $t('ramTokens.all') }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('ramTokens.ipRestriction')" min-width="120">
-          <template #default="{ row }">
-            <span v-if="row.allowed_ips">{{ row.allowed_ips }}</span>
-            <span v-else style="color:#909399">{{ $t('ramTokens.unlimited') }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="usage_count" :label="$t('ramTokens.usageCount')" width="90" />
-        <el-table-column prop="last_used_at" :label="$t('ramTokens.lastUsed')" width="170">
-          <template #default="{ row }">{{ row.last_used_at || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="created_at" :label="$t('common.createdAt')" width="170" sortable="custom" />
-        <el-table-column :label="$t('ramTokens.action')" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openEdit(row)">{{ $t('ramTokens.edit') }}</el-button>
-            <el-button link type="warning" size="small" @click="handleReset(row.id)">{{ $t('ramTokens.reset') }}</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row.id)">{{ $t('ramTokens.delete') }}</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-empty v-if="!loading && tokens.length === 0" :description="$t('ramTokens.noTokens')" />
-    </el-card>
+
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item :label="$t('ramTokens.endpointUrl')">
+              <code>{{ endpointUrl }}</code>
+              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(endpointUrl)">{{ $t('common.copy') }}</el-button>
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <el-divider />
+
+          <h4>{{ $t('ramTokens.with1Panel') }}</h4>
+          <ol style="line-height: 2; padding-left: 20px">
+            <li>{{ $t('ramTokens.step1CreateToken') }}</li>
+            <li>{{ $t('ramTokens.step2CopyCreds') }}</li>
+            <li v-html="$t('ramTokens.step3HostsFile')"></li>
+            <li>{{ $t('ramTokens.step4SelectAliyun') }}</li>
+          </ol>
+          <el-alert type="warning" :closable="false" show-icon>
+            {{ $t('ramTokens.hostsWarning') }}
+          </el-alert>
+
+          <el-divider />
+
+          <h4>{{ $t('ramTokens.withDdnsGo') }}</h4>
+          <p>{{ $t('ramTokens.ddnsGoCallbackHint') }}</p>
+          <el-button type="primary" size="small" @click="$router.push('/settings')">{{ $t('ramTokens.goToSettings') }}</el-button>
+        </el-card>
+      </el-tab-pane>
+    </el-tabs>
 
     <!-- 创建 Token -->
     <el-dialog v-model="showCreate" :title="$t('ramTokens.createTitle')" width="520px" destroy-on-close>
@@ -119,61 +157,40 @@
     </el-dialog>
 
     <!-- 创建成功，显示密钥 -->
-    <el-dialog v-model="showCreatedSecret" :title="$t('ramTokens.createSuccessTitle')" width="520px" :close-on-click-modal="false">
+    <el-dialog v-model="showCreatedSecret" :title="$t('ramTokens.credentialTitle')" width="560px" :close-on-click-modal="false">
       <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 16px">
         {{ $t('ramTokens.secretShownOnce') }}
       </el-alert>
-      <el-form label-width="130px">
-        <el-form-item label="AccessKeyID">
-          <div style="display: flex; align-items: center; gap: 8px; width: 100%">
-            <code style="flex: 1; word-break: break-all">{{ createdToken.access_key_id }}</code>
-            <el-button link type="primary" @click="copyText(createdToken.access_key_id)">{{ $t('common.copy') }}</el-button>
+      <el-card shadow="never" style="background: #fafafa;">
+        <template #header>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600;">{{ createdToken.name }}</span>
+            <el-button type="primary" size="small" @click="copyAllCredentials">{{ $t('ramTokens.copyAll') }}</el-button>
           </div>
-        </el-form-item>
-        <el-form-item label="AccessKeySecret">
-          <div style="display: flex; align-items: center; gap: 8px; width: 100%">
-            <code style="flex: 1; word-break: break-all">{{ createdToken.access_key_secret }}</code>
-            <el-button link type="primary" @click="copyText(createdToken.access_key_secret)">{{ $t('common.copy') }}</el-button>
+        </template>
+        <div style="margin-bottom: 12px;">
+          <div style="font-size: 12px; color: #909399; margin-bottom: 4px;">AccessKeyID</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <code style="flex: 1; word-break: break-all; font-size: 13px;">{{ createdToken.access_key_id }}</code>
+            <el-button link type="primary" size="small" @click="copyText(createdToken.access_key_id)">{{ $t('common.copy') }}</el-button>
           </div>
-        </el-form-item>
-      </el-form>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: #909399; margin-bottom: 4px;">AccessKeySecret</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <code style="flex: 1; word-break: break-all; font-size: 13px;">{{ createdToken.access_key_secret }}</code>
+            <el-button link type="primary" size="small" @click="copyText(createdToken.access_key_secret)">{{ $t('common.copy') }}</el-button>
+          </div>
+        </div>
+        <el-divider style="margin: 12px 0;" />
+        <div style="display: flex; justify-content: flex-end;">
+          <el-button size="small" @click="downloadCSV">{{ $t('ramTokens.downloadCSV') }}</el-button>
+        </div>
+      </el-card>
       <template #footer>
         <el-button type="primary" @click="showCreatedSecret = false">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
-
-    <!-- 使用帮助 -->
-    <el-card style="margin-top: 20px">
-      <template #header>
-        <span>{{ $t('ramTokens.usageHelp') }}</span>
-      </template>
-
-      <el-descriptions :column="1" border size="small">
-        <el-descriptions-item :label="$t('ramTokens.endpointUrl')">
-          <code>{{ endpointUrl }}</code>
-          <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(endpointUrl)">{{ $t('common.copy') }}</el-button>
-        </el-descriptions-item>
-      </el-descriptions>
-
-      <el-divider />
-
-      <h4>{{ $t('ramTokens.with1Panel') }}</h4>
-      <ol style="line-height: 2">
-        <li>{{ $t('ramTokens.step1CreateToken') }}</li>
-        <li>{{ $t('ramTokens.step2CopyCreds') }}</li>
-        <li v-html="$t('ramTokens.step3HostsFile')"></li>
-        <li>{{ $t('ramTokens.step4SelectAliyun') }}</li>
-      </ol>
-      <el-alert type="warning" :closable="false" show-icon>
-        {{ $t('ramTokens.hostsWarning') }}
-      </el-alert>
-
-      <el-divider />
-
-      <h4>{{ $t('ramTokens.withDdnsGo') }}</h4>
-      <p>{{ $t('ramTokens.ddnsGoCallbackHint') }}</p>
-      <el-button type="primary" size="small" @click="$router.push('/settings')">{{ $t('ramTokens.goToSettings') }}</el-button>
-    </el-card>
   </div>
 </template>
 
@@ -211,6 +228,32 @@ const copyToken = (token) => {
 const copyText = (text) => {
   navigator.clipboard.writeText(text)
   ElMessage.success(t('common.copied'))
+}
+
+const copyAllCredentials = () => {
+  const t = createdToken.value
+  const text = `AccessKeyID: ${t.access_key_id}\n\nAccessKeySecret: ${t.access_key_secret}`
+  navigator.clipboard.writeText(text)
+  ElMessage.success(t('ramTokens.copiedAll'))
+}
+
+const downloadCSV = () => {
+  const t = createdToken.value
+  const escapeCsv = (val) => {
+    const s = String(val || '')
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"'
+    return s
+  }
+  const headers = ['name', 'access_key_id', 'access_key_secret', 'created_at']
+  const values = [t.name || '', t.access_key_id || '', t.access_key_secret || '', t.created_at || '']
+  const csv = headers.join(',') + '\n' + values.map(escapeCsv).join(',') + '\n'
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `credentials-${t.name || 'token'}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 const endpointUrl = computed(() => {
@@ -251,7 +294,7 @@ const handleCreate = async () => {
   if (ips.length > 0) data.allowed_ips = ips
 
   const res = await createRAMToken(data)
-  createdToken.value = res.data
+  createdToken.value = res.data || res
   showCreatedSecret.value = true
   showCreate.value = false
   loadTokens()
@@ -289,7 +332,9 @@ const handleToggle = async (id, enabled) => {
 
 const handleReset = async (id) => {
   await ElMessageBox.confirm(t('ramTokens.resetConfirm'), t('ramTokens.resetTitle'), { type: 'warning' })
-  await resetRAMToken(id)
+  const res = await resetRAMToken(id)
+  createdToken.value = res.data || res
+  showCreatedSecret.value = true
   ElMessage.success(t('ramTokens.resetSuccess'))
   loadTokens()
 }

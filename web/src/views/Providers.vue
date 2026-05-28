@@ -14,7 +14,7 @@
             <el-tag size="small">{{ row.provider_type }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="AccessKey" width="140">
+        <el-table-column :label="$t('providers.accessKey')" width="140">
           <template #default="{ row }">
             <span style="font-family:monospace;font-size:12px">****{{ row.access_key_id?.slice(-4) }}</span>
           </template>
@@ -54,7 +54,7 @@
         <el-form-item :label="credentialLabel.secret">
           <el-input v-model="addForm.access_key_secret" type="password" show-password :placeholder="credentialPlaceholder.secret" />
         </el-form-item>
-        <el-form-item label="Endpoint">
+        <el-form-item :label="$t('providers.endpoint')">
           <el-input v-model="addForm.endpoint" :placeholder="endpointPlaceholder" />
         </el-form-item>
       </el-form>
@@ -70,7 +70,7 @@
         <el-form-item :label="$t('providers.name')">
           <el-input v-model="editForm.name" />
         </el-form-item>
-        <el-form-item label="Endpoint">
+        <el-form-item :label="$t('providers.endpoint')">
           <el-input v-model="editForm.endpoint" />
         </el-form-item>
       </el-form>

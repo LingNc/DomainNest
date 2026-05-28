@@ -445,7 +445,7 @@
                 <el-option :label="$t('domainDetail.ruleContains')" value="contains" />
                 <el-option :label="$t('domainDetail.ruleRegex')" value="regex" />
               </el-select>
-              <el-input v-model="rule.value" placeholder="e.g. www" style="width:200px" />
+              <el-input v-model="rule.value" :placeholder="$t('domainDetail.ruleValuePlaceholder')" style="width:200px" />
               <el-button @click="removeHostRule(idx)" :icon="'Delete'" circle size="small" />
             </div>
             <el-button size="small" @click="addHostRule">{{ $t('domainDetail.addRule') }}</el-button>
