@@ -310,7 +310,7 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 
 	// Aliyun DNS API compatibility endpoint
 	aliyunCompatSvc := service.NewAliyunCompatService(db, domainService, recordService, permissionService)
-	aliyunCompatHandler := handler.NewAliyunCompatHandler(aliyunCompatSvc)
+	aliyunCompatHandler := handler.NewAliyunCompatHandler(aliyunCompatSvc, ramTokenService)
 	alidns := r.Group("/alidns")
 	alidns.Use(middleware.AliyunAuth(ramTokenService))
 	{

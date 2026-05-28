@@ -123,6 +123,7 @@ func AliyunAuth(ramTokenSvc *service.RAMTokenService) gin.HandlerFunc {
 
 		c.Set("user_id", token.UserID)
 		c.Set("ram_token_id", token.ID)
+		c.Set("ram_token", token)
 		c.Next()
 	}
 }

@@ -6,17 +6,39 @@ import (
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/model"
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AliyunCompatHandler struct {
-	svc *service.AliyunCompatService
+	svc        *service.AliyunCompatService
+	ramTokenSvc *service.RAMTokenService
 }
 
-func NewAliyunCompatHandler(svc *service.AliyunCompatService) *AliyunCompatHandler {
-	return &AliyunCompatHandler{svc: svc}
+func NewAliyunCompatHandler(svc *service.AliyunCompatService, ramTokenSvc *service.RAMTokenService) *AliyunCompatHandler {
+	return &AliyunCompatHandler{svc: svc, ramTokenSvc: ramTokenSvc}
+}
+
+func (h *AliyunCompatHandler) checkRAMAccess(c *gin.Context, nodeID uint64, recordType string) error {
+	tokenVal, exists := c.Get("ram_token")
+	if !exists {
+		return nil
+	}
+	token, ok := tokenVal.(*model.RAMToken)
+	if !ok || token == nil {
+		return nil
+	}
+	if err := h.ramTokenSvc.CheckDomainAccess(token, nodeID); err != nil {
+		return err
+	}
+	if recordType != "" {
+		if err := h.ramTokenSvc.CheckRecordType(token, recordType); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *AliyunCompatHandler) Dispatch(c *gin.Context) {
@@ -66,9 +88,14 @@ func (h *AliyunCompatHandler) DescribeDomainRecords(c *gin.Context) {
 	pageNumber, _ := strconv.Atoi(c.DefaultQuery("PageNumber", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("PageSize", "20"))
 
-	result, _, err := h.svc.DescribeDomainRecords(userID, domainName, rrKeyword, typeKeyword, valueKeyword, pageNumber, pageSize)
+	result, nodeID, err := h.svc.DescribeDomainRecords(userID, domainName, rrKeyword, typeKeyword, valueKeyword, pageNumber, pageSize)
 	if err != nil {
 		h.writeError(c, "InvalidDomainName.NoExist", "The specified domain name does not exist.")
+		return
+	}
+
+	if err := h.checkRAMAccess(c, nodeID, typeKeyword); err != nil {
+		h.writeError(c, "Forbidden", err.Error())
 		return
 	}
 
@@ -118,6 +145,23 @@ func (h *AliyunCompatHandler) AddDomainRecord(c *gin.Context) {
 		return
 	}
 
+	// Resolve domain to get nodeID for RAM permission check
+	fqdn := rr
+	if rr == "@" || rr == "" {
+		fqdn = domainName
+	} else {
+		fqdn = rr + "." + domainName
+	}
+	_, nodeID, err := h.svc.ResolveDomain(fqdn, userID)
+	if err != nil {
+		h.writeError(c, "InvalidDomainName.NoExist", "域名不存在或无访问权限")
+		return
+	}
+	if err := h.checkRAMAccess(c, nodeID, recordType); err != nil {
+		h.writeError(c, "Forbidden", err.Error())
+		return
+	}
+
 	var priority *int
 	if p := c.Query("Priority"); p != "" {
 		v, _ := strconv.Atoi(p)
@@ -155,13 +199,29 @@ func (h *AliyunCompatHandler) UpdateDomainRecord(c *gin.Context) {
 		return
 	}
 
+	// Get record to check RAM access permissions
+	recordIDNum, err := strconv.ParseUint(recordID, 10, 64)
+	if err != nil {
+		h.writeError(c, "InvalidParameter", "无效的记录ID")
+		return
+	}
+	record, err := h.svc.GetRecord(recordIDNum)
+	if err != nil {
+		h.writeError(c, "InvalidRecordID.NotExist", "记录不存在")
+		return
+	}
+	if err := h.checkRAMAccess(c, record.NodeID, recordType); err != nil {
+		h.writeError(c, "Forbidden", err.Error())
+		return
+	}
+
 	var priority *int
 	if p := c.Query("Priority"); p != "" {
 		v, _ := strconv.Atoi(p)
 		priority = &v
 	}
 
-	record, err := h.svc.UpdateDomainRecord(userID, recordID, rr, recordType, value, ttl, priority)
+	record, err = h.svc.UpdateDomainRecord(userID, recordID, rr, recordType, value, ttl, priority)
 	if err != nil {
 		h.writeError(c, "DomainRecordNotBelongToUser", err.Error())
 		return
@@ -185,7 +245,23 @@ func (h *AliyunCompatHandler) DeleteDomainRecord(c *gin.Context) {
 		return
 	}
 
-	err := h.svc.DeleteDomainRecord(userID, recordID)
+	// Get record to check RAM access permissions
+	recordIDNum, err := strconv.ParseUint(recordID, 10, 64)
+	if err != nil {
+		h.writeError(c, "InvalidParameter", "无效的记录ID")
+		return
+	}
+	record, err := h.svc.GetRecord(recordIDNum)
+	if err != nil {
+		h.writeError(c, "InvalidRecordID.NotExist", "记录不存在")
+		return
+	}
+	if err := h.checkRAMAccess(c, record.NodeID, ""); err != nil {
+		h.writeError(c, "Forbidden", err.Error())
+		return
+	}
+
+	err = h.svc.DeleteDomainRecord(userID, recordID)
 	if err != nil {
 		h.writeError(c, "DomainRecordNotBelongToUser", err.Error())
 		return

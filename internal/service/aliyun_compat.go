@@ -130,3 +130,17 @@ func (s *AliyunCompatService) DeleteDomainRecord(userID uint64, recordIDStr stri
 
 	return s.recordSvc.DeleteRecord(recordID, userID)
 }
+
+// ResolveDomain resolves a domain name to nodeID, similar to FindNodeByDomain but returns just the node.
+func (s *AliyunCompatService) ResolveDomain(domain string, userID uint64) (*model.DomainNode, uint64, error) {
+	node, _, err := s.domainSvc.FindNodeByDomain(domain, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	return node, node.ID, nil
+}
+
+// GetRecord retrieves a record by ID.
+func (s *AliyunCompatService) GetRecord(recordID uint64) (*model.DNSRecord, error) {
+	return s.recordSvc.GetRecordByID(recordID)
+}
