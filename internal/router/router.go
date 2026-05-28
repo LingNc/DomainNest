@@ -317,5 +317,25 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		alidns.Any("", aliyunCompatHandler.Dispatch)
 	}
 
+	// Cloudflare DNS API compatibility endpoint
+	cfCompatHandler := handler.NewCloudflareCompatHandler(aliyunCompatSvc)
+	cf := r.Group("/cf/v1")
+	cf.Use(middleware.CloudflareAuth(ramTokenService))
+	{
+		cf.GET("/zones", cfCompatHandler.ListZones)
+		cf.GET("/zones/:zone_id/dns_records", cfCompatHandler.ListRecords)
+		cf.POST("/zones/:zone_id/dns_records", cfCompatHandler.CreateRecord)
+		cf.PUT("/zones/:zone_id/dns_records/:record_id", cfCompatHandler.UpdateRecord)
+		cf.DELETE("/zones/:zone_id/dns_records/:record_id", cfCompatHandler.DeleteRecord)
+	}
+
+	// TencentCloud DNS API compatibility endpoint
+	tcCompatHandler := handler.NewTencentCompatHandler(aliyunCompatSvc, ramTokenService)
+	tc := r.Group("/tcdns")
+	tc.Use(middleware.TencentAuth(ramTokenService))
+	{
+		tc.POST("", tcCompatHandler.Dispatch)
+	}
+
 	return r
 }
