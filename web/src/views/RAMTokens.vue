@@ -198,9 +198,11 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listRAMTokens, createRAMToken, updateRAMToken, resetRAMToken, deleteRAMToken } from '../api/ramToken'
+import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { t } = useI18n()
+const auth = useAuthStore()
 
 const recordTypes = ['A', 'AAAA', 'CNAME', 'ALIAS', 'MX', 'TXT', 'CAA', 'NS', 'SRV']
 
@@ -231,26 +233,33 @@ const copyText = (text) => {
 }
 
 const copyAllCredentials = () => {
-  const t = createdToken.value
-  const text = `AccessKeyID: ${t.access_key_id}\n\nAccessKeySecret: ${t.access_key_secret}`
+  const token = createdToken.value
+  const text = `AccessKeyID:\n${token.access_key_id}\nAccessKeySecret:\n${token.access_key_secret}`
   navigator.clipboard.writeText(text)
   ElMessage.success(t('ramTokens.copiedAll'))
 }
 
 const downloadCSV = () => {
-  const t = createdToken.value
+  const token = createdToken.value
   const escapeCsv = (val) => {
     const s = String(val || '')
     if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"'
     return s
   }
-  const headers = ['name', 'access_key_id', 'access_key_secret', 'created_at']
-  const values = [t.name || '', t.access_key_id || '', t.access_key_secret || '', t.created_at || '']
+  const headers = ['name', 'access_key_id', 'access_key_secret', 'endpoint', 'username', 'created_at']
+  const values = [
+    token.name || '',
+    token.access_key_id || '',
+    token.access_key_secret || '',
+    window.location.origin + '/alidns',
+    auth.user?.username || '',
+    token.created_at || ''
+  ]
   const csv = headers.join(',') + '\n' + values.map(escapeCsv).join(',') + '\n'
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
-  link.download = `credentials-${t.name || 'token'}.csv`
+  link.download = `credentials-${token.name || 'token'}.csv`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
