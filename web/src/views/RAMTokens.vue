@@ -15,7 +15,14 @@
     <el-tabs>
       <el-tab-pane :label="$t('ramTokens.managementTab')">
         <el-card>
-          <el-table :data="tokens" stripe v-loading="loading" style="width:100%">
+          <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;">
+            <el-input v-model="tokenSearch" :placeholder="$t('ramTokens.searchPlaceholder')" clearable style="width: 220px" />
+            <el-select v-model="tokenStatusFilter" :placeholder="$t('ramTokens.statusFilter')" clearable style="width: 120px">
+              <el-option :label="$t('common.enabled')" value="enabled" />
+              <el-option :label="$t('common.disabled')" value="disabled" />
+            </el-select>
+          </div>
+          <el-table :data="filteredTokens" stripe v-loading="loading" style="width:100%">
             <el-table-column prop="id" :label="$t('ramTokens.id')" width="80" sortable="custom" />
             <el-table-column prop="name" :label="$t('ramTokens.name')" min-width="120" sortable="custom" />
             <el-table-column prop="access_key_id" :label="$t('ramTokens.accessKeyID')" min-width="180">
@@ -68,7 +75,7 @@
               </template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="!loading && tokens.length === 0" :description="$t('ramTokens.noTokens')" />
+          <el-empty v-if="!loading && filteredTokens.length === 0" :description="$t('ramTokens.noTokens')" />
         </el-card>
       </el-tab-pane>
       <el-tab-pane :label="$t('ramTokens.helpTab')">
@@ -213,6 +220,25 @@ const showEdit = ref(false)
 const showCreatedSecret = ref(false)
 const createdToken = ref({})
 const editTargetId = ref(null)
+const tokenSearch = ref('')
+const tokenStatusFilter = ref('')
+
+const filteredTokens = computed(() => {
+  let result = tokens.value
+  const q = tokenSearch.value.toLowerCase()
+  if (q) {
+    result = result.filter(t =>
+      (t.name || '').toLowerCase().includes(q) ||
+      (t.access_key_id || '').toLowerCase().includes(q)
+    )
+  }
+  if (tokenStatusFilter.value === 'enabled') {
+    result = result.filter(t => t.enabled)
+  } else if (tokenStatusFilter.value === 'disabled') {
+    result = result.filter(t => !t.enabled)
+  }
+  return result
+})
 
 const form = ref({ name: '', allowed_domains_text: '', allowed_types: [], allowed_ips_text: '' })
 const editForm = ref({ name: '', allowed_domains_text: '', allowed_types: [], allowed_ips_text: '' })

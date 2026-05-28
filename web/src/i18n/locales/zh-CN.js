@@ -1047,6 +1047,8 @@ export default {
     copiedAll: '已复制全部凭证',
     csvDownloaded: 'CSV 文件已下载',
     tokenValue: 'Token',
+    searchPlaceholder: '搜索名称或 AccessKeyID',
+    statusFilter: '状态筛选',
   },
   trash: {
     title: '回收站',

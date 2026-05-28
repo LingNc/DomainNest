@@ -1047,6 +1047,8 @@ export default {
     copiedAll: 'All credentials copied',
     csvDownloaded: 'CSV file downloaded',
     tokenValue: 'Token',
+    searchPlaceholder: 'Search name or AccessKeyID',
+    statusFilter: 'Status Filter',
   },
   trash: {
     title: 'Recycle Bin',
