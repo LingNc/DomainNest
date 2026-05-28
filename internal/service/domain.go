@@ -1278,7 +1278,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 			if !matched {
 				if candidates, ok := localByHostType[host+"|"+pr.Type]; ok {
 					var existing *model.DNSRecord
-					// Try exact value match first, skip already-matched
+					// Priority 1: exact host+type+value match
 					for _, cand := range candidates {
 						if matchedLocalIDs[cand.ID] {
 							continue
@@ -1288,13 +1288,16 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 							break
 						}
 					}
-					// Fallback to first unmatched candidate
+					// Priority 2: single unmatched candidate only (avoid wrong match in multi-value)
 					if existing == nil {
+						var unmatched []*model.DNSRecord
 						for _, cand := range candidates {
 							if !matchedLocalIDs[cand.ID] {
-								existing = cand
-								break
+								unmatched = append(unmatched, cand)
 							}
+						}
+						if len(unmatched) == 1 {
+							existing = unmatched[0]
 						}
 					}
 					if existing != nil {
@@ -1434,8 +1437,20 @@ func (s *DomainService) ReturnSubdomainToClaimer(nodeID, userID uint64) error {
 // GetDomainNodesWithProvider returns all active nodes bound to a DNS provider
 func (s *DomainService) GetDomainNodesWithProvider() ([]model.DomainNode, error) {
 	var nodes []model.DomainNode
-	err := s.db.Where("provider_id IS NOT NULL AND status = 'active' AND deleted_at IS NULL").
-		Find(&nodes).Error
+	err := s.db.Raw(`
+		WITH RECURSIVE provider_tree AS (
+			SELECT id, host, full_domain, parent_id, owner_id, provider_id, status
+			FROM domain_nodes
+			WHERE provider_id IS NOT NULL AND status = 'active' AND deleted_at IS NULL
+			UNION ALL
+			SELECT dn.id, dn.host, dn.full_domain, dn.parent_id, dn.owner_id, dn.provider_id, dn.status
+			FROM domain_nodes dn
+			JOIN provider_tree pt ON dn.parent_id = pt.id
+			WHERE dn.status = 'active' AND dn.deleted_at IS NULL
+		)
+		SELECT DISTINCT id, host, full_domain, parent_id, owner_id, provider_id, status
+		FROM provider_tree
+	`).Scan(&nodes).Error
 	if err != nil {
 		return nil, err
 	}
