@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 	"time"
 
 	"domainnest/internal/model"
@@ -32,6 +33,15 @@ func (s *RAMTokenService) Create(userID uint64, name string, allowedDomains []ui
 		return nil, err
 	}
 
+	accessKeyID, err := generateAccessKeyID()
+	if err != nil {
+		return nil, err
+	}
+	accessKeySecret, err := generateAccessKeySecret()
+	if err != nil {
+		return nil, err
+	}
+
 	domainsJSON := ""
 	if len(allowedDomains) > 0 {
 		b, _ := json.Marshal(allowedDomains)
@@ -52,6 +62,8 @@ func (s *RAMTokenService) Create(userID uint64, name string, allowedDomains []ui
 		UserID:         userID,
 		Name:           name,
 		Token:          token,
+		AccessKeyID:    accessKeyID,
+		AccessKeySecret: accessKeySecret,
 		Enabled:        true,
 		AllowedDomains: domainsJSON,
 		AllowedTypes:   typesJSON,
@@ -167,6 +179,20 @@ func (s *RAMTokenService) ValidateAndLookup(tokenStr string) (*model.RAMToken, e
 	return &token, nil
 }
 
+// LookupByAccessKeyID looks up a RAM token by AccessKeyID and updates usage stats.
+func (s *RAMTokenService) LookupByAccessKeyID(accessKeyID string) (*model.RAMToken, error) {
+	var token model.RAMToken
+	if err := s.db.Where("access_key_id = ? AND enabled = ?", accessKeyID, true).First(&token).Error; err != nil {
+		return nil, errors.New("AccessKeyID无效或已禁用")
+	}
+	now := time.Now()
+	s.db.Model(&token).Updates(map[string]interface{}{
+		"usage_count":  gorm.Expr("usage_count + 1"),
+		"last_used_at": now,
+	})
+	return &token, nil
+}
+
 // CheckDomainAccess verifies the RAM token can access the given domain node.
 func (s *RAMTokenService) CheckDomainAccess(token *model.RAMToken, domainNodeID uint64) error {
 	if token.AllowedDomains == "" || token.AllowedDomains == "[]" {
@@ -242,4 +268,20 @@ func generateRAMToken() (string, error) {
 		return "", err
 	}
 	return "rn_" + hex.EncodeToString(bytes), nil
+}
+
+func generateAccessKeyID() (string, error) {
+	b := make([]byte, 10)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return strings.ToUpper(hex.EncodeToString(b)), nil
+}
+
+func generateAccessKeySecret() (string, error) {
+	b := make([]byte, 15)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return strings.ToUpper(hex.EncodeToString(b)), nil
 }
