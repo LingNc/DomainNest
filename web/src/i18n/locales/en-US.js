@@ -414,7 +414,6 @@ export default {
     addRule: 'Add Rule',
     ruleValuePlaceholder: 'e.g. www',
     hostRulesDesc: 'Access is granted if any rule matches. Leave empty for no restrictions.',
-    hostRulesDesc: 'Host matches if ANY rule matches. Empty = no restriction',
     ruleExact: 'Exact',
     rulePrefix: 'Prefix',
     ruleSuffix: 'Suffix',
