@@ -11,6 +11,8 @@ type RAMToken struct {
 	UserID         uint64         `gorm:"index;not null" json:"user_id"`
 	Name           string         `gorm:"type:varchar(64);not null" json:"name"`
 	Token          string         `gorm:"type:varchar(64);uniqueIndex;not null" json:"token"`
+	AccessKeyID     string         `gorm:"type:varchar(32);uniqueIndex" json:"access_key_id"`
+	AccessKeySecret string         `gorm:"type:varchar(64)" json:"-"`
 	Enabled        bool           `gorm:"default:true" json:"enabled"`
 	AllowedDomains string         `gorm:"type:text" json:"allowed_domains,omitempty"` // JSON: [1,2,3] domain_node_ids, empty=all
 	AllowedTypes   string         `gorm:"type:text" json:"allowed_types,omitempty"`   // JSON: ["A","AAAA"], empty=all

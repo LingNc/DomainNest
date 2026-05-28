@@ -276,3 +276,13 @@ func aliyunMakeDataToSign(httpMethod string, params url.Values) string {
 
 	return httpMethod + "&" + percentEncode("/") + "&" + percentEncode(canonicalizedQueryString)
 }
+
+// VerifyAliyunSignature computes the expected Aliyun API signature for the given
+// HTTP method, secret, and query parameters. The caller compares the returned
+// base64 string against the request's "Signature" parameter.
+func VerifyAliyunSignature(httpMethod, appKeySecret string, params url.Values) string {
+	dataToSign := aliyunMakeDataToSign(httpMethod, params)
+	sig := aliyunHmacSign("HMAC-SHA1", httpMethod, appKeySecret, params)
+	_ = dataToSign // used by aliyunMakeDataToSign internally
+	return base64.StdEncoding.EncodeToString(sig)
+}
