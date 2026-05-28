@@ -315,14 +315,14 @@ func (h *DomainHandler) DemoteNode(c *gin.Context) {
 		return
 	}
 
+	// Load node for logging (before soft-delete)
+	var node model.DomainNode
+	h.db.First(&node, nodeID)
+
 	if err := h.domainService.DemoteNode(nodeID, userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
-
-	// Load node for logging
-	var node model.DomainNode
-	h.db.First(&node, nodeID)
 
 	middleware.LogOperation(h.db, userID, "demote_node", "domain_node", &nodeID,
 		map[string]interface{}{"full_domain": node.FullDomain, "host": node.Host}, c.ClientIP())

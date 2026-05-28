@@ -283,13 +283,7 @@
             <el-input v-model="providerSearch" :placeholder="$t('admin.providerSearchPlaceholder')" clearable style="width:200px" size="default" />
             <el-select v-model="providerTypeFilter" :placeholder="$t('admin.providerTypeFilter')" clearable style="width:150px" size="default">
               <el-option :label="$t('common.all')" value="" />
-              <el-option label="aliyun" value="aliyun" />
-              <el-option label="aliesa" value="aliesa" />
-              <el-option label="tencentcloud" value="tencentcloud" />
-              <el-option label="huaweicloud" value="huaweicloud" />
-              <el-option label="baiducloud" value="baiducloud" />
-              <el-option label="trafficroute" value="trafficroute" />
-              <el-option label="rainyun" value="rainyun" />
+              <el-option v-for="pt in providerTypeOptions" :key="pt.value" :label="pt.label" :value="pt.value" />
             </el-select>
           </div>
           <el-table :data="filteredProviders" stripe v-loading="loadingAdminProviders" style="width:100%"
@@ -541,6 +535,68 @@ const inviteCodeSortOrder = ref('desc')
 
 const providerSearch = ref('')
 const providerTypeFilter = ref('')
+const providerTypes = [
+  { value: 'aliyun', label: 'Alibaba Cloud DNS' },
+  { value: 'aliesa', label: 'Alibaba Cloud ESA' },
+  { value: 'tencentcloud', label: 'Tencent Cloud DNSPod' },
+  { value: 'cloudflare', label: 'Cloudflare' },
+  { value: 'huaweicloud', label: 'Huawei Cloud DNS' },
+  { value: 'baiducloud', label: 'Baidu Cloud DNS' },
+  { value: 'trafficroute', label: 'Volcengine DNS' },
+  { value: 'godaddy', label: 'GoDaddy' },
+  { value: 'namecheap', label: 'Namecheap' },
+  { value: 'namesilo', label: 'NameSilo' },
+  { value: 'porkbun', label: 'Porkbun' },
+  { value: 'vercel', label: 'Vercel' },
+  { value: 'gcore', label: 'Gcore' },
+  { value: 'nsone', label: 'NS1' },
+  { value: 'name_com', label: 'Name.com' },
+  { value: 'cloudns', label: 'ClouDNS' },
+  { value: 'dnsla', label: 'DNSLA' },
+  { value: 'dynadot', label: 'Dynadot' },
+  { value: 'dynv6', label: 'dynv6' },
+  { value: 'spaceship', label: 'Spaceship' },
+  { value: 'edgeone', label: 'EdgeOne' },
+  { value: 'rainyun', label: 'Rain Yun' },
+  { value: 'hipmdnsmgr', label: 'HiPM DNS' },
+  { value: 'nowcn', label: 'Nowcn' },
+  { value: 'eranet', label: 'Eranet' },
+  { value: 'tnethk', label: 'Tnethk' },
+]
+const providerTypeLabelKeys = {
+  aliyun: 'providers.providerAliyun',
+  aliesa: 'providers.providerAliesa',
+  tencentcloud: 'providers.providerTencentcloud',
+  cloudflare: 'providers.providerCloudflare',
+  huaweicloud: 'providers.providerHuaweicloud',
+  baiducloud: 'providers.providerBaiducloud',
+  trafficroute: 'providers.providerTrafficroute',
+  godaddy: 'providers.providerGodaddy',
+  namecheap: 'providers.providerNamecheap',
+  namesilo: 'providers.providerNamesilo',
+  porkbun: 'providers.providerPorkbun',
+  vercel: 'providers.providerVercel',
+  gcore: 'providers.providerGcore',
+  nsone: 'providers.providerNsone',
+  name_com: 'providers.providerName_com',
+  cloudns: 'providers.providerCloudns',
+  dnsla: 'providers.providerDnsla',
+  dynadot: 'providers.providerDynadot',
+  dynv6: 'providers.providerDynv6',
+  spaceship: 'providers.providerSpaceship',
+  edgeone: 'providers.providerEdgeone',
+  rainyun: 'providers.providerRainyun',
+  hipmdnsmgr: 'providers.providerHipmdnsmgr',
+  nowcn: 'providers.providerNowcn',
+  eranet: 'providers.providerEranet',
+  tnethk: 'providers.providerTnethk',
+}
+const providerTypeOptions = computed(() =>
+  providerTypes.map(p => ({
+    ...p,
+    label: providerTypeLabelKeys[p.value] ? t(providerTypeLabelKeys[p.value]) : p.label,
+  }))
+)
 const providerSortBy = ref('id')
 const providerSortOrder = ref('desc')
 const showProviderDetail = ref(false)
