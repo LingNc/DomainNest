@@ -1054,7 +1054,7 @@ export default {
     statusFilter: '状态筛选',
     withTechnitium: '配合 Technitium 使用（1Panel v2.1.2+）',
     technitiumDesc: '在 1Panel 的 SSL 证书申请页面选择「Technitium」，填写以下信息：',
-    withHttpreq: '配合 httpreq 使用（自定义 ACME 客户端）',
+    withHttpreq: '配合 httpreq 使用（自定义 ACME 客户端 / 1Panel v1）',
     httpreqDesc: '使用 httpreq DNS 提供商，填写端点地址和 AccessKeyID/Secret 作为用户名密码。',
     baseUrlLabel: 'BASE URL',
     tokenLabel: 'Token',

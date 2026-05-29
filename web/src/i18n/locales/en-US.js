@@ -1054,7 +1054,7 @@ export default {
     statusFilter: 'Status Filter',
     withTechnitium: 'Using Technitium (1Panel v2.1.2+)',
     technitiumDesc: 'In 1Panel SSL certificate page, select "Technitium" and fill in:',
-    withHttpreq: 'Using httpreq (Custom ACME client)',
+    withHttpreq: 'Using httpreq (Custom ACME client / 1Panel v1)',
     httpreqDesc: 'Use httpreq DNS provider with endpoint URL and AccessKeyID/Secret as username/password.',
     baseUrlLabel: 'BASE URL',
     tokenLabel: 'Token',
