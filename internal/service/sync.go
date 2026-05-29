@@ -255,7 +255,8 @@ func (s *SyncService) verifySyncedRecords() {
 		if err != nil {
 			continue
 		}
-		providerRecords, err := p.ListRecords(node.FullDomain)
+		rootDomain := getRootDomain(node.FullDomain)
+		providerRecords, err := p.ListRecords(rootDomain)
 		if err != nil {
 			continue
 		}

@@ -1183,7 +1183,8 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 		return fmt.Errorf("获取DNS服务商失败: %w", err)
 	}
 
-	providerRecords, err := p.ListRecords(node.FullDomain)
+	rootDomain := getRootDomain(node.FullDomain)
+	providerRecords, err := p.ListRecords(rootDomain)
 	if err != nil {
 		return fmt.Errorf("获取服务商记录失败: %w", err)
 	}
@@ -1437,7 +1438,7 @@ func (s *DomainService) ReturnSubdomainToClaimer(nodeID, userID uint64) error {
 // GetDomainNodesWithProvider returns all active nodes bound to a DNS provider
 func (s *DomainService) GetDomainNodesWithProvider() ([]model.DomainNode, error) {
 	var nodes []model.DomainNode
-	err := s.db.Where("provider_id IS NOT NULL AND status = 'active' AND deleted_at IS NULL").
+	err := s.db.Where("provider_id IS NOT NULL AND parent_id IS NULL AND status = 'active' AND deleted_at IS NULL").
 		Find(&nodes).Error
 	if err != nil {
 		return nil, err
