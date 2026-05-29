@@ -1,0 +1,51 @@
+--- a/agent/utils/ssl/dns_provider.go
++++ b/agent/utils/ssl/dns_provider.go
+@@ -23,11 +23,14 @@
+ 	"github.com/go-acme/lego/v4/providers/dns/regru"
+ 	"github.com/go-acme/lego/v4/providers/dns/route53"
+ 	"github.com/go-acme/lego/v4/providers/dns/spaceship"
++	"github.com/go-acme/lego/v4/providers/dns/httpreq"
+ 	"github.com/go-acme/lego/v4/providers/dns/tencentcloud"
+ 	"github.com/go-acme/lego/v4/providers/dns/vercel"
+ 	"github.com/go-acme/lego/v4/providers/dns/volcengine"
+ 	"github.com/go-acme/lego/v4/providers/dns/westcn"
+ 	"time"
++	"fmt"
++	"net/url"
+ )
+
+ type DnsType string
+@@ -57,6 +60,7 @@
+ 	BaiduCloud   DnsType = "BaiduCloud"
+ 	Ovh          DnsType = "Ovh"
+ 	AcmeDNS      DnsType = "AcmeDNS"
++	HttpReq      DnsType = "HttpReq"
+ )
+
+ type DNSParam struct {
+@@ -291,6 +295,25 @@
+ 		config.APIBase = param.Endpoint
+ 		config.StorageBaseURL = param.BaseURL
+ 		p, err = acmedns.NewDNSProviderConfig(config)
++	case HttpReq:
++		config := httpreq.NewDefaultConfig()
++		if param.Endpoint != "" {
++			endpoint, parseErr := url.Parse(param.Endpoint)
++			if parseErr != nil {
++				return nil, fmt.Errorf("invalid httpreq endpoint: %w", parseErr)
++			}
++			config.Endpoint = endpoint
++		}
++		config.Mode = "RAW"
++		if param.Username != "" {
++			config.Username = param.Username
++			config.Password = param.Password
++		}
++		config.PropagationTimeout = propagationTimeout
++		config.PollingInterval = pollingInterval
++		p, err = httpreq.NewDNSProviderConfig(config)
++	default:
++		return nil, fmt.Errorf("unsupported DNS provider %q", dnsType)
+ 	}
+
+ 	if err != nil {
