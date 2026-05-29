@@ -40,3 +40,14 @@ In 1Panel SSL Certificates -> DNS Accounts:
 - Endpoint: `https://your-domainnest-server/httpreq`
 - Username: DomainNest AccessKeyID
 - Password: DomainNest AccessKeySecret
+
+## Rollback
+
+To restore the original version:
+
+```bash
+chmod +x unpatch-1panel-v1.sh
+sudo ./unpatch-1panel-v1.sh
+```
+
+The script automatically finds and restores the backup. Backup files are located alongside the original binary as `1panel-agent.backup.YYYYMMDDhhmmss`.

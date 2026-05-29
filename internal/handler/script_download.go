@@ -33,9 +33,10 @@ func (h *ScriptDownloadHandler) Download1PanelPatch(c *gin.Context) {
 	readmeFile := fmt.Sprintf("README.%s.md", lang)
 	patchFile := "1panel-v1-httpreq.patch"
 	scriptFile := fmt.Sprintf("patch-1panel-v1.%s.sh", lang)
+	unpatchFile := fmt.Sprintf("unpatch-1panel-v1.%s.sh", lang)
 
 	// Verify files exist
-	for _, f := range []string{patchFile, scriptFile, readmeFile} {
+	for _, f := range []string{patchFile, scriptFile, unpatchFile, readmeFile} {
 		path := filepath.Join(h.scriptsDir, f)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "patch file not found: " + f})
@@ -56,6 +57,11 @@ func (h *ScriptDownloadHandler) Download1PanelPatch(c *gin.Context) {
 
 	// Add install script (strip language suffix so users get clean filename)
 	if err := h.addFileToZip(zw, scriptFile, "patch-1panel-v1.sh"); err != nil {
+		return
+	}
+
+	// Add uninstall script
+	if err := h.addFileToZip(zw, unpatchFile, "unpatch-1panel-v1.sh"); err != nil {
 		return
 	}
 

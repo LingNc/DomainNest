@@ -43,3 +43,14 @@ sudo systemctl restart 1panel
 - 端点地址：`https://your-domainnest-server/httpreq`
 - 用户名：DomainNest AccessKeyID
 - 密码：DomainNest AccessKeySecret
+
+## 回滚补丁
+
+如需恢复原始版本：
+
+```bash
+chmod +x unpatch-1panel-v1.sh
+sudo ./unpatch-1panel-v1.sh
+```
+
+脚本会自动查找备份文件并恢复。备份文件位于原二进制同目录，格式为 `1panel-agent.backup.YYYYMMDDhhmmss`。
