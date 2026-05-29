@@ -332,8 +332,8 @@ const copyAllCredentials = () => {
 const download1PanelPatch = () => {
   const lang = localStorage.getItem('locale') || 'zh-CN'
   const link = document.createElement('a')
-  link.href = `/api/v1/scripts/1panel-v1-patch.zip?lang=${lang}`
-  link.download = '1panel-v1-httpreq-patch.zip'
+  link.href = `/api/v1/scripts/1panel-patch.zip?lang=${lang}`
+  link.download = '1panel-httpreq-patch.zip'
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
