@@ -337,12 +337,7 @@ fi
 
 PATCH_ALREADY_APPLIED=false
 if grep -q 'HttpReq' "${SRC_DIR}/utils/ssl/dns_provider.go" 2>/dev/null; then
-  log_info "dns_provider.go already contains HttpReq — patch already applied, skipping patch step"
-  read -p "Proceed directly to build? [Y/n] " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Nn]$ ]]; then
-    exit 0
-  fi
+  log_info "Backend patch already applied, skipping"
   PATCH_ALREADY_APPLIED=true
 fi
 

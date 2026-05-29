@@ -337,12 +337,7 @@ fi
 
 PATCH_ALREADY_APPLIED=false
 if grep -q 'HttpReq' "${SRC_DIR}/utils/ssl/dns_provider.go" 2>/dev/null; then
-  log_info "dns_provider.go 已包含 HttpReq — 补丁已应用，将跳过补丁步骤"
-  read -p "是否直接编译？[Y/n] " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Nn]$ ]]; then
-    exit 0
-  fi
+  log_info "后端补丁已应用，跳过"
   PATCH_ALREADY_APPLIED=true
 fi
 
