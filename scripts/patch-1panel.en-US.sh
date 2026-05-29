@@ -223,16 +223,9 @@ SRC_DIR="${WORK_DIR}/${SRC_SUBDIR}"
 log_info "Source directory: $SRC_DIR"
 
 # Verify lego version compatibility
-if [[ "$INSTALL_TYPE" == *"v1"* ]]; then
-  if ! grep -q 'go-acme/lego/v4' "${SRC_DIR}/go.mod" 2>/dev/null; then
-    log_error "This patch only supports 1Panel v1 with lego v4"
-    exit 1
-  fi
-else
-  if ! grep -q 'go-acme/lego/v4' "${SRC_DIR}/go.mod" 2>/dev/null; then
-    log_error "This patch only supports 1Panel v2 with lego v4"
-    exit 1
-  fi
+if ! grep -q 'go-acme/lego/v4' "${SRC_DIR}/go.mod" 2>/dev/null; then
+  log_error "This patch only supports 1Panel with lego v4"
+  exit 1
 fi
 
 # Check Go version compatibility

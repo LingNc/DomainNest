@@ -223,16 +223,9 @@ SRC_DIR="${WORK_DIR}/${SRC_SUBDIR}"
 log_info "源码目录: $SRC_DIR"
 
 # 验证 lego 版本兼容性
-if [[ "$INSTALL_TYPE" == *"v1"* ]]; then
-  if ! grep -q 'go-acme/lego/v4' "${SRC_DIR}/go.mod" 2>/dev/null; then
-    log_error "此补丁仅支持使用 lego v4 的 1Panel v1"
-    exit 1
-  fi
-else
-  if ! grep -q 'go-acme/lego/v4' "${SRC_DIR}/go.mod" 2>/dev/null; then
-    log_error "此补丁仅支持使用 lego v4 的 1Panel v2"
-    exit 1
-  fi
+if ! grep -q 'go-acme/lego/v4' "${SRC_DIR}/go.mod" 2>/dev/null; then
+  log_error "此补丁仅支持使用 lego v4 的 1Panel"
+  exit 1
 fi
 
 # 检查 Go 版本兼容性
