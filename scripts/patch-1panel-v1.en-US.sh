@@ -62,36 +62,47 @@ ensure_command patch patch
 # Version detection: ensure 1Panel is installed with correct architecture
 log_step() { echo -e "${GREEN}[STEP]${NC} $*"; }
 
-# Check if 1Panel is installed at all
+# Detect architecture: look for 1panel-core first (split architecture marker)
 log_step "Detecting 1Panel installation..."
-if ! systemctl list-unit-files 2>/dev/null | grep -q '1panel'; then
-    if [[ ! -f /usr/local/bin/1panel ]] && [[ ! -f /usr/bin/1panel ]] && \
-       [[ ! -f /usr/local/bin/1panel-core ]] && [[ ! -f /usr/bin/1panel-core ]]; then
-        log_error "1Panel is not installed on this machine"
-        exit 1
+CORE_BIN=""
+for candidate in /usr/local/bin/1panel-core /usr/bin/1panel-core; do
+    if [[ -f "$candidate" ]]; then
+        CORE_BIN="$candidate"
+        break
     fi
+done
+
+# fallback: search PATH
+if [[ -z "$CORE_BIN" ]]; then
+    CORE_BIN=$(command -v 1panel-core 2>/dev/null || echo "")
 fi
 
-# Detect monolithic v1 (pre-split, NOT compatible)
-if [[ -f /usr/local/bin/1panel ]] || [[ -f /usr/bin/1panel ]]; then
-    if [[ ! -f /usr/local/bin/1panel-core ]] && [[ ! -f /usr/bin/1panel-core ]]; then
+if [[ -z "$CORE_BIN" ]]; then
+    # No 1panel-core found -- check for monolithic v1
+    if [[ -f /usr/local/bin/1panel ]] || [[ -f /usr/bin/1panel ]]; then
         log_error "Detected 1Panel monolithic v1 (pre-split architecture)."
         log_error "This patch requires the split architecture (v1.10.28+)."
         log_error "Please upgrade 1Panel to v1.10.28-lts or later."
         exit 1
     fi
+    if ! systemctl list-unit-files 2>/dev/null | grep -q '1panel'; then
+        log_error "1Panel is not installed on this machine"
+        exit 1
+    fi
+    log_error "Could not find 1panel-core binary"
+    exit 1
 fi
 
+log_info "Detected 1Panel split architecture: $CORE_BIN"
+
 # Detect v2 (warn, proceed at own risk)
-if [[ -f /usr/local/bin/1panel-core ]] || [[ -f /usr/bin/1panel-core ]]; then
-    INSTALLED_VERSION=$(/usr/local/bin/1panel-core version 2>/dev/null || /usr/bin/1panel-core version 2>/dev/null || echo "")
-    if [[ "$INSTALLED_VERSION" == *"v2"* ]]; then
-        log_warn "1Panel v2 detected. This patch is designed for v1 LTS."
-        log_warn "The patch is structurally compatible with v2, but proceed at your own risk."
-        read -r -p "Continue? [y/N] " response
-        if [[ ! "$response" =~ ^[yY]$ ]]; then
-            exit 0
-        fi
+INSTALLED_VERSION=$("$CORE_BIN" version 2>/dev/null || echo "")
+if [[ "$INSTALLED_VERSION" == *"v2"* ]]; then
+    log_warn "1Panel v2 detected. This patch is designed for v1 LTS."
+    log_warn "The patch is structurally compatible with v2, but proceed at your own risk."
+    read -r -p "Continue? [y/N] " response
+    if [[ ! "$response" =~ ^[yY]$ ]]; then
+        exit 0
     fi
 fi
 
