@@ -250,6 +250,20 @@ if [[ -n "$GO_MOD_VERSION" ]]; then
       tar -C /usr/local -xzf "/tmp/${GO_TARBALL}"
       rm -f "/tmp/${GO_TARBALL}"
       export PATH=/usr/local/go/bin:$PATH
+      # Persist PATH for future sessions
+      GO_PATH_LINE='export PATH=/usr/local/go/bin:$PATH'
+      SHELL_RC=""
+      if [[ -f "$HOME/.bashrc" ]]; then
+        SHELL_RC="$HOME/.bashrc"
+      elif [[ -f "$HOME/.bash_profile" ]]; then
+        SHELL_RC="$HOME/.bash_profile"
+      elif [[ -f "$HOME/.profile" ]]; then
+        SHELL_RC="$HOME/.profile"
+      fi
+      if [[ -n "$SHELL_RC" ]] && ! grep -q '/usr/local/go/bin' "$SHELL_RC" 2>/dev/null; then
+        echo "$GO_PATH_LINE" >> "$SHELL_RC"
+        log_info "已将 Go PATH 写入 $SHELL_RC"
+      fi
       log_info "Go 已升级: $(go version)"
     else
       log_error "请手动升级 Go 后重试"
