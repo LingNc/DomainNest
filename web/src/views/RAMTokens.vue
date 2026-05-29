@@ -380,7 +380,8 @@ const technitiumEndpoint = computed(() => {
 })
 
 const firstEnabledToken = computed(() => {
-  return tokens.value.find(t => t.enabled) || null
+  const unrestricted = tokens.value.find(t => t.enabled && !t.allowed_domains && !t.allowed_types && !t.allowed_ips)
+  return unrestricted || tokens.value.find(t => t.enabled) || null
 })
 
 const httpreqEndpoint = computed(() => {
