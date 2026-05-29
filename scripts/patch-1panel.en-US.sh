@@ -11,6 +11,8 @@ PATCH_FILE_V2="${SCRIPT_DIR}/1panel-v2-httpreq.patch"
 
 REPO_URL="https://github.com/1Panel-dev/1Panel.git"
 WORK_DIR="/tmp/1panel-patch-$$"
+CLEANUP_WORK_DIR=0
+CLEANUP_WORK_DIR=0
 
 # Colors
 RED='\033[0;31m'
@@ -31,7 +33,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 cleanup() {
-  if [[ -d "$WORK_DIR" ]]; then
+  if [[ $CLEANUP_WORK_DIR -eq 1 && -d "$WORK_DIR" ]]; then
     rm -rf "$WORK_DIR"
   fi
 }
@@ -185,9 +187,22 @@ if [[ -z "$LATEST_TAG" ]]; then
 fi
 log_info "Latest tag: $LATEST_TAG"
 
-# Clone source
-log_info "Cloning 1Panel $LATEST_TAG..."
-git clone --depth 1 --branch "$LATEST_TAG" "$REPO_URL" "$WORK_DIR"
+# Update WORK_DIR to use tag-based naming
+WORK_DIR="/tmp/1panel-patch-${LATEST_TAG}"
+
+# Clean up old PID-based directories
+rm -rf /tmp/1panel-patch-[0-9]* 2>/dev/null || true
+
+# Clone or reuse source
+if [[ -d "$WORK_DIR" ]] && git -C "$WORK_DIR" describe --tags 2>/dev/null | grep -q "$LATEST_TAG"; then
+    log_info "Reusing existing source directory: $WORK_DIR"
+    CLEANUP_WORK_DIR=0
+else
+    rm -rf "$WORK_DIR"
+    log_info "Cloning 1Panel $LATEST_TAG..."
+    git clone --depth 1 --branch "$LATEST_TAG" "$REPO_URL" "$WORK_DIR"
+    CLEANUP_WORK_DIR=1
+fi
 
 # ============================================================
 # Determine source directory structure (split vs monolithic)

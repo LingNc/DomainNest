@@ -11,6 +11,7 @@ PATCH_FILE_V2="${SCRIPT_DIR}/1panel-v2-httpreq.patch"
 
 REPO_URL="https://github.com/1Panel-dev/1Panel.git"
 WORK_DIR="/tmp/1panel-patch-$$"
+CLEANUP_WORK_DIR=0
 
 # 颜色
 RED='\033[0;31m'
@@ -31,7 +32,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 cleanup() {
-  if [[ -d "$WORK_DIR" ]]; then
+  if [[ $CLEANUP_WORK_DIR -eq 1 && -d "$WORK_DIR" ]]; then
     rm -rf "$WORK_DIR"
   fi
 }
@@ -185,9 +186,22 @@ if [[ -z "$LATEST_TAG" ]]; then
 fi
 log_info "最新的标签: $LATEST_TAG"
 
-# 克隆源码
-log_info "正在克隆 1Panel $LATEST_TAG..."
-git clone --depth 1 --branch "$LATEST_TAG" "$REPO_URL" "$WORK_DIR"
+# 更新为基于标签的目录名
+WORK_DIR="/tmp/1panel-patch-${LATEST_TAG}"
+
+# 清理旧的 PID-based 目录
+rm -rf /tmp/1panel-patch-[0-9]* 2>/dev/null || true
+
+# 克隆或复用源码
+if [[ -d "$WORK_DIR" ]] && git -C "$WORK_DIR" describe --tags 2>/dev/null | grep -q "$LATEST_TAG"; then
+    log_info "复用已有的源码目录: $WORK_DIR"
+    CLEANUP_WORK_DIR=0
+else
+    rm -rf "$WORK_DIR"
+    log_info "正在克隆 1Panel $LATEST_TAG..."
+    git clone --depth 1 --branch "$LATEST_TAG" "$REPO_URL" "$WORK_DIR"
+    CLEANUP_WORK_DIR=1
+fi
 
 # ============================================================
 # 确定源码目录结构（分裂 vs 单体）
