@@ -16,6 +16,11 @@ type ScriptDownloadHandler struct {
 }
 
 func NewScriptDownloadHandler(scriptsDir string) *ScriptDownloadHandler {
+	if !filepath.IsAbs(scriptsDir) {
+		if exe, err := os.Executable(); err == nil {
+			scriptsDir = filepath.Join(filepath.Dir(exe), scriptsDir)
+		}
+	}
 	return &ScriptDownloadHandler{scriptsDir: scriptsDir}
 }
 

@@ -82,7 +82,13 @@ patch -p2 < "$PATCH_FILE"
 # Build
 log_info "Building 1panel-agent..."
 cd "$AGENT_DIR"
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '-s -w' -o 1panel-agent cmd/server/main.go
+GOARCH=$(uname -m)
+case "$GOARCH" in
+  x86_64)  GOARCH=amd64 ;;
+  aarch64) GOARCH=arm64 ;;
+  armv7l)  GOARCH=arm ;;
+esac
+CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -trimpath -ldflags '-s -w' -o 1panel-agent cmd/server/main.go
 
 # Detect install path
 INSTALL_BIN=""
