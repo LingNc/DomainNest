@@ -340,7 +340,39 @@ if [[ "$SRC_SUBDIR" == "backend" ]]; then
 fi
 log_info "Build target: $BUILD_TARGET"
 
-CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -trimpath -ldflags '-s -w' -o 1panel-agent "$BUILD_TARGET"
+# Compact build: suppress verbose go module download output, show only on failure
+BUILD_LOG=$(mktemp)
+trap 'rm -f "$BUILD_LOG"; cleanup' EXIT
+BUILD_START=$SECONDS
+(
+  cd "$SRC_DIR"
+  CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -trimpath -ldflags '-s -w' -o 1panel-agent "$BUILD_TARGET"
+) >"$BUILD_LOG" 2>&1 &
+BUILD_PID=$!
+
+# Show build progress
+SPINNER='|/-\'
+while kill -0 "$BUILD_PID" 2>/dev/null; do
+  for (( i=0; i<${#SPINNER}; i++ )); do
+    ELAPSED=$(( SECONDS - BUILD_START ))
+    printf "\r${GREEN}[INFO]${NC} Building... %s (elapsed %dm%02ds) " "${SPINNER:$i:1}" $((ELAPSED/60)) $((ELAPSED%60))
+    sleep 0.3
+    kill -0 "$BUILD_PID" 2>/dev/null || break
+  done
+done
+
+wait "$BUILD_PID"
+BUILD_RC=$?
+ELAPSED=$(( SECONDS - BUILD_START ))
+printf "\r\033[K"
+if [[ $BUILD_RC -ne 0 ]]; then
+  log_error "Build failed (${ELAPSED}s elapsed), log output:"
+  cat "$BUILD_LOG"
+  rm -f "$BUILD_LOG"
+  exit 1
+fi
+log_info "Build completed (${ELAPSED}s elapsed)"
+rm -f "$BUILD_LOG"
 
 # ============================================================
 # Install
@@ -371,6 +403,24 @@ if [[ -z "$INSTALL_BIN" ]]; then
   exit 0
 fi
 
+# Determine service name
+SERVICE_NAME=""
+case "$INSTALL_TYPE" in
+  split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
+  monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
+esac
+
+# Stop service first (avoids "text file busy" error)
+SERVICE_WAS_ACTIVE=0
+if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+  SERVICE_WAS_ACTIVE=1
+  log_info "Stopping $SERVICE_NAME service..."
+  systemctl stop "$SERVICE_NAME" || {
+    log_error "Failed to stop $SERVICE_NAME service"
+    exit 1
+  }
+fi
+
 # Backup and install
 BACKUP_PATH="${INSTALL_BIN}.backup.$(date +%Y%m%d%H%M%S)"
 log_info "Backing up existing binary to $BACKUP_PATH"
@@ -380,22 +430,14 @@ log_info "Installing new binary..."
 cp "${SRC_DIR}/1panel-agent" "$INSTALL_BIN"
 chmod +x "$INSTALL_BIN"
 
-# ============================================================
-# Restart service
-# ============================================================
-SERVICE_NAME=""
-case "$INSTALL_TYPE" in
-  split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
-  monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
-esac
-
-if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-  log_info "Restarting $SERVICE_NAME service..."
-  systemctl restart "$SERVICE_NAME" || {
-    log_warn "Could not auto-restart service. Please restart manually."
+# Start service
+if [[ $SERVICE_WAS_ACTIVE -eq 1 ]] || systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+  log_info "Starting $SERVICE_NAME service..."
+  systemctl start "$SERVICE_NAME" || {
+    log_warn "Could not auto-start service. Please start manually."
   }
 else
-  log_warn "$SERVICE_NAME service not running. Please restart manually."
+  log_warn "$SERVICE_NAME service not running. Please start manually."
 fi
 
 log_info "Patch installed successfully!"

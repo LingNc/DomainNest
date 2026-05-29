@@ -341,7 +341,39 @@ if [[ "$SRC_SUBDIR" == "backend" ]]; then
 fi
 log_info "构建目标: $BUILD_TARGET"
 
-CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -trimpath -ldflags '-s -w' -o 1panel-agent "$BUILD_TARGET"
+# 紧凑构建：抑制 go 模块下载的大量输出，只在失败时显示日志
+BUILD_LOG=$(mktemp)
+trap 'rm -f "$BUILD_LOG"; cleanup' EXIT
+BUILD_START=$SECONDS
+(
+  cd "$SRC_DIR"
+  CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -trimpath -ldflags '-s -w' -o 1panel-agent "$BUILD_TARGET"
+) >"$BUILD_LOG" 2>&1 &
+BUILD_PID=$!
+
+# 显示构建进度
+SPINNER='|/-\'
+while kill -0 "$BUILD_PID" 2>/dev/null; do
+  for (( i=0; i<${#SPINNER}; i++ )); do
+    ELAPSED=$(( SECONDS - BUILD_START ))
+    printf "\r${GREEN}[INFO]${NC} 正在编译... %s (已用时 %dm%02ds) " "${SPINNER:$i:1}" $((ELAPSED/60)) $((ELAPSED%60))
+    sleep 0.3
+    kill -0 "$BUILD_PID" 2>/dev/null || break
+  done
+done
+
+wait "$BUILD_PID"
+BUILD_RC=$?
+ELAPSED=$(( SECONDS - BUILD_START ))
+printf "\r\033[K"
+if [[ $BUILD_RC -ne 0 ]]; then
+  log_error "编译失败 (耗时 ${ELAPSED}s)，日志如下:"
+  cat "$BUILD_LOG"
+  rm -f "$BUILD_LOG"
+  exit 1
+fi
+log_info "编译完成 (耗时 ${ELAPSED}s)"
+rm -f "$BUILD_LOG"
 
 # ============================================================
 # 安装
@@ -372,6 +404,24 @@ if [[ -z "$INSTALL_BIN" ]]; then
   exit 0
 fi
 
+# 确定服务名称
+SERVICE_NAME=""
+case "$INSTALL_TYPE" in
+  split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
+  monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
+esac
+
+# 停止服务（避免 "文本文件忙" 错误）
+SERVICE_WAS_ACTIVE=0
+if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+  SERVICE_WAS_ACTIVE=1
+  log_info "正在停止 $SERVICE_NAME 服务..."
+  systemctl stop "$SERVICE_NAME" || {
+    log_error "无法停止 $SERVICE_NAME 服务"
+    exit 1
+  }
+fi
+
 # 备份并安装
 BACKUP_PATH="${INSTALL_BIN}.backup.$(date +%Y%m%d%H%M%S)"
 log_info "正在备份现有二进制文件到 $BACKUP_PATH"
@@ -381,22 +431,14 @@ log_info "正在安装新二进制文件..."
 cp "${SRC_DIR}/1panel-agent" "$INSTALL_BIN"
 chmod +x "$INSTALL_BIN"
 
-# ============================================================
 # 重启服务
-# ============================================================
-SERVICE_NAME=""
-case "$INSTALL_TYPE" in
-  split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
-  monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
-esac
-
-if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-  log_info "正在重启 $SERVICE_NAME 服务..."
-  systemctl restart "$SERVICE_NAME" || {
-    log_warn "无法自动重启服务，请手动重启。"
+if [[ $SERVICE_WAS_ACTIVE -eq 1 ]] || systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+  log_info "正在启动 $SERVICE_NAME 服务..."
+  systemctl start "$SERVICE_NAME" || {
+    log_warn "无法自动启动服务，请手动启动。"
   }
 else
-  log_warn "未检测到 $SERVICE_NAME 服务，请手动重启。"
+  log_warn "未检测到 $SERVICE_NAME 服务，请手动启动。"
 fi
 
 log_info "补丁安装成功！"
