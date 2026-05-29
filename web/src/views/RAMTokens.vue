@@ -86,15 +86,46 @@
           </template>
 
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item :label="$t('ramTokens.endpointUrl')">
-              <code>{{ endpointUrl }}</code>
-              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(endpointUrl)">{{ $t('common.copy') }}</el-button>
+            <el-descriptions-item :label="$t('ramTokens.providerEndpoints')">
+              <code>{{ window.location.origin }}</code>
+            </el-descriptions-item>
+            <el-descriptions-item v-for="ep in providerEndpoints" :key="ep.name" :label="ep.name">
+              <code>{{ ep.url }}</code>
+              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(ep.url)">{{ $t('common.copy') }}</el-button>
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <el-divider />
+
+          <h4>{{ $t('ramTokens.withTechnitium') }}</h4>
+          <p>{{ $t('ramTokens.technitiumDesc') }}</p>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="BASE URL">
+              <code>{{ providerEndpoints.find(e => e.name === 'Technitium')?.url }}</code>
+              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(providerEndpoints.find(e => e.name === 'Technitium')?.url)">{{ $t('common.copy') }}</el-button>
+            </el-descriptions-item>
+            <el-descriptions-item label="Token">
+              {{ $t('ramTokens.tokenValue') }}: AccessKeySecret
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <el-divider />
+
+          <h4>{{ $t('ramTokens.withAcmeDNS') }}</h4>
+          <p>{{ $t('ramTokens.acmeDNSDesc') }}</p>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="API BASE">
+              <code>{{ providerEndpoints.find(e => e.name === 'AcmeDNS')?.url }}</code>
+              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(providerEndpoints.find(e => e.name === 'AcmeDNS')?.url)">{{ $t('common.copy') }}</el-button>
             </el-descriptions-item>
           </el-descriptions>
 
           <el-divider />
 
           <h4>{{ $t('ramTokens.with1Panel') }}</h4>
+          <el-alert type="info" :closable="false" show-icon style="margin-bottom: 12px">
+            {{ $t('ramTokens.aliyunHostsHint') }}
+          </el-alert>
           <ol style="line-height: 2; padding-left: 20px">
             <li>{{ $t('ramTokens.step1CreateToken') }}</li>
             <li>{{ $t('ramTokens.step2CopyCreds') }}</li>
@@ -110,6 +141,11 @@
           <h4>{{ $t('ramTokens.withDdnsGo') }}</h4>
           <p>{{ $t('ramTokens.ddnsGoCallbackHint') }}</p>
           <el-button type="primary" size="small" @click="$router.push('/settings')">{{ $t('ramTokens.goToSettings') }}</el-button>
+
+          <el-divider />
+
+          <h4>{{ $t('ramTokens.withHttpreq') }}</h4>
+          <p>{{ $t('ramTokens.httpreqDesc') }}</p>
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -293,6 +329,18 @@ const downloadCSV = () => {
 
 const endpointUrl = computed(() => {
   return window.location.origin + '/alidns'
+})
+
+const providerEndpoints = computed(() => {
+  const base = window.location.origin
+  return [
+    { name: 'Aliyun DNS', url: base + '/alidns' },
+    { name: 'Cloudflare', url: base + '/cf/v1' },
+    { name: 'TencentCloud', url: base + '/tcdns' },
+    { name: 'Technitium', url: base + '/technitium' },
+    { name: 'httpreq', url: base + '/httpreq' },
+    { name: 'AcmeDNS', url: base + '/acmedns' },
+  ]
 })
 
 const loadTokens = async () => {
