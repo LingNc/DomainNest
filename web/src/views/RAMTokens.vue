@@ -85,15 +85,15 @@
             <span>{{ $t('ramTokens.usageHelp') }}</span>
           </template>
 
-          <el-descriptions :column="1" border size="small">
-            <el-descriptions-item :label="$t('ramTokens.providerEndpoints')">
-              <code>{{ window.location.origin }}</code>
-            </el-descriptions-item>
-            <el-descriptions-item v-for="ep in providerEndpoints" :key="ep.name" :label="ep.name">
-              <code>{{ ep.url }}</code>
-              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(ep.url)">{{ $t('common.copy') }}</el-button>
-            </el-descriptions-item>
-          </el-descriptions>
+          <el-table :data="providerEndpoints" stripe border size="small" style="width: 100%">
+            <el-table-column prop="name" :label="$t('ramTokens.providerName')" min-width="120" />
+            <el-table-column :label="$t('ramTokens.endpointUrl')" min-width="280">
+              <template #default="{ row }">
+                <code>{{ row.url }}</code>
+                <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(row.url)">{{ $t('common.copy') }}</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
 
           <el-divider />
 
@@ -124,7 +124,7 @@
             </el-descriptions-item>
             <el-descriptions-item :label="$t('ramTokens.tokenLabel')">
               <div v-if="firstEnabledToken" style="display: flex; align-items: center; gap: 8px;">
-                <code class="token-masked">{{ maskToken(firstEnabledToken.token) }}</code>
+                <code>{{ firstEnabledToken.token }}</code>
                 <el-button link type="primary" size="small" @click="copyToken(firstEnabledToken.token)">{{ $t('common.copy') }}</el-button>
               </div>
               <div v-else style="display: flex; align-items: center; gap: 8px;">
@@ -148,6 +148,9 @@
               <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(acmednsEndpoint)">{{ $t('common.copy') }}</el-button>
             </el-descriptions-item>
           </el-descriptions>
+          <el-alert type="info" :closable="false" show-icon style="margin-top: 12px">
+            {{ $t('ramTokens.acmeDNSAuthHint') }}
+          </el-alert>
 
           <el-divider />
 
