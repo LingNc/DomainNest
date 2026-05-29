@@ -94,6 +94,19 @@ ensure_command curl curl
 ensure_command timeout coreutils
 
 # Optional dependency: npm (needed for frontend build, backend patch still works without it)
+# When run via sudo, inject the original user's node/npm paths into PATH
+if [[ -n "${SUDO_USER:-}" ]]; then
+  SUDO_USER_HOME=$(eval echo "~${SUDO_USER}")
+  for node_dir in \
+    "${SUDO_USER_HOME}/.nvm/versions/node"/*/bin \
+    "${SUDO_USER_HOME}/.local/share/nvm/versions/node"/*/bin \
+    "${SUDO_USER_HOME}/.npm-global/bin" \
+    "${SUDO_USER_HOME}/node_modules/.bin"; do
+    if [[ -d "$node_dir" ]] && [[ ":$PATH:" != *":$node_dir:"* ]]; then
+      export PATH="$node_dir:$PATH"
+    fi
+  done
+fi
 HAS_NPM=0
 if ensure_optional_command npm npm; then
   HAS_NPM=1
