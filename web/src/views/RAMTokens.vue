@@ -123,9 +123,9 @@
               <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(technitiumEndpoint)">{{ $t('common.copy') }}</el-button>
             </el-descriptions-item>
             <el-descriptions-item :label="$t('ramTokens.tokenLabel')">
-              <div v-if="firstEnabledToken" style="display: flex; align-items: center; gap: 8px;">
-                <code>{{ firstEnabledToken.token }}</code>
-                <el-button link type="primary" size="small" @click="copyToken(firstEnabledToken.token)">{{ $t('common.copy') }}</el-button>
+              <div v-if="technitiumToken" style="display: flex; align-items: center; gap: 8px;">
+                <code>{{ technitiumToken }}</code>
+                <el-button link type="primary" size="small" @click="copyToken(technitiumToken)">{{ $t('common.copy') }}</el-button>
               </div>
               <div v-else style="display: flex; align-items: center; gap: 8px;">
                 <span style="color: #909399">{{ $t('ramTokens.noTokenForTechnitium') }}</span>
@@ -250,6 +250,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listRAMTokens, createRAMToken, updateRAMToken, resetRAMToken, deleteRAMToken } from '../api/ramToken'
+import { getProfile } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -379,6 +380,21 @@ const technitiumEndpoint = computed(() => {
   return window.location.origin + '/technitium'
 })
 
+const ddnsToken = ref('')
+
+const fetchDDNSToken = async () => {
+  try {
+    const res = await getProfile()
+    ddnsToken.value = res.data.ddns_token || ''
+  } catch (e) {
+    // ignore
+  }
+}
+
+const technitiumToken = computed(() => {
+  return ddnsToken.value || firstEnabledToken.value?.token || ''
+})
+
 const firstEnabledToken = computed(() => {
   const unrestricted = tokens.value.find(t => t.enabled && !t.allowed_domains && !t.allowed_types && !t.allowed_ips)
   return unrestricted || tokens.value.find(t => t.enabled) || null
@@ -474,7 +490,10 @@ const handleDelete = async (id) => {
   loadTokens()
 }
 
-onMounted(loadTokens)
+onMounted(() => {
+  loadTokens()
+  fetchDDNSToken()
+})
 </script>
 
 <style scoped>
