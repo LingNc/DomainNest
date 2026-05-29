@@ -52,6 +52,42 @@ ensure_command git git
 ensure_command go golang-go
 ensure_command patch patch
 
+# 版本检测：确保 1Panel 已安装且为正确的架构
+log_step() { echo -e "${GREEN}[STEP]${NC} $*"; }
+
+# 检查 1Panel 是否已安装
+log_step "正在检测 1Panel 安装状态..."
+if ! systemctl list-unit-files 2>/dev/null | grep -q '1panel'; then
+    if [[ ! -f /usr/local/bin/1panel ]] && [[ ! -f /usr/bin/1panel ]] && \
+       [[ ! -f /usr/local/bin/1panel-core ]] && [[ ! -f /usr/bin/1panel-core ]]; then
+        log_error "1Panel 未安装"
+        exit 1
+    fi
+fi
+
+# 检测单体 v1（分裂前的旧版本，不兼容）
+if [[ -f /usr/local/bin/1panel ]] || [[ -f /usr/bin/1panel ]]; then
+    if [[ ! -f /usr/local/bin/1panel-core ]] && [[ ! -f /usr/bin/1panel-core ]]; then
+        log_error "检测到 1Panel 单体 v1（旧架构）。"
+        log_error "此补丁需要分裂架构（v1.10.28+）。"
+        log_error "请升级 1Panel 至 v1.10.28-lts 或更高版本。"
+        exit 1
+    fi
+fi
+
+# 检测 v2（警告但允许继续，因为补丁结构兼容）
+if [[ -f /usr/local/bin/1panel-core ]] || [[ -f /usr/bin/1panel-core ]]; then
+    INSTALLED_VERSION=$(/usr/local/bin/1panel-core version 2>/dev/null || /usr/bin/1panel-core version 2>/dev/null || echo "")
+    if [[ "$INSTALLED_VERSION" == *"v2"* ]]; then
+        log_warn "检测到 1Panel v2。此补丁专为 v1 LTS 设计。"
+        log_warn "补丁与 v2 结构兼容，但请自行承担风险。"
+        read -r -p "是否继续？[y/N] " response
+        if [[ ! "$response" =~ ^[yY]$ ]]; then
+            exit 0
+        fi
+    fi
+fi
+
 # 查找最新的 v1 LTS 标签
 log_info "正在查找最新的 1Panel v1 LTS 标签..."
 LATEST_TAG=$(git ls-remote --tags "$REPO_URL" 'refs/tags/v1.*-lts' 2>/dev/null | \

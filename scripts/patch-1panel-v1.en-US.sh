@@ -52,6 +52,42 @@ ensure_command git git
 ensure_command go golang-go
 ensure_command patch patch
 
+# Version detection: ensure 1Panel is installed with correct architecture
+log_step() { echo -e "${GREEN}[STEP]${NC} $*"; }
+
+# Check if 1Panel is installed at all
+log_step "Detecting 1Panel installation..."
+if ! systemctl list-unit-files 2>/dev/null | grep -q '1panel'; then
+    if [[ ! -f /usr/local/bin/1panel ]] && [[ ! -f /usr/bin/1panel ]] && \
+       [[ ! -f /usr/local/bin/1panel-core ]] && [[ ! -f /usr/bin/1panel-core ]]; then
+        log_error "1Panel is not installed on this machine"
+        exit 1
+    fi
+fi
+
+# Detect monolithic v1 (pre-split, NOT compatible)
+if [[ -f /usr/local/bin/1panel ]] || [[ -f /usr/bin/1panel ]]; then
+    if [[ ! -f /usr/local/bin/1panel-core ]] && [[ ! -f /usr/bin/1panel-core ]]; then
+        log_error "Detected 1Panel monolithic v1 (pre-split architecture)."
+        log_error "This patch requires the split architecture (v1.10.28+)."
+        log_error "Please upgrade 1Panel to v1.10.28-lts or later."
+        exit 1
+    fi
+fi
+
+# Detect v2 (warn but allow to proceed since the patch is structurally compatible)
+if [[ -f /usr/local/bin/1panel-core ]] || [[ -f /usr/bin/1panel-core ]]; then
+    INSTALLED_VERSION=$(/usr/local/bin/1panel-core version 2>/dev/null || /usr/bin/1panel-core version 2>/dev/null || echo "")
+    if [[ "$INSTALLED_VERSION" == *"v2"* ]]; then
+        log_warn "1Panel v2 detected. This patch is designed for v1 LTS."
+        log_warn "The patch is structurally compatible with v2, but proceed at your own risk."
+        read -r -p "Continue? [y/N] " response
+        if [[ ! "$response" =~ ^[yY]$ ]]; then
+            exit 0
+        fi
+    fi
+fi
+
 # Find latest v1 LTS tag
 log_info "Finding latest 1Panel v1 LTS tag..."
 LATEST_TAG=$(git ls-remote --tags "$REPO_URL" 'refs/tags/v1.*-lts' 2>/dev/null | \
