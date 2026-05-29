@@ -30,18 +30,14 @@ func (h *ScriptDownloadHandler) Download1PanelPatch(c *gin.Context) {
 		lang = "zh-CN" // default to Chinese
 	}
 
-	version := c.Query("version")
-	if version != "v2" {
-		version = "v1" // default to v1
-	}
-
 	readmeFile := fmt.Sprintf("README.%s.md", lang)
-	patchFile := fmt.Sprintf("1panel-%s-httpreq.patch", version)
 	scriptFile := fmt.Sprintf("patch-1panel.%s.sh", lang)
 	unpatchFile := fmt.Sprintf("unpatch-1panel.%s.sh", lang)
+	patchV1 := "1panel-v1-httpreq.patch"
+	patchV2 := "1panel-v2-httpreq.patch"
 
 	// Verify files exist
-	for _, f := range []string{patchFile, scriptFile, unpatchFile, readmeFile} {
+	for _, f := range []string{patchV1, patchV2, scriptFile, unpatchFile, readmeFile} {
 		path := filepath.Join(h.scriptsDir, f)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "patch file not found: " + f})
@@ -50,14 +46,17 @@ func (h *ScriptDownloadHandler) Download1PanelPatch(c *gin.Context) {
 	}
 
 	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"1panel-%s-httpreq-patch.zip\"", version))
+	c.Header("Content-Disposition", "attachment; filename=\"1panel-httpreq-patch.zip\"")
 
 	zw := zip.NewWriter(c.Writer)
 	defer zw.Close()
 
-	// Add patch file
-	if err := h.addFileToZip(zw, patchFile, patchFile); err != nil {
-		return // headers already sent, can't return JSON
+	// Add both patch files
+	if err := h.addFileToZip(zw, patchV1, patchV1); err != nil {
+		return
+	}
+	if err := h.addFileToZip(zw, patchV2, patchV2); err != nil {
+		return
 	}
 
 	// Add install script
