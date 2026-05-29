@@ -431,6 +431,13 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
       log_info "正在构建前端..."
       (
         cd "${WORK_DIR}/frontend"
+        # 创建 xpack stub（商业版模块不存在于开源仓库）
+        mkdir -p "${WORK_DIR}/frontend/src/xpack/api/modules"
+        cat > "${WORK_DIR}/frontend/src/xpack/api/modules/appstore.ts" << 'STUB'
+export const installAppToNodes = (_data: any): Promise<any> => {
+    return Promise.reject(new Error('Multi-node install requires 1Panel Pro'));
+};
+STUB
         npm run build:pro
       ) >"$NPM_LOG" 2>&1 &
       npm_pid=$!

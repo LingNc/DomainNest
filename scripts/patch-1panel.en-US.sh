@@ -430,6 +430,13 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
       log_info "Building frontend..."
       (
         cd "${WORK_DIR}/frontend"
+        # Create xpack stub (commercial module not present in open source repo)
+        mkdir -p "${WORK_DIR}/frontend/src/xpack/api/modules"
+        cat > "${WORK_DIR}/frontend/src/xpack/api/modules/appstore.ts" << 'STUB'
+export const installAppToNodes = (_data: any): Promise<any> => {
+    return Promise.reject(new Error('Multi-node install requires 1Panel Pro'));
+};
+STUB
         npm run build:pro
       ) >"$NPM_LOG" 2>&1 &
       npm_pid=$!
