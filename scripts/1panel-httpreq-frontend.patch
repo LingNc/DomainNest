@@ -1,5 +1,5 @@
---- a/frontend/src/global/mimetype.ts
-+++ b/frontend/src/global/mimetype.ts
+--- a/src/global/mimetype.ts
++++ b/src/global/mimetype.ts
 @@ -264,6 +264,10 @@
          label: i18n.global.t('website.volcengine'),
          value: 'Volcengine',
@@ -11,8 +11,8 @@
      {
          label: 'DNSPod (' + i18n.global.t('ssl.deprecated') + ')',
          value: 'DnsPod',
---- a/frontend/src/views/website/ssl/dns-account/create/index.vue
-+++ b/frontend/src/views/website/ssl/dns-account/create/index.vue
+--- a/src/views/website/ssl/dns-account/create/index.vue
++++ b/src/views/website/ssl/dns-account/create/index.vue
 @@ -160,6 +160,17 @@
                          <el-form-item label="BASE URL" prop="authorization.baseURL" :rules="[Rules.requiredInput]">
                              <el-input v-model.trim="account.authorization['baseURL']"></el-input>
