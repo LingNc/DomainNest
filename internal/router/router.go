@@ -308,6 +308,10 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		filterPresets.DELETE("/:id", filterPresetHandler.Delete)
 	}
 
+	// Script downloads (public, no auth required)
+	scriptHandler := handler.NewScriptDownloadHandler("scripts")
+	v1.GET("/scripts/1panel-v1-patch.zip", scriptHandler.Download1PanelPatch)
+
 	// Aliyun DNS API compatibility endpoint
 	aliyunCompatSvc := service.NewAliyunCompatService(db, domainService, recordService, permissionService)
 	aliyunCompatHandler := handler.NewAliyunCompatHandler(aliyunCompatSvc, ramTokenService)
