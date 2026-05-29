@@ -204,7 +204,7 @@ else
     rm -rf "$WORK_DIR"
     log_info "Cloning 1Panel $LATEST_TAG..."
     git clone --depth 1 --branch "$LATEST_TAG" "$REPO_URL" "$WORK_DIR"
-    CLEANUP_WORK_DIR=1
+    CLEANUP_WORK_DIR=0
 fi
 
 # ============================================================
@@ -355,31 +355,25 @@ BUILD_START=$SECONDS
 ) >"$BUILD_LOG" 2>&1 &
 BUILD_PID=$!
 
-# Show build progress (npm style: display latest download/compile line)
-COLS=$(tput cols 2>/dev/null || echo 80)
+# Wait for build process to start writing logs
+sleep 0.5
+
+# Show build progress (docker style: scrolling line-by-line output)
+echo -e "${GREEN}[INFO]${NC} Downloading dependencies and building (may take a few minutes on first run)..."
+LAST_PRINTED=""
 while kill -0 "$BUILD_PID" 2>/dev/null; do
   ELAPSED=$(( SECONDS - BUILD_START ))
-  LAST_LINE=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1)
-  if [[ -n "$LAST_LINE" ]]; then
-    MSG="$LAST_LINE"
-  else
-    MSG="Initializing..."
+  LAST_LINE=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
+  if [[ -n "$LAST_LINE" && "$LAST_LINE" != "$LAST_PRINTED" ]]; then
+    LAST_PRINTED="$LAST_LINE"
+    echo -e "${GREEN}[INFO]${NC} ${LAST_LINE} (${ELAPSED}s)"
   fi
-  # Truncate to terminal width, leaving room for prefix and elapsed time
-  PREFIX="${GREEN}[INFO]${NC} Building... "
-  SUFFIX=" (elapsed $((ELAPSED/60))m$(printf '%02d' $((ELAPSED%60)))s)"
-  MAX_MSG=$(( COLS - 30 ))
-  if (( ${#MSG} > MAX_MSG )); then
-    MSG="${MSG:0:MAX_MSG}..."
-  fi
-  printf "\r\033[K${PREFIX}%s${SUFFIX}" "$MSG"
-  sleep 0.5
+  sleep 2
 done
 
 wait "$BUILD_PID"
 BUILD_RC=$?
 ELAPSED=$(( SECONDS - BUILD_START ))
-printf "\r\033[K"
 if [[ $BUILD_RC -ne 0 ]]; then
   log_error "Build failed (${ELAPSED}s elapsed), log output:"
   cat "$BUILD_LOG"
@@ -455,5 +449,6 @@ else
   log_warn "$SERVICE_NAME service not running. Please start manually."
 fi
 
+CLEANUP_WORK_DIR=1
 log_info "Patch installed successfully!"
 log_info "Backup saved at: $BACKUP_PATH"

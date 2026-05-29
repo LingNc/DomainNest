@@ -204,7 +204,7 @@ else
     rm -rf "$WORK_DIR"
     log_info "正在克隆 1Panel $LATEST_TAG..."
     git clone --depth 1 --branch "$LATEST_TAG" "$REPO_URL" "$WORK_DIR"
-    CLEANUP_WORK_DIR=1
+    CLEANUP_WORK_DIR=0
 fi
 
 # ============================================================
@@ -356,31 +356,25 @@ BUILD_START=$SECONDS
 ) >"$BUILD_LOG" 2>&1 &
 BUILD_PID=$!
 
-# 显示构建进度（npm 风格：显示最新下载/编译行）
-COLS=$(tput cols 2>/dev/null || echo 80)
+# 等待构建进程开始写入日志
+sleep 0.5
+
+# 显示构建进度（docker 风格：逐行滚动输出）
+echo -e "${GREEN}[INFO]${NC} 正在下载依赖并编译 (首次可能需要几分钟)..."
+LAST_PRINTED=""
 while kill -0 "$BUILD_PID" 2>/dev/null; do
   ELAPSED=$(( SECONDS - BUILD_START ))
-  LAST_LINE=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1)
-  if [[ -n "$LAST_LINE" ]]; then
-    MSG="$LAST_LINE"
-  else
-    MSG="正在初始化..."
+  LAST_LINE=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
+  if [[ -n "$LAST_LINE" && "$LAST_LINE" != "$LAST_PRINTED" ]]; then
+    LAST_PRINTED="$LAST_LINE"
+    echo -e "${GREEN}[INFO]${NC} ${LAST_LINE} (${ELAPSED}s)"
   fi
-  # 截断到终端宽度，留出前缀和时间的空间
-  PREFIX="${GREEN}[INFO]${NC} 编译中... "
-  SUFFIX=" (已用时 $((ELAPSED/60))m$(printf '%02d' $((ELAPSED%60)))s)"
-  MAX_MSG=$(( COLS - 30 ))
-  if (( ${#MSG} > MAX_MSG )); then
-    MSG="${MSG:0:MAX_MSG}..."
-  fi
-  printf "\r\033[K${PREFIX}%s${SUFFIX}" "$MSG"
-  sleep 0.5
+  sleep 2
 done
 
 wait "$BUILD_PID"
 BUILD_RC=$?
 ELAPSED=$(( SECONDS - BUILD_START ))
-printf "\r\033[K"
 if [[ $BUILD_RC -ne 0 ]]; then
   log_error "编译失败 (耗时 ${ELAPSED}s)，日志如下:"
   cat "$BUILD_LOG"
@@ -456,5 +450,6 @@ else
   log_warn "未检测到 $SERVICE_NAME 服务，请手动启动。"
 fi
 
+CLEANUP_WORK_DIR=1
 log_info "补丁安装成功！"
 log_info "备份文件: $BACKUP_PATH"
