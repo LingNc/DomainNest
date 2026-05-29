@@ -380,13 +380,19 @@ fi
 # ============================================================
 FRONTEND_PATCH="${SCRIPT_DIR}/1panel-httpreq-frontend.patch"
 if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
-  log_info "Applying frontend patch..."
+  log_info "Checking frontend patch..."
   (
     cd "${WORK_DIR}/frontend"
-    patch -p1 --dry-run < "$FRONTEND_PATCH" >/dev/null 2>&1 || {
-      log_warn "Frontend patch dry-run failed, may already be applied or incompatible, skipping"
-    }
-    patch -p1 < "$FRONTEND_PATCH" 2>/dev/null || true
+    # First check if already applied (reverse dry-run success means already applied)
+    if patch -p1 -R --dry-run < "$FRONTEND_PATCH" >/dev/null 2>&1; then
+      log_info "Frontend patch already applied, skipping"
+    elif patch -p1 --dry-run < "$FRONTEND_PATCH" >/dev/null 2>&1; then
+      # Forward dry-run success means can apply
+      log_info "Applying frontend patch..."
+      patch -p1 < "$FRONTEND_PATCH"
+    else
+      log_warn "Frontend patch incompatible, skipping"
+    fi
   )
 
   if [[ $HAS_NPM -eq 1 ]]; then

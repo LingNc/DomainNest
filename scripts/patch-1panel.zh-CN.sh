@@ -381,13 +381,19 @@ fi
 # ============================================================
 FRONTEND_PATCH="${SCRIPT_DIR}/1panel-httpreq-frontend.patch"
 if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
-  log_info "正在应用前端补丁..."
+  log_info "正在检查前端补丁..."
   (
     cd "${WORK_DIR}/frontend"
-    patch -p1 --dry-run < "$FRONTEND_PATCH" >/dev/null 2>&1 || {
-      log_warn "前端补丁试应用失败，可能已应用或不兼容，跳过"
-    }
-    patch -p1 < "$FRONTEND_PATCH" 2>/dev/null || true
+    # 先检查是否已应用（反向 dry-run 成功说明已应用）
+    if patch -p1 -R --dry-run < "$FRONTEND_PATCH" >/dev/null 2>&1; then
+      log_info "前端补丁已应用，跳过"
+    elif patch -p1 --dry-run < "$FRONTEND_PATCH" >/dev/null 2>&1; then
+      # 正向 dry-run 成功说明可以应用
+      log_info "正在应用前端补丁..."
+      patch -p1 < "$FRONTEND_PATCH"
+    else
+      log_warn "前端补丁不兼容，跳过"
+    fi
   )
 
   if [[ $HAS_NPM -eq 1 ]]; then
