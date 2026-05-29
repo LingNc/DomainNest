@@ -59,6 +59,10 @@ ensure_command() {
 }
 
 ensure_command git git
+# Ensure Go from /usr/local/go/bin is in PATH (installed by this script previously)
+if [[ -x /usr/local/go/bin/go ]] && [[ ":$PATH:" != *":/usr/local/go/bin:"* ]]; then
+  export PATH=/usr/local/go/bin:$PATH
+fi
 ensure_command go golang-go
 ensure_command patch patch
 
