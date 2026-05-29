@@ -77,9 +77,32 @@ if [[ -z "$CORE_BIN" ]]; then
     CORE_BIN=$(command -v 1panel-core 2>/dev/null || echo "")
 fi
 
+# fallback: resolve symlinks (v1.10.34-lts creates /usr/bin/1panel -> 1panel-core)
+if [[ -z "$CORE_BIN" ]]; then
+    for p in /usr/local/bin/1panel /usr/bin/1panel; do
+        if [[ -f "$p" ]]; then
+            target=$(readlink -f "$p" 2>/dev/null)
+            if [[ "$target" == *"1panel-core"* ]]; then
+                CORE_BIN="$target"
+                break
+            fi
+        fi
+    done
+fi
+
 if [[ -z "$CORE_BIN" ]]; then
     # No 1panel-core found -- check for monolithic v1
-    if [[ -f /usr/local/bin/1panel ]] || [[ -f /usr/bin/1panel ]]; then
+    MONOLITHIC=false
+    for p in /usr/local/bin/1panel /usr/bin/1panel; do
+        if [[ -f "$p" ]]; then
+            target=$(readlink -f "$p" 2>/dev/null)
+            if [[ "$target" != *"1panel-core"* ]]; then
+                MONOLITHIC=true
+                break
+            fi
+        fi
+    done
+    if [[ "$MONOLITHIC" == "true" ]]; then
         log_error "Detected 1Panel monolithic v1 (pre-split architecture)."
         log_error "This patch requires the split architecture (v1.10.28+)."
         log_error "Please upgrade 1Panel to v1.10.28-lts or later."

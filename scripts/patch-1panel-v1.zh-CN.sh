@@ -77,9 +77,32 @@ if [[ -z "$CORE_BIN" ]]; then
     CORE_BIN=$(command -v 1panel-core 2>/dev/null || echo "")
 fi
 
+# fallback: 通过符号链接解析（v1.10.34-lts 创建 /usr/bin/1panel -> 1panel-core）
+if [[ -z "$CORE_BIN" ]]; then
+    for p in /usr/local/bin/1panel /usr/bin/1panel; do
+        if [[ -f "$p" ]]; then
+            target=$(readlink -f "$p" 2>/dev/null)
+            if [[ "$target" == *"1panel-core"* ]]; then
+                CORE_BIN="$target"
+                break
+            fi
+        fi
+    done
+fi
+
 if [[ -z "$CORE_BIN" ]]; then
     # 没有找到 1panel-core，判断是否为单体 v1
-    if [[ -f /usr/local/bin/1panel ]] || [[ -f /usr/bin/1panel ]]; then
+    MONOLITHIC=false
+    for p in /usr/local/bin/1panel /usr/bin/1panel; do
+        if [[ -f "$p" ]]; then
+            target=$(readlink -f "$p" 2>/dev/null)
+            if [[ "$target" != *"1panel-core"* ]]; then
+                MONOLITHIC=true
+                break
+            fi
+        fi
+    done
+    if [[ "$MONOLITHIC" == "true" ]]; then
         log_error "检测到 1Panel 单体 v1（旧架构）。"
         log_error "此补丁需要分裂架构（v1.10.28+）。"
         log_error "请升级 1Panel 至 v1.10.28-lts 或更高版本。"
