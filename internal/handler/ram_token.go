@@ -54,7 +54,7 @@ func (h *RAMTokenHandler) Create(c *gin.Context) {
 	}
 
 	middleware.LogOperation(h.db, userID, "create_ram_token", "ram_token", &token.ID,
-		map[string]interface{}{"name": token.Name}, c.ClientIP())
+		map[string]interface{}{"name": token.Name, "access_key_id": token.AccessKeyID}, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
@@ -117,8 +117,15 @@ func (h *RAMTokenHandler) Update(c *gin.Context) {
 		return
 	}
 
+	detail := map[string]interface{}{
+		"name":            token.Name,
+		"enabled":         token.Enabled,
+		"allowed_domains": token.AllowedDomains,
+		"allowed_types":   token.AllowedTypes,
+		"allowed_ips":     token.AllowedIPs,
+	}
 	middleware.LogOperation(h.db, userID, "update_ram_token", "ram_token", &tokenID,
-		map[string]interface{}{"name": token.Name}, c.ClientIP())
+		detail, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": token})
 }
@@ -131,6 +138,12 @@ func (h *RAMTokenHandler) ResetToken(c *gin.Context) {
 		return
 	}
 
+	existingToken, err := h.ramTokenService.Get(tokenID, userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
+		return
+	}
+
 	token, err := h.ramTokenService.ResetToken(tokenID, userID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -138,7 +151,8 @@ func (h *RAMTokenHandler) ResetToken(c *gin.Context) {
 	}
 
 	middleware.LogOperation(h.db, userID, "reset_ram_token", "ram_token", &tokenID,
-		nil, c.ClientIP())
+		map[string]interface{}{"name": existingToken.Name, "access_key_id": existingToken.AccessKeyID, "detail": "credentials regenerated"},
+		c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
@@ -163,13 +177,20 @@ func (h *RAMTokenHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	existingToken, err := h.ramTokenService.Get(tokenID, userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
+		return
+	}
+
 	if err := h.ramTokenService.Delete(tokenID, userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
 	middleware.LogOperation(h.db, userID, "delete_ram_token", "ram_token", &tokenID,
-		nil, c.ClientIP())
+		map[string]interface{}{"name": existingToken.Name, "access_key_id": existingToken.AccessKeyID},
+		c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已删除"})
 }
