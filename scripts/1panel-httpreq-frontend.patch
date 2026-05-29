@@ -1,0 +1,33 @@
+--- a/frontend/src/global/mimetype.ts
++++ b/frontend/src/global/mimetype.ts
+@@ -264,6 +264,10 @@
+         label: i18n.global.t('website.volcengine'),
+         value: 'Volcengine',
+     },
++    {
++        label: 'HttpReq',
++        value: 'HttpReq',
++    },
+     {
+         label: 'DNSPod (' + i18n.global.t('ssl.deprecated') + ')',
+         value: 'DnsPod',
+--- a/frontend/src/views/website/ssl/dns-account/create/index.vue
++++ b/frontend/src/views/website/ssl/dns-account/create/index.vue
+@@ -160,6 +160,17 @@
+                         <el-form-item label="BASE URL" prop="authorization.baseURL" :rules="[Rules.requiredInput]">
+                             <el-input v-model.trim="account.authorization['baseURL']"></el-input>
+                         </el-form-item>
++                    </div>
++                    <div v-if="account.type === 'HttpReq'">
++                        <el-form-item label="Endpoint" prop="authorization.endpoint" :rules="[Rules.requiredInput]">
++                            <el-input v-model.trim="account.authorization['endpoint']"></el-input>
++                        </el-form-item>
++                        <el-form-item label="Username" prop="authorization.username">
++                            <el-input v-model.trim="account.authorization['username']"></el-input>
++                        </el-form-item>
++                        <el-form-item label="Password" prop="authorization.password">
++                            <el-input v-model.trim="account.authorization['password']" type="password" show-password></el-input>
++                        </el-form-item>
+                     </div>
+                     <div v-if="account.type === 'AWSRoute53'">
+                         <el-form-item label="Region" prop="authorization.region">

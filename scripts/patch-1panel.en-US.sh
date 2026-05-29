@@ -333,6 +333,40 @@ else
 fi
 
 # ============================================================
+# Apply frontend patch and build frontend
+# ============================================================
+FRONTEND_PATCH="${SCRIPT_DIR}/1panel-httpreq-frontend.patch"
+if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
+  log_info "Applying frontend patch..."
+  (
+    cd "${WORK_DIR}/frontend"
+    patch -p1 --dry-run < "$FRONTEND_PATCH" >/dev/null 2>&1 || {
+      log_warn "Frontend patch dry-run failed, may already be applied or incompatible, skipping"
+    }
+    patch -p1 < "$FRONTEND_PATCH" 2>/dev/null || true
+  )
+
+  if command -v npm >/dev/null 2>&1; then
+    log_info "Building frontend..."
+    (
+      cd "${WORK_DIR}/frontend"
+      npm install --prefer-offline 2>&1 | tail -1
+      npm run build:pro 2>&1 | tail -5
+    )
+    # Copy built frontend to core web directory
+    if [[ -d "${WORK_DIR}/frontend/dist" ]]; then
+      rm -rf "${WORK_DIR}/core/cmd/server/web"
+      cp -r "${WORK_DIR}/frontend/dist" "${WORK_DIR}/core/cmd/server/web"
+      log_info "Frontend build complete"
+    else
+      log_warn "Frontend build output not found, using original frontend"
+    fi
+  else
+    log_warn "npm not installed, skipping frontend build. HttpReq will not appear in DNS provider list"
+  fi
+fi
+
+# ============================================================
 # Build
 # ============================================================
 GOARCH=$(uname -m)
@@ -410,6 +444,11 @@ else
   fi
   log_info "Build target: $BUILD_TARGET"
   build_binary "$SRC_DIR" "$BUILD_TARGET" "1panel-agent" "1panel-agent"
+
+  # Also build 1panel-core if frontend was patched (core embeds frontend)
+  if [[ -d "${WORK_DIR}/core/cmd/server/web" ]]; then
+    build_binary "${WORK_DIR}/core" "cmd/server/main.go" "1panel-core" "1panel-core (with frontend patch)"
+  fi
 fi
 
 # ============================================================
@@ -567,6 +606,21 @@ else
   log_info "Installing new binary..."
   cp "${SRC_DIR}/1panel-agent" "$INSTALL_BIN"
   chmod +x "$INSTALL_BIN"
+
+  # Install 1panel-core if it was rebuilt (with frontend patch)
+  if [[ -f "${WORK_DIR}/core/1panel-core" ]]; then
+    CORE_BIN_PATH=""
+    if [[ -f /usr/local/bin/1panel-core ]]; then
+      CORE_BIN_PATH="/usr/local/bin/1panel-core"
+    elif [[ -f /usr/bin/1panel-core ]]; then
+      CORE_BIN_PATH="/usr/bin/1panel-core"
+    fi
+    if [[ -n "$CORE_BIN_PATH" ]]; then
+      log_info "Installing new 1panel-core..."
+      cp "${WORK_DIR}/core/1panel-core" "$CORE_BIN_PATH"
+      chmod +x "$CORE_BIN_PATH"
+    fi
+  fi
 
   if [[ $SERVICE_WAS_ACTIVE -eq 1 ]] || systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
     log_info "Starting $SERVICE_NAME service..."

@@ -334,6 +334,40 @@ else
 fi
 
 # ============================================================
+# 应用前端补丁并构建前端
+# ============================================================
+FRONTEND_PATCH="${SCRIPT_DIR}/1panel-httpreq-frontend.patch"
+if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
+  log_info "正在应用前端补丁..."
+  (
+    cd "${WORK_DIR}/frontend"
+    patch -p1 --dry-run < "$FRONTEND_PATCH" >/dev/null 2>&1 || {
+      log_warn "前端补丁试应用失败，可能已应用或不兼容，跳过"
+    }
+    patch -p1 < "$FRONTEND_PATCH" 2>/dev/null || true
+  )
+
+  if command -v npm >/dev/null 2>&1; then
+    log_info "正在构建前端..."
+    (
+      cd "${WORK_DIR}/frontend"
+      npm install --prefer-offline 2>&1 | tail -1
+      npm run build:pro 2>&1 | tail -5
+    )
+    # Copy built frontend to core web directory
+    if [[ -d "${WORK_DIR}/frontend/dist" ]]; then
+      rm -rf "${WORK_DIR}/core/cmd/server/web"
+      cp -r "${WORK_DIR}/frontend/dist" "${WORK_DIR}/core/cmd/server/web"
+      log_info "前端构建完成"
+    else
+      log_warn "前端构建产物未找到，将使用原有前端"
+    fi
+  else
+    log_warn "npm 未安装，跳过前端构建。HttpReq 将不出现在 DNS 提供商列表中"
+  fi
+fi
+
+# ============================================================
 # 编译
 # ============================================================
 GOARCH=$(uname -m)
@@ -376,8 +410,8 @@ build_binary() {
   done
   echo -e "\033[K"
 
-  wait "$build_pid"
-  local rc=$?
+  local rc=0
+  wait "$build_pid" || rc=$?
   elapsed=$(( SECONDS - build_start ))
   if [[ $rc -ne 0 ]]; then
     log_error "${label} 编译失败 (耗时 ${elapsed}s)，日志如下:"
@@ -411,6 +445,11 @@ else
   fi
   log_info "构建目标: $BUILD_TARGET"
   build_binary "$SRC_DIR" "$BUILD_TARGET" "1panel-agent" "1panel-agent"
+
+  # Also build 1panel-core if frontend was patched (core embeds frontend)
+  if [[ -d "${WORK_DIR}/core/cmd/server/web" ]]; then
+    build_binary "${WORK_DIR}/core" "cmd/server/main.go" "1panel-core" "1panel-core (含前端补丁)"
+  fi
 fi
 
 # ============================================================
@@ -568,6 +607,21 @@ else
   log_info "正在安装新二进制文件..."
   cp "${SRC_DIR}/1panel-agent" "$INSTALL_BIN"
   chmod +x "$INSTALL_BIN"
+
+  # Install 1panel-core if it was rebuilt (with frontend patch)
+  if [[ -f "${WORK_DIR}/core/1panel-core" ]]; then
+    CORE_BIN_PATH=""
+    if [[ -f /usr/local/bin/1panel-core ]]; then
+      CORE_BIN_PATH="/usr/local/bin/1panel-core"
+    elif [[ -f /usr/bin/1panel-core ]]; then
+      CORE_BIN_PATH="/usr/bin/1panel-core"
+    fi
+    if [[ -n "$CORE_BIN_PATH" ]]; then
+      log_info "正在安装新 1panel-core..."
+      cp "${WORK_DIR}/core/1panel-core" "$CORE_BIN_PATH"
+      chmod +x "$CORE_BIN_PATH"
+    fi
+  fi
 
   if [[ $SERVICE_WAS_ACTIVE -eq 1 ]] || systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
     log_info "正在启动 $SERVICE_NAME 服务..."
