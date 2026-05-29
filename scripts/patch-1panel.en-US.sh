@@ -264,15 +264,16 @@ if [[ -n "$GO_MOD_VERSION" ]]; then
       tar -C /usr/local -xzf "/tmp/${GO_TARBALL}"
       rm -f "/tmp/${GO_TARBALL}"
       export PATH=/usr/local/go/bin:$PATH
-      # Persist PATH for future sessions
+      # Persist PATH for future sessions (use real user's home when run via sudo)
+      REAL_HOME=$(eval echo "~${SUDO_USER:-$HOME}")
       GO_PATH_LINE='export PATH=/usr/local/go/bin:$PATH'
       SHELL_RC=""
-      if [[ -f "$HOME/.bashrc" ]]; then
-        SHELL_RC="$HOME/.bashrc"
-      elif [[ -f "$HOME/.bash_profile" ]]; then
-        SHELL_RC="$HOME/.bash_profile"
-      elif [[ -f "$HOME/.profile" ]]; then
-        SHELL_RC="$HOME/.profile"
+      if [[ -f "$REAL_HOME/.bashrc" ]]; then
+        SHELL_RC="$REAL_HOME/.bashrc"
+      elif [[ -f "$REAL_HOME/.bash_profile" ]]; then
+        SHELL_RC="$REAL_HOME/.bash_profile"
+      elif [[ -f "$REAL_HOME/.profile" ]]; then
+        SHELL_RC="$REAL_HOME/.profile"
       fi
       if [[ -n "$SHELL_RC" ]] && ! grep -q '/usr/local/go/bin' "$SHELL_RC" 2>/dev/null; then
         echo "$GO_PATH_LINE" >> "$SHELL_RC"
