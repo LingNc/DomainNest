@@ -1,27 +1,35 @@
-# DomainNest 1Panel v1 httpreq Patch
+# DomainNest 1Panel HttpReq Patch
 
-## Compatibility
+## Supported Versions
 
-- 1Panel v1.x LTS (tested with v1.10.34-lts)
-- Requirements: Go 1.21+, git, patch command
+This patch adds HttpReq DNS provider support to 1Panel, supporting:
+
+- **v1 LTS Split Architecture** (v1.10.28+, `1panel-core` + `1panel-agent`)
+- **v1 LTS Monolithic Architecture** (upgraded legacy, `1panel` single binary)
+- **v2 Split Architecture** (`1panel-core` + `1panel-agent`)
+
+Requirements: Go 1.21+, git, patch
 
 ## Quick Install
 
 ```bash
-cd 1panel-v1-patch
-chmod +x patch-1panel-v1.sh
-sudo ./patch-1panel-v1.sh
+# Download and extract the patch package
+cd 1panel-patch
+chmod +x patch-1panel.sh
+sudo ./patch-1panel.sh
 ```
 
-The script will:
-1. Fetch the latest 1Panel v1 LTS tag
-2. Clone source and verify compatibility
-3. Apply patch (with idempotency check)
-4. Build 1panel-agent
-5. Backup original binary and replace
-6. Restart service
+The script automatically:
+1. Detects 1Panel version and architecture (split/monolithic, v1/v2)
+2. Selects the appropriate patch file
+3. Clones source and verifies compatibility
+4. Applies patch (idempotency check)
+5. Builds and backs up original binary
+6. Restarts service
 
 ## Manual Steps
+
+### v1 LTS Split Architecture
 
 ```bash
 git clone --depth 1 --branch v1.10.34-lts https://github.com/1Panel-dev/1Panel.git /tmp/1panel
@@ -29,12 +37,23 @@ cd /tmp/1panel/agent
 patch -p2 < /path/to/1panel-v1-httpreq.patch
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '-s -w' -o 1panel-agent cmd/server/main.go
 sudo cp 1panel-agent /usr/local/bin/1panel-agent
-sudo systemctl restart 1panel
+sudo systemctl restart 1panel-agent
+```
+
+### v2 Split Architecture
+
+```bash
+git clone --depth 1 --branch v2.1.13 https://github.com/1Panel-dev/1Panel.git /tmp/1panel
+cd /tmp/1panel/agent
+patch -p2 < /path/to/1panel-v2-httpreq.patch
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '-s -w' -o 1panel-agent cmd/server/main.go
+sudo cp 1panel-agent /usr/local/bin/1panel-agent
+sudo systemctl restart 1panel-agent
 ```
 
 ## Configuration
 
-In 1Panel SSL Certificates -> DNS Accounts:
+In 1Panel, go to 「SSL Certificate」→「DNS Account」 and add:
 
 - Type: **HttpReq**
 - Endpoint: `https://your-domainnest-server/httpreq`
@@ -46,8 +65,8 @@ In 1Panel SSL Certificates -> DNS Accounts:
 To restore the original version:
 
 ```bash
-chmod +x unpatch-1panel-v1.sh
-sudo ./unpatch-1panel-v1.sh
+chmod +x unpatch-1panel.sh
+sudo ./unpatch-1panel.sh
 ```
 
-The script automatically finds and restores the backup. Backup files are located alongside the original binary as `1panel-agent.backup.YYYYMMDDhhmmss`.
+The script automatically finds and restores the backup. Backup files are located in the same directory as the original binary, format: `*.backup.YYYYMMDDhhmmss`.

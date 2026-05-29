@@ -1,0 +1,52 @@
+--- a/agent/utils/ssl/dns_provider.go	2026-05-29 18:52:12.699859847 +0800
++++ b/agent/utils/ssl/dns_provider.go	2026-05-29 18:52:49.399610321 +0800
+@@ -24,12 +24,15 @@
+ 	"github.com/go-acme/lego/v4/providers/dns/regru"
+ 	"github.com/go-acme/lego/v4/providers/dns/route53"
+ 	"github.com/go-acme/lego/v4/providers/dns/spaceship"
++	"github.com/go-acme/lego/v4/providers/dns/httpreq"
+ 	"github.com/go-acme/lego/v4/providers/dns/technitium"
+ 	"github.com/go-acme/lego/v4/providers/dns/tencentcloud"
+ 	"github.com/go-acme/lego/v4/providers/dns/vercel"
+ 	"github.com/go-acme/lego/v4/providers/dns/volcengine"
+ 	"github.com/go-acme/lego/v4/providers/dns/westcn"
+ 	"time"
++	"fmt"
++	"net/url"
+ )
+ 
+ type DnsType string
+@@ -61,6 +64,7 @@
+ 	AcmeDNS      DnsType = "AcmeDNS"
+ 	PorkBun      DnsType = "PorkBun"
+ 	Technitium	 DnsType = "Technitium"
++	HttpReq      DnsType = "HttpReq"
+ )
+ 
+ type DNSParam struct {
+@@ -311,6 +315,23 @@
+ 		config.PollingInterval = pollingInterval
+ 		config.TTL = ttl
+ 		p, err = technitium.NewDNSProviderConfig(config)
++	case HttpReq:
++		config := httpreq.NewDefaultConfig()
++		if param.Endpoint != "" {
++			endpoint, parseErr := url.Parse(param.Endpoint)
++			if parseErr != nil {
++				return nil, fmt.Errorf("invalid httpreq endpoint: %w", parseErr)
++			}
++			config.Endpoint = endpoint
++		}
++		config.Mode = "RAW"
++		if param.Username != "" {
++			config.Username = param.Username
++			config.Password = param.Password
++		}
++		config.PropagationTimeout = propagationTimeout
++		config.PollingInterval = pollingInterval
++		p, err = httpreq.NewDNSProviderConfig(config)
++	default:
++		return nil, fmt.Errorf("unsupported DNS provider %q", dnsType)
+ 	}
+ 
+ 	if err != nil {

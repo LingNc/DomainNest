@@ -30,10 +30,15 @@ func (h *ScriptDownloadHandler) Download1PanelPatch(c *gin.Context) {
 		lang = "zh-CN" // default to Chinese
 	}
 
+	version := c.Query("version")
+	if version != "v2" {
+		version = "v1" // default to v1
+	}
+
 	readmeFile := fmt.Sprintf("README.%s.md", lang)
-	patchFile := "1panel-v1-httpreq.patch"
-	scriptFile := fmt.Sprintf("patch-1panel-v1.%s.sh", lang)
-	unpatchFile := fmt.Sprintf("unpatch-1panel-v1.%s.sh", lang)
+	patchFile := fmt.Sprintf("1panel-%s-httpreq.patch", version)
+	scriptFile := fmt.Sprintf("patch-1panel.%s.sh", lang)
+	unpatchFile := fmt.Sprintf("unpatch-1panel.%s.sh", lang)
 
 	// Verify files exist
 	for _, f := range []string{patchFile, scriptFile, unpatchFile, readmeFile} {
@@ -45,7 +50,7 @@ func (h *ScriptDownloadHandler) Download1PanelPatch(c *gin.Context) {
 	}
 
 	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Disposition", "attachment; filename=\"1panel-v1-httpreq-patch.zip\"")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"1panel-%s-httpreq-patch.zip\"", version))
 
 	zw := zip.NewWriter(c.Writer)
 	defer zw.Close()
@@ -55,17 +60,17 @@ func (h *ScriptDownloadHandler) Download1PanelPatch(c *gin.Context) {
 		return // headers already sent, can't return JSON
 	}
 
-	// Add install script (strip language suffix so users get clean filename)
-	if err := h.addFileToZip(zw, scriptFile, "patch-1panel-v1.sh"); err != nil {
+	// Add install script
+	if err := h.addFileToZip(zw, scriptFile, "patch-1panel.sh"); err != nil {
 		return
 	}
 
 	// Add uninstall script
-	if err := h.addFileToZip(zw, unpatchFile, "unpatch-1panel-v1.sh"); err != nil {
+	if err := h.addFileToZip(zw, unpatchFile, "unpatch-1panel.sh"); err != nil {
 		return
 	}
 
-	// Add README with generic name
+	// Add README
 	if err := h.addFileToZip(zw, readmeFile, "README.md"); err != nil {
 		return
 	}
