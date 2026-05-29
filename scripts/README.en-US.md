@@ -8,7 +8,7 @@ Adds HttpReq DNS provider support to 1Panel.
 - **v1 LTS Monolithic Architecture** (upgraded legacy, `1panel` single binary)
 - **v2 Split Architecture** (`1panel-core` + `1panel-agent`)
 
-Requirements: Go 1.21+, git, patch
+Requirements: Go 1.21+, git, patch, npm (optional, for frontend patch build)
 
 > **Note for v2 users**: DomainNest has native Technitium DNS support. This patch is only needed if you specifically require the HttpReq DNS provider.
 
@@ -41,7 +41,8 @@ sudo ./unpatch-1panel.sh
 
 ## Package Contents
 
-- `1panel-v1-httpreq.patch` — Patch for v1 LTS
-- `1panel-v2-httpreq.patch` — Patch for v2
+- `1panel-v1-httpreq.patch` — Backend patch for v1 LTS
+- `1panel-v2-httpreq.patch` — Backend patch for v2
+- `1panel-httpreq-frontend.patch` — Frontend patch (adds HttpReq DNS provider option)
 - `patch-1panel.sh` — Install script
 - `unpatch-1panel.sh` — Rollback script

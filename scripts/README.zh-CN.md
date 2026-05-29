@@ -8,7 +8,7 @@
 - **v1 LTS 单体架构** (旧版升级，`1panel` 单二进制)
 - **v2 分裂架构** (`1panel-core` + `1panel-agent`)
 
-要求：Go 1.21+、git、patch
+要求：Go 1.21+、git、patch、npm（可选，用于构建前端补丁）
 
 > **v2 用户注意**：DomainNest 已提供原生 Technitium DNS 支持。如不需要 HttpReq DNS provider，则无需此补丁。
 
@@ -41,7 +41,8 @@ sudo ./unpatch-1panel.sh
 
 ## 包内容
 
-- `1panel-v1-httpreq.patch` — v1 LTS 补丁
-- `1panel-v2-httpreq.patch` — v2 补丁
+- `1panel-v1-httpreq.patch` — v1 LTS 后端补丁
+- `1panel-v2-httpreq.patch` — v2 后端补丁
+- `1panel-httpreq-frontend.patch` — 前端补丁（添加 HttpReq DNS 提供商选项）
 - `patch-1panel.sh` — 安装脚本
 - `unpatch-1panel.sh` — 回滚脚本
