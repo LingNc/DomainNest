@@ -21,6 +21,13 @@ log_info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
+# Check root privileges
+if [[ $EUID -ne 0 ]]; then
+    log_error "This script requires root privileges"
+    log_error "Please run: sudo $0"
+    exit 1
+fi
+
 cleanup() {
   if [[ -d "$WORK_DIR" ]]; then
     rm -rf "$WORK_DIR"

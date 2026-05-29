@@ -21,6 +21,13 @@ log_info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
+# 检查 root 权限
+if [[ $EUID -ne 0 ]]; then
+    log_error "此脚本需要 root 权限运行"
+    log_error "请使用: sudo $0"
+    exit 1
+fi
+
 cleanup() {
   if [[ -d "$WORK_DIR" ]]; then
     rm -rf "$WORK_DIR"
