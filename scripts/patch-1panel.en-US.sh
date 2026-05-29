@@ -67,6 +67,7 @@ fi
 ensure_command go golang-go
 ensure_command patch patch
 ensure_command curl curl
+ensure_command timeout coreutils
 
 # ============================================================
 # Detect 1Panel installation
@@ -106,7 +107,7 @@ PANEL_VERSION=""
 if [[ -n "$CORE_BIN" ]]; then
     # Split architecture detected, parse version
     log_info "Detected 1Panel split architecture: $CORE_BIN"
-    PANEL_VERSION=$("$CORE_BIN" version 2>/dev/null || echo "")
+    PANEL_VERSION=$(timeout 5 "$CORE_BIN" version 2>/dev/null || echo "")
     if [[ "$PANEL_VERSION" == *"v2"* ]]; then
         INSTALL_TYPE="split-v2"
         log_info "Detected v2"
@@ -138,7 +139,7 @@ else
     fi
 
     log_info "Detected 1Panel monolithic architecture: $MONOLITHIC_BIN"
-    PANEL_VERSION=$("$MONOLITHIC_BIN" version 2>/dev/null || echo "")
+    PANEL_VERSION=$(timeout 5 "$MONOLITHIC_BIN" version 2>/dev/null || echo "")
     if [[ "$PANEL_VERSION" == *"v2"* ]]; then
         INSTALL_TYPE="monolithic-v2"
         log_info "Detected v2"

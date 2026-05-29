@@ -54,7 +54,7 @@ fi
 
 INSTALL_TYPE=""
 if [[ -n "$CORE_BIN" ]]; then
-    PANEL_VERSION=$("$CORE_BIN" version 2>/dev/null || echo "")
+    PANEL_VERSION=$(timeout 5 "$CORE_BIN" version 2>/dev/null || echo "")
     if [[ "$PANEL_VERSION" == *"v2"* ]]; then
         INSTALL_TYPE="split-v2"
     else
@@ -85,7 +85,7 @@ else
         exit 1
     fi
 
-    PANEL_VERSION=$("$MONOLITHIC_BIN" version 2>/dev/null || echo "")
+    PANEL_VERSION=$(timeout 5 "$MONOLITHIC_BIN" version 2>/dev/null || echo "")
     if [[ "$PANEL_VERSION" == *"v2"* ]]; then
         INSTALL_TYPE="monolithic-v2"
     else
@@ -95,6 +95,7 @@ fi
 
 log_info "Detected installation type: $INSTALL_TYPE"
 
+NEEDS_SPLIT_ROLLBACK=0
 # Detect migrated monolithic (was monolithic, now has split binaries)
 if [[ "$INSTALL_TYPE" == "split-v1" ]]; then
   for mono_path in /usr/local/bin/1panel /usr/bin/1panel; do
@@ -136,7 +137,12 @@ fi
 
 BACKUP_PATTERN="${INSTALL_BIN}.backup.*"
 
-BACKUP_FILES=($(ls -1 $BACKUP_PATTERN 2>/dev/null | sort -V || true))
+shopt -s nullglob
+BACKUP_FILES=("${INSTALL_BIN}".backup.*)
+shopt -u nullglob
+if [[ ${#BACKUP_FILES[@]} -gt 0 ]]; then
+  IFS=$'\n' BACKUP_FILES=($(sort -V <<<"${BACKUP_FILES[*]}")); unset IFS
+fi
 
 if [[ ${#BACKUP_FILES[@]} -eq 0 ]]; then
   log_error "No backup files found: $BACKUP_PATTERN"
@@ -158,17 +164,6 @@ else
   log_info "Non-interactive mode, restoring latest backup automatically..."
 fi
 
-# Detect split rollback requirement (check 1panel-core existence when restoring monolithic backup)
-NEEDS_SPLIT_ROLLBACK=0
-if [[ "$INSTALL_TYPE" == "monolithic-v1" ]]; then
-  for p in /usr/local/bin/1panel-core /usr/bin/1panel-core; do
-    if [[ -f "$p" ]]; then
-      NEEDS_SPLIT_ROLLBACK=1
-      break
-    fi
-  done
-fi
-
 # Stop service
 SERVICE_NAME=""
 case "$INSTALL_TYPE" in
@@ -188,6 +183,11 @@ fi
 
 # Restore backup
 log_info "Restoring backup..."
+# If INSTALL_BIN is a symlink (e.g. migrated monolithic where 1panel -> 1panel-core),
+# remove it first so cp creates a regular file instead of following the link.
+if [[ -L "$INSTALL_BIN" ]]; then
+  rm -f "$INSTALL_BIN"
+fi
 cp "$LATEST_BACKUP" "$INSTALL_BIN"
 chmod +x "$INSTALL_BIN"
 
@@ -206,9 +206,12 @@ if [[ "$NEEDS_SPLIT_ROLLBACK" -eq 1 ]]; then
   log_info "Removing split architecture binaries..."
   rm -f /usr/local/bin/1panel-agent /usr/bin/1panel-agent
   rm -f /usr/local/bin/1panel-core /usr/bin/1panel-core
-  rm -f /usr/local/bin/1panel /usr/bin/1panel
-  for f in /usr/bin/1panel-agent /usr/bin/1panel-core /usr/bin/1panel; do
-    rm -f "$f" 2>/dev/null || true
+  # Don't delete INSTALL_BIN here — the monolithic binary was already restored above.
+  # Only remove 1panel from the OTHER location.
+  for p in /usr/local/bin/1panel /usr/bin/1panel; do
+    if [[ "$p" != "$INSTALL_BIN" ]]; then
+      rm -f "$p"
+    fi
   done
 
   log_info "Removing split architecture service files..."
@@ -220,23 +223,24 @@ if [[ "$NEEDS_SPLIT_ROLLBACK" -eq 1 ]]; then
   if [[ -f /etc/systemd/system/1panel.service.backup ]]; then
     cp /etc/systemd/system/1panel.service.backup /etc/systemd/system/1panel.service
     log_info "Restored 1panel.service"
+  elif [[ ! -f /etc/systemd/system/1panel.service ]]; then
+    log_warn "No 1panel.service backup found and no existing service file"
+    log_warn "You may need to manually recreate the systemd service"
   fi
 
   log_info "Enabling old monolithic 1panel.service..."
   systemctl enable 1panel 2>/dev/null || true
 
-  log_info "Restoring old monolithic service..."
-  if systemctl is-active --quiet 1panel 2>/dev/null; then
-    systemctl restart 1panel || {
-      log_warn "Cannot start 1panel, check: journalctl -u 1panel"
-    }
-  fi
+  log_info "Starting old monolithic service..."
+  systemctl start 1panel || {
+    log_warn "Cannot start 1panel, check: journalctl -u 1panel"
+  }
 
   log_info "Split rollback complete"
 fi
 
-# Restart service
-if [[ $SERVICE_WAS_ACTIVE -eq 1 ]]; then
+# Restart service (skip if split rollback already started 1panel)
+if [[ "$NEEDS_SPLIT_ROLLBACK" -eq 0 ]] && [[ $SERVICE_WAS_ACTIVE -eq 1 ]]; then
   log_info "Starting $SERVICE_NAME service..."
   systemctl start "$SERVICE_NAME" || {
     log_warn "Could not auto-start service. Please start manually."

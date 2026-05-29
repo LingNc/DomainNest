@@ -67,6 +67,7 @@ fi
 ensure_command go golang-go
 ensure_command patch patch
 ensure_command curl curl
+ensure_command timeout coreutils
 
 # ============================================================
 # 检测 1Panel 安装状态
@@ -106,7 +107,7 @@ PANEL_VERSION=""
 if [[ -n "$CORE_BIN" ]]; then
     # 分裂架构检测到，解析版本号
     log_info "检测到 1Panel 分裂架构: $CORE_BIN"
-    PANEL_VERSION=$("$CORE_BIN" version 2>/dev/null || echo "")
+    PANEL_VERSION=$(timeout 5 "$CORE_BIN" version 2>/dev/null || echo "")
     if [[ "$PANEL_VERSION" == *"v2"* ]]; then
         INSTALL_TYPE="split-v2"
         log_info "检测到 v2 版本"
@@ -138,7 +139,7 @@ else
     fi
 
     log_info "检测到 1Panel 单体架构: $MONOLITHIC_BIN"
-    PANEL_VERSION=$("$MONOLITHIC_BIN" version 2>/dev/null || echo "")
+    PANEL_VERSION=$(timeout 5 "$MONOLITHIC_BIN" version 2>/dev/null || echo "")
     if [[ "$PANEL_VERSION" == *"v2"* ]]; then
         INSTALL_TYPE="monolithic-v2"
         log_info "检测到 v2 版本"

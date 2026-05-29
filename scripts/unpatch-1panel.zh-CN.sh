@@ -54,7 +54,7 @@ fi
 
 INSTALL_TYPE=""
 if [[ -n "$CORE_BIN" ]]; then
-    PANEL_VERSION=$("$CORE_BIN" version 2>/dev/null || echo "")
+    PANEL_VERSION=$(timeout 5 "$CORE_BIN" version 2>/dev/null || echo "")
     if [[ "$PANEL_VERSION" == *"v2"* ]]; then
         INSTALL_TYPE="split-v2"
     else
@@ -85,7 +85,7 @@ else
         exit 1
     fi
 
-    PANEL_VERSION=$("$MONOLITHIC_BIN" version 2>/dev/null || echo "")
+    PANEL_VERSION=$(timeout 5 "$MONOLITHIC_BIN" version 2>/dev/null || echo "")
     if [[ "$PANEL_VERSION" == *"v2"* ]]; then
         INSTALL_TYPE="monolithic-v2"
     else
@@ -95,6 +95,7 @@ fi
 
 log_info "检测到安装类型: $INSTALL_TYPE"
 
+NEEDS_SPLIT_ROLLBACK=0
 # Detect migrated monolithic (was monolithic, now has split binaries)
 if [[ "$INSTALL_TYPE" == "split-v1" ]]; then
   for mono_path in /usr/local/bin/1panel /usr/bin/1panel; do
@@ -136,7 +137,12 @@ fi
 
 BACKUP_PATTERN="${INSTALL_BIN}.backup.*"
 
-BACKUP_FILES=($(ls -1 $BACKUP_PATTERN 2>/dev/null | sort -V || true))
+shopt -s nullglob
+BACKUP_FILES=("${INSTALL_BIN}".backup.*)
+shopt -u nullglob
+if [[ ${#BACKUP_FILES[@]} -gt 0 ]]; then
+  IFS=$'\n' BACKUP_FILES=($(sort -V <<<"${BACKUP_FILES[*]}")); unset IFS
+fi
 
 if [[ ${#BACKUP_FILES[@]} -eq 0 ]]; then
   log_error "未找到备份文件: $BACKUP_PATTERN"
@@ -158,17 +164,6 @@ else
   log_info "非交互模式，自动恢复最新备份..."
 fi
 
-# 检测是否需要分裂架构回滚（单体备份恢复时检查 1panel-core 是否存在）
-NEEDS_SPLIT_ROLLBACK=0
-if [[ "$INSTALL_TYPE" == "monolithic-v1" ]]; then
-  for p in /usr/local/bin/1panel-core /usr/bin/1panel-core; do
-    if [[ -f "$p" ]]; then
-      NEEDS_SPLIT_ROLLBACK=1
-      break
-    fi
-  done
-fi
-
 # 停止服务
 SERVICE_NAME=""
 case "$INSTALL_TYPE" in
@@ -188,6 +183,11 @@ fi
 
 # 恢复备份
 log_info "正在恢复备份..."
+# If INSTALL_BIN is a symlink (e.g. migrated monolithic where 1panel -> 1panel-core),
+# remove it first so cp creates a regular file instead of following the link.
+if [[ -L "$INSTALL_BIN" ]]; then
+  rm -f "$INSTALL_BIN"
+fi
 cp "$LATEST_BACKUP" "$INSTALL_BIN"
 chmod +x "$INSTALL_BIN"
 
@@ -206,9 +206,12 @@ if [[ "$NEEDS_SPLIT_ROLLBACK" -eq 1 ]]; then
   log_info "正在删除分裂架构二进制文件..."
   rm -f /usr/local/bin/1panel-agent /usr/bin/1panel-agent
   rm -f /usr/local/bin/1panel-core /usr/bin/1panel-core
-  rm -f /usr/local/bin/1panel /usr/bin/1panel
-  for f in /usr/bin/1panel-agent /usr/bin/1panel-core /usr/bin/1panel; do
-    rm -f "$f" 2>/dev/null || true
+  # Don't delete INSTALL_BIN here — the monolithic binary was already restored above.
+  # Only remove 1panel from the OTHER location.
+  for p in /usr/local/bin/1panel /usr/bin/1panel; do
+    if [[ "$p" != "$INSTALL_BIN" ]]; then
+      rm -f "$p"
+    fi
   done
 
   log_info "正在删除分裂架构服务文件..."
@@ -220,23 +223,24 @@ if [[ "$NEEDS_SPLIT_ROLLBACK" -eq 1 ]]; then
   if [[ -f /etc/systemd/system/1panel.service.backup ]]; then
     cp /etc/systemd/system/1panel.service.backup /etc/systemd/system/1panel.service
     log_info "已恢复 1panel.service"
+  elif [[ ! -f /etc/systemd/system/1panel.service ]]; then
+    log_warn "未找到 1panel.service 备份文件，且现有服务文件不存在"
+    log_warn "可能需要手动创建 systemd 服务文件"
   fi
 
   log_info "正在启用旧单体 1panel.service..."
   systemctl enable 1panel 2>/dev/null || true
 
-  log_info "正在恢复旧单体服务..."
-  if systemctl is-active --quiet 1panel 2>/dev/null; then
-    systemctl restart 1panel || {
-      log_warn "无法启动 1panel，请检查: journalctl -u 1panel"
-    }
-  fi
+  log_info "正在启动旧单体服务..."
+  systemctl start 1panel || {
+    log_warn "无法启动 1panel，请检查: journalctl -u 1panel"
+  }
 
   log_info "分裂架构回滚完成"
 fi
 
-# 重启服务
-if [[ $SERVICE_WAS_ACTIVE -eq 1 ]]; then
+# 重启服务（分裂架构回滚已启动则跳过）
+if [[ "$NEEDS_SPLIT_ROLLBACK" -eq 0 ]] && [[ $SERVICE_WAS_ACTIVE -eq 1 ]]; then
   log_info "正在启动 $SERVICE_NAME 服务..."
   systemctl start "$SERVICE_NAME" || {
     log_warn "无法自动启动服务，请手动启动。"
