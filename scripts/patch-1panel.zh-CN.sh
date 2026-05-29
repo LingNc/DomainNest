@@ -144,9 +144,8 @@ fi
 # v2 警告：v2 有官方 HTTP Request 支持且更新频繁
 if [[ "$INSTALL_TYPE" == *"v2"* ]]; then
     log_warn "检测到 1Panel v2。"
-    log_warn "v2 版本更新频繁，且持续新增官方 DNS 提供商（如 Technitium、PorkBun 等）。"
-    log_warn "请先确认你需要的提供商是否已在 v2 中官方支持。"
-    log_warn "如果已支持，建议使用官方功能而非此补丁。"
+    log_warn "DomainNest 已原生支持 Technitium DNS 提供商，无需为此打补丁。"
+    log_warn "如果你确实需要使用 HttpReq 提供商，请继续。"
     read -r -p "是否继续安装补丁？[y/N] " response
     if [[ ! "$response" =~ ^[yY]$ ]]; then
         exit 0
