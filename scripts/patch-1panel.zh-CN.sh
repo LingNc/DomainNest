@@ -422,6 +422,7 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
       log_error "npm install 失败 (${npm_elapsed}s)，日志如下:"
       cat "$NPM_LOG"
       rm -f "$NPM_LOG"
+      exit 1
     else
       log_info "前端依赖安装完成 (${npm_elapsed}s)"
       : > "$NPM_LOG"
@@ -454,6 +455,7 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
         log_error "前端构建失败 (${npm_elapsed}s)，日志如下:"
         cat "$NPM_LOG"
         rm -f "$NPM_LOG"
+        exit 1
       else
         log_info "前端构建完成 (${npm_elapsed}s)"
       fi

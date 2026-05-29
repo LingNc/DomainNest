@@ -421,6 +421,7 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
       log_error "npm install failed (${npm_elapsed}s elapsed), log output:"
       cat "$NPM_LOG"
       rm -f "$NPM_LOG"
+      exit 1
     else
       log_info "Frontend dependencies installed (${npm_elapsed}s elapsed)"
       : > "$NPM_LOG"
@@ -453,6 +454,7 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
         log_error "Frontend build failed (${npm_elapsed}s elapsed), log output:"
         cat "$NPM_LOG"
         rm -f "$NPM_LOG"
+        exit 1
       else
         log_info "Frontend build completed (${npm_elapsed}s elapsed)"
       fi
