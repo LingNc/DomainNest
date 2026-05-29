@@ -58,6 +58,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&FilterPreset{},
 		&NotificationSetting{},
 		&InviteCode{},
+		&AcmeDNSAccount{},
 	); err != nil {
 		return err
 	}

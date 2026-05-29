@@ -355,5 +355,17 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		httpreq.POST("/cleanup", httpreqCompatHandler.Cleanup)
 	}
 
+	// AcmeDNS API compatibility endpoint
+	acmednsCompatHandler := handler.NewAcmeDNSCompatHandler(aliyunCompatSvc, ramTokenService, db)
+	acmedns := r.Group("/acmedns")
+	{
+		acmedns.POST("/register", acmednsCompatHandler.Register)
+		acmednsAuth := acmedns.Group("")
+		acmednsAuth.Use(middleware.AcmeDNSAuth(db))
+		{
+			acmednsAuth.POST("/update", acmednsCompatHandler.Update)
+		}
+	}
+
 	return r
 }
