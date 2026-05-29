@@ -75,16 +75,13 @@ if [[ -f /usr/local/bin/1panel ]] || [[ -f /usr/bin/1panel ]]; then
     fi
 fi
 
-# Detect v2 (warn but allow to proceed since the patch is structurally compatible)
+# Detect v2 (not supported, exit)
 if [[ -f /usr/local/bin/1panel-core ]] || [[ -f /usr/bin/1panel-core ]]; then
     INSTALLED_VERSION=$(/usr/local/bin/1panel-core version 2>/dev/null || /usr/bin/1panel-core version 2>/dev/null || echo "")
     if [[ "$INSTALLED_VERSION" == *"v2"* ]]; then
-        log_warn "1Panel v2 detected. This patch is designed for v1 LTS."
-        log_warn "The patch is structurally compatible with v2, but proceed at your own risk."
-        read -r -p "Continue? [y/N] " response
-        if [[ ! "$response" =~ ^[yY]$ ]]; then
-            exit 0
-        fi
+        log_error "1Panel v2 detected. This patch only supports v1 LTS."
+        log_error "v2 does not require this patch. Please wait for official support."
+        exit 1
     fi
 fi
 

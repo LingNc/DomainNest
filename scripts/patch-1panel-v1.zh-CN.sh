@@ -75,16 +75,13 @@ if [[ -f /usr/local/bin/1panel ]] || [[ -f /usr/bin/1panel ]]; then
     fi
 fi
 
-# 检测 v2（警告但允许继续，因为补丁结构兼容）
+# 检测 v2（不支持，直接退出）
 if [[ -f /usr/local/bin/1panel-core ]] || [[ -f /usr/bin/1panel-core ]]; then
     INSTALLED_VERSION=$(/usr/local/bin/1panel-core version 2>/dev/null || /usr/bin/1panel-core version 2>/dev/null || echo "")
     if [[ "$INSTALLED_VERSION" == *"v2"* ]]; then
-        log_warn "检测到 1Panel v2。此补丁专为 v1 LTS 设计。"
-        log_warn "补丁与 v2 结构兼容，但请自行承担风险。"
-        read -r -p "是否继续？[y/N] " response
-        if [[ ! "$response" =~ ^[yY]$ ]]; then
-            exit 0
-        fi
+        log_error "检测到 1Panel v2。此补丁仅支持 v1 LTS。"
+        log_error "v2 不需要此补丁，请等待官方支持。"
+        exit 1
     fi
 fi
 
