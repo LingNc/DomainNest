@@ -59,6 +59,30 @@ ensure_command() {
   fi
 }
 
+# Optional dependency: try to install, return 1 on failure instead of exiting
+ensure_optional_command() {
+  local cmd="$1"
+  local pkg="$2"
+  command -v "$cmd" >/dev/null 2>&1 && return 0
+  log_warn "$cmd is not installed"
+  if [[ ! -t 0 ]]; then
+    log_warn "Non-interactive mode, skipping $cmd installation"
+    return 1
+  fi
+  read -p "Install $cmd via apt? [y/N] " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    log_info "Installing $pkg..."
+    if apt-get update && apt-get install -y "$pkg"; then
+      return 0
+    else
+      log_warn "Failed to install $pkg"
+      return 1
+    fi
+  fi
+  return 1
+}
+
 ensure_command git git
 # Ensure Go from /usr/local/go/bin is in PATH (installed by this script previously)
 if [[ -x /usr/local/go/bin/go ]] && [[ ":$PATH:" != *":/usr/local/go/bin:"* ]]; then
@@ -68,6 +92,12 @@ ensure_command go golang-go
 ensure_command patch patch
 ensure_command curl curl
 ensure_command timeout coreutils
+
+# Optional dependency: npm (needed for frontend build, backend patch still works without it)
+HAS_NPM=0
+if ensure_optional_command npm npm; then
+  HAS_NPM=1
+fi
 
 # ============================================================
 # Detect 1Panel installation
@@ -346,7 +376,7 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
     patch -p1 < "$FRONTEND_PATCH" 2>/dev/null || true
   )
 
-  if command -v npm >/dev/null 2>&1; then
+  if [[ $HAS_NPM -eq 1 ]]; then
     log_info "Building frontend..."
     (
       cd "${WORK_DIR}/frontend"

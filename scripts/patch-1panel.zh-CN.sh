@@ -59,6 +59,30 @@ ensure_command() {
   fi
 }
 
+# 可选依赖：尝试安装，失败则返回 1 而非退出
+ensure_optional_command() {
+  local cmd="$1"
+  local pkg="$2"
+  command -v "$cmd" >/dev/null 2>&1 && return 0
+  log_warn "$cmd 未安装"
+  if [[ ! -t 0 ]]; then
+    log_warn "非交互模式，跳过安装 $cmd"
+    return 1
+  fi
+  read -p "是否使用 apt 安装 $cmd? [y/N] " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    log_info "正在安装 $pkg..."
+    if apt-get update && apt-get install -y "$pkg"; then
+      return 0
+    else
+      log_warn "$pkg 安装失败"
+      return 1
+    fi
+  fi
+  return 1
+}
+
 ensure_command git git
 # Ensure Go from /usr/local/go/bin is in PATH (installed by this script previously)
 if [[ -x /usr/local/go/bin/go ]] && [[ ":$PATH:" != *":/usr/local/go/bin:"* ]]; then
@@ -68,6 +92,12 @@ ensure_command go golang-go
 ensure_command patch patch
 ensure_command curl curl
 ensure_command timeout coreutils
+
+# 可选依赖：npm（前端构建需要，后端补丁不受影响）
+HAS_NPM=0
+if ensure_optional_command npm npm; then
+  HAS_NPM=1
+fi
 
 # ============================================================
 # 检测 1Panel 安装状态
@@ -347,7 +377,7 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
     patch -p1 < "$FRONTEND_PATCH" 2>/dev/null || true
   )
 
-  if command -v npm >/dev/null 2>&1; then
+  if [[ $HAS_NPM -eq 1 ]]; then
     log_info "正在构建前端..."
     (
       cd "${WORK_DIR}/frontend"
