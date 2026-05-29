@@ -351,15 +351,25 @@ BUILD_START=$SECONDS
 ) >"$BUILD_LOG" 2>&1 &
 BUILD_PID=$!
 
-# 显示构建进度
-SPINNER='|/-\'
+# 显示构建进度（npm 风格：显示最新下载/编译行）
+COLS=$(tput cols 2>/dev/null || echo 80)
 while kill -0 "$BUILD_PID" 2>/dev/null; do
-  for (( i=0; i<${#SPINNER}; i++ )); do
-    ELAPSED=$(( SECONDS - BUILD_START ))
-    printf "\r${GREEN}[INFO]${NC} 正在编译... %s (已用时 %dm%02ds) " "${SPINNER:$i:1}" $((ELAPSED/60)) $((ELAPSED%60))
-    sleep 0.3
-    kill -0 "$BUILD_PID" 2>/dev/null || break
-  done
+  ELAPSED=$(( SECONDS - BUILD_START ))
+  LAST_LINE=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1)
+  if [[ -n "$LAST_LINE" ]]; then
+    MSG="$LAST_LINE"
+  else
+    MSG="正在初始化..."
+  fi
+  # 截断到终端宽度，留出前缀和时间的空间
+  PREFIX="${GREEN}[INFO]${NC} 编译中... "
+  SUFFIX=" (已用时 $((ELAPSED/60))m$(printf '%02d' $((ELAPSED%60)))s)"
+  MAX_MSG=$(( COLS - 30 ))
+  if (( ${#MSG} > MAX_MSG )); then
+    MSG="${MSG:0:MAX_MSG}..."
+  fi
+  printf "\r\033[K${PREFIX}%s${SUFFIX}" "$MSG"
+  sleep 0.5
 done
 
 wait "$BUILD_PID"
