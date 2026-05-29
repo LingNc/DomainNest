@@ -255,7 +255,7 @@ if [[ -n "$GO_MOD_VERSION" ]]; then
       GO_TARBALL="go${GO_MOD_VERSION}.linux-${GOARCH}.tar.gz"
       GO_DOWNLOAD_URL="https://go.dev/dl/${GO_TARBALL}"
       log_info "正在下载 Go $GO_MOD_VERSION..."
-      curl -fsSL "$GO_DOWNLOAD_URL" -o "/tmp/${GO_TARBALL}" || {
+      curl -fSL# "$GO_DOWNLOAD_URL" -o "/tmp/${GO_TARBALL}" || {
         log_error "下载失败，请手动升级 Go: https://go.dev/dl/"
         exit 1
       }

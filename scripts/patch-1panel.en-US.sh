@@ -12,7 +12,6 @@ PATCH_FILE_V2="${SCRIPT_DIR}/1panel-v2-httpreq.patch"
 REPO_URL="https://github.com/1Panel-dev/1Panel.git"
 WORK_DIR="/tmp/1panel-patch-$$"
 CLEANUP_WORK_DIR=0
-CLEANUP_WORK_DIR=0
 
 # Colors
 RED='\033[0;31m'
@@ -256,7 +255,7 @@ if [[ -n "$GO_MOD_VERSION" ]]; then
       GO_TARBALL="go${GO_MOD_VERSION}.linux-${GOARCH}.tar.gz"
       GO_DOWNLOAD_URL="https://go.dev/dl/${GO_TARBALL}"
       log_info "Downloading Go $GO_MOD_VERSION..."
-      curl -fsSL "$GO_DOWNLOAD_URL" -o "/tmp/${GO_TARBALL}" || {
+      curl -fSL# "$GO_DOWNLOAD_URL" -o "/tmp/${GO_TARBALL}" || {
         log_error "Download failed, please upgrade Go manually: https://go.dev/dl/"
         exit 1
       }
