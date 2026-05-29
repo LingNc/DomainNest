@@ -375,8 +375,8 @@ build_binary() {
   done
   echo -e "\033[K"
 
-  wait "$build_pid"
-  local rc=$?
+  local rc=0
+  wait "$build_pid" || rc=$?
   elapsed=$(( SECONDS - build_start ))
   if [[ $rc -ne 0 ]]; then
     log_error "${label} build failed (${elapsed}s elapsed), log output:"
