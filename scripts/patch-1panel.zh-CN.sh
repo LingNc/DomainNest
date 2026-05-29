@@ -292,41 +292,46 @@ if [[ -n "$GO_MOD_VERSION" ]]; then
   fi
 fi
 
-# 检查是否已打过补丁（幂等性）
+PATCH_ALREADY_APPLIED=false
 if grep -q 'HttpReq' "${SRC_DIR}/utils/ssl/dns_provider.go" 2>/dev/null; then
-  log_warn "dns_provider.go 已包含 HttpReq — 补丁可能已应用"
-  read -p "是否继续？[y/N] " -n 1 -r
+  log_info "dns_provider.go 已包含 HttpReq — 补丁已应用，将跳过补丁步骤"
+  read -p "是否直接编译？[Y/n] " -n 1 -r
   echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  if [[ $REPLY =~ ^[Nn]$ ]]; then
     exit 0
   fi
+  PATCH_ALREADY_APPLIED=true
 fi
 
-# ============================================================
-# 应用补丁
-# ============================================================
-# 对于单体架构源码，需要调整补丁路径：a/agent -> a/backend
-if [[ "$SRC_SUBDIR" == "backend" ]]; then
-  log_info "单体架构源码，转换补丁路径 (agent -> backend)..."
-  PATCH_CONTENT=$(cat "$PATCH_FILE")
-  # 只在 patch 文件头部行转换，保留后续内容
-  PATCH_CONTENT=$(echo "$PATCH_CONTENT" | sed 's|^a/agent/|a/backend/|' | sed 's|^b/agent/|b/backend/|')
-  TEMP_PATCH_FILE="${WORK_DIR}/adjusted.patch"
-  echo "$PATCH_CONTENT" > "$TEMP_PATCH_FILE"
-  APPLY_PATCH="$TEMP_PATCH_FILE"
+if [[ "$PATCH_ALREADY_APPLIED" == "true" ]]; then
+  log_info "补丁已存在，跳过应用补丁步骤"
 else
-  APPLY_PATCH="$PATCH_FILE"
-fi
+  # ============================================================
+  # 应用补丁
+  # ============================================================
+  # 对于单体架构源码，需要调整补丁路径：a/agent -> a/backend
+  if [[ "$SRC_SUBDIR" == "backend" ]]; then
+    log_info "单体架构源码，转换补丁路径 (agent -> backend)..."
+    PATCH_CONTENT=$(cat "$PATCH_FILE")
+    # 只在 patch 文件头部行转换，保留后续内容
+    PATCH_CONTENT=$(echo "$PATCH_CONTENT" | sed 's|^a/agent/|a/backend/|' | sed 's|^b/agent/|b/backend/|')
+    TEMP_PATCH_FILE="${WORK_DIR}/adjusted.patch"
+    echo "$PATCH_CONTENT" > "$TEMP_PATCH_FILE"
+    APPLY_PATCH="$TEMP_PATCH_FILE"
+  else
+    APPLY_PATCH="$PATCH_FILE"
+  fi
 
-log_info "正在应用补丁..."
-cd "$SRC_DIR"
-patch -p2 --dry-run < "$APPLY_PATCH" >/dev/null 2>&1 || {
-  log_error "补丁试应用失败 — 补丁可能与此版本的 1Panel 不匹配"
-  log_error "补丁文件: $APPLY_PATCH"
-  log_error "源码目录: $SRC_DIR"
-  exit 1
-}
-patch -p2 < "$APPLY_PATCH"
+  log_info "正在应用补丁..."
+  cd "$SRC_DIR"
+  patch -p2 --dry-run < "$APPLY_PATCH" >/dev/null 2>&1 || {
+    log_error "补丁试应用失败 — 补丁可能与此版本的 1Panel 不匹配"
+    log_error "补丁文件: $APPLY_PATCH"
+    log_error "源码目录: $SRC_DIR"
+    exit 1
+  }
+  patch -p2 < "$APPLY_PATCH"
+fi
 
 # ============================================================
 # 编译

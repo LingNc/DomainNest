@@ -292,40 +292,45 @@ if [[ -n "$GO_MOD_VERSION" ]]; then
   fi
 fi
 
-# Check if already patched (idempotency)
+PATCH_ALREADY_APPLIED=false
 if grep -q 'HttpReq' "${SRC_DIR}/utils/ssl/dns_provider.go" 2>/dev/null; then
-  log_warn "dns_provider.go already contains HttpReq — patch may already be applied"
-  read -p "Continue anyway? [y/N] " -n 1 -r
+  log_info "dns_provider.go already contains HttpReq — patch already applied, skipping patch step"
+  read -p "Proceed directly to build? [Y/n] " -n 1 -r
   echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  if [[ $REPLY =~ ^[Nn]$ ]]; then
     exit 0
   fi
+  PATCH_ALREADY_APPLIED=true
 fi
 
-# ============================================================
-# Apply patch
-# ============================================================
-# For monolithic source, adjust patch path: a/agent -> a/backend
-if [[ "$SRC_SUBDIR" == "backend" ]]; then
-  log_info "Monolithic source detected, adjusting patch paths (agent -> backend)..."
-  PATCH_CONTENT=$(cat "$PATCH_FILE")
-  PATCH_CONTENT=$(echo "$PATCH_CONTENT" | sed 's|^a/agent/|a/backend/|' | sed 's|^b/agent/|b/backend/|')
-  TEMP_PATCH_FILE="${WORK_DIR}/adjusted.patch"
-  echo "$PATCH_CONTENT" > "$TEMP_PATCH_FILE"
-  APPLY_PATCH="$TEMP_PATCH_FILE"
+if [[ "$PATCH_ALREADY_APPLIED" == "true" ]]; then
+  log_info "Patch already applied, skipping"
 else
-  APPLY_PATCH="$PATCH_FILE"
-fi
+  # ============================================================
+  # Apply patch
+  # ============================================================
+  # For monolithic source, adjust patch path: a/agent -> a/backend
+  if [[ "$SRC_SUBDIR" == "backend" ]]; then
+    log_info "Monolithic source detected, adjusting patch paths (agent -> backend)..."
+    PATCH_CONTENT=$(cat "$PATCH_FILE")
+    PATCH_CONTENT=$(echo "$PATCH_CONTENT" | sed 's|^a/agent/|a/backend/|' | sed 's|^b/agent/|b/backend/|')
+    TEMP_PATCH_FILE="${WORK_DIR}/adjusted.patch"
+    echo "$PATCH_CONTENT" > "$TEMP_PATCH_FILE"
+    APPLY_PATCH="$TEMP_PATCH_FILE"
+  else
+    APPLY_PATCH="$PATCH_FILE"
+  fi
 
-log_info "Applying patch..."
-cd "$SRC_DIR"
-patch -p2 --dry-run < "$APPLY_PATCH" >/dev/null 2>&1 || {
-  log_error "Patch dry-run failed — the patch may not match this 1Panel version"
-  log_error "Patch file: $APPLY_PATCH"
-  log_error "Source directory: $SRC_DIR"
-  exit 1
-}
-patch -p2 < "$APPLY_PATCH"
+  log_info "Applying patch..."
+  cd "$SRC_DIR"
+  patch -p2 --dry-run < "$APPLY_PATCH" >/dev/null 2>&1 || {
+    log_error "Patch dry-run failed — the patch may not match this 1Panel version"
+    log_error "Patch file: $APPLY_PATCH"
+    log_error "Source directory: $SRC_DIR"
+    exit 1
+  }
+  patch -p2 < "$APPLY_PATCH"
+fi
 
 # ============================================================
 # Build
