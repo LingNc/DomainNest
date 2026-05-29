@@ -217,6 +217,47 @@ else
   fi
 fi
 
+# 检查 Go 版本兼容性
+GO_MOD_VERSION=$(grep '^go ' "${SRC_DIR}/go.mod" | awk '{print $2}')
+if [[ -n "$GO_MOD_VERSION" ]]; then
+  GO_MOD_MAJOR_MINOR=$(echo "$GO_MOD_VERSION" | cut -d. -f1,2)
+  GO_INSTALLED_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+  GO_INSTALLED_MAJOR_MINOR=$(echo "$GO_INSTALLED_VERSION" | cut -d. -f1,2)
+  if [[ "$(printf '%s\n' "$GO_MOD_MAJOR_MINOR" "$GO_INSTALLED_MAJOR_MINOR" | sort -V | head -1)" != "$GO_MOD_MAJOR_MINOR" ]]; then
+    log_error "Go 版本过低: 已安装 $GO_INSTALLED_VERSION, 需要 $GO_MOD_VERSION+"
+    if [[ ! -t 0 ]]; then
+      log_error "非交互模式，请手动升级 Go: https://go.dev/dl/"
+      exit 1
+    fi
+    read -p "是否自动下载安装 Go $GO_MOD_VERSION？[y/N] " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      GOARCH=$(uname -m)
+      case "$GOARCH" in
+        x86_64)  GOARCH=amd64 ;;
+        aarch64) GOARCH=arm64 ;;
+        armv7l)  GOARCH=arm ;;
+      esac
+      GO_TARBALL="go${GO_MOD_VERSION}.linux-${GOARCH}.tar.gz"
+      GO_DOWNLOAD_URL="https://go.dev/dl/${GO_TARBALL}"
+      log_info "正在下载 Go $GO_MOD_VERSION..."
+      curl -fsSL "$GO_DOWNLOAD_URL" -o "/tmp/${GO_TARBALL}" || {
+        log_error "下载失败，请手动升级 Go: https://go.dev/dl/"
+        exit 1
+      }
+      log_info "正在安装 Go $GO_MOD_VERSION..."
+      rm -rf /usr/local/go
+      tar -C /usr/local -xzf "/tmp/${GO_TARBALL}"
+      rm -f "/tmp/${GO_TARBALL}"
+      export PATH=/usr/local/go/bin:$PATH
+      log_info "Go 已升级: $(go version)"
+    else
+      log_error "请手动升级 Go 后重试"
+      exit 1
+    fi
+  fi
+fi
+
 # 检查是否已打过补丁（幂等性）
 if grep -q 'HttpReq' "${SRC_DIR}/utils/ssl/dns_provider.go" 2>/dev/null; then
   log_warn "dns_provider.go 已包含 HttpReq — 补丁可能已应用"
