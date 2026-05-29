@@ -12,6 +12,7 @@ PATCH_FILE_V2="${SCRIPT_DIR}/1panel-v2-httpreq.patch"
 REPO_URL="https://github.com/1Panel-dev/1Panel.git"
 WORK_DIR="/tmp/1panel-patch-$$"
 CLEANUP_WORK_DIR=0
+SERVICE_FILES_URL="https://github.com/1Panel-dev/installer/raw/v2/initscript"
 
 # Colors
 RED='\033[0;31m'
@@ -65,6 +66,7 @@ if [[ -x /usr/local/go/bin/go ]] && [[ ":$PATH:" != *":/usr/local/go/bin:"* ]]; 
 fi
 ensure_command go golang-go
 ensure_command patch patch
+ensure_command curl curl
 
 # ============================================================
 # Detect 1Panel installation
@@ -222,6 +224,11 @@ fi
 SRC_DIR="${WORK_DIR}/${SRC_SUBDIR}"
 log_info "Source directory: $SRC_DIR"
 
+HAS_SPLIT_SOURCE=0
+if [[ -d "${WORK_DIR}/agent" && -d "${WORK_DIR}/core" ]]; then
+  HAS_SPLIT_SOURCE=1
+fi
+
 # Verify lego version compatibility
 if ! grep -q 'go-acme/lego/v4' "${SRC_DIR}/go.mod" 2>/dev/null; then
   log_error "This patch only supports 1Panel with lego v4"
@@ -322,8 +329,6 @@ patch -p2 < "$APPLY_PATCH"
 # ============================================================
 # Build
 # ============================================================
-log_info "Building..."
-cd "$SRC_DIR"
 GOARCH=$(uname -m)
 case "$GOARCH" in
   x86_64)  GOARCH=amd64 ;;
@@ -331,115 +336,239 @@ case "$GOARCH" in
   armv7l)  GOARCH=arm ;;
 esac
 
-# Determine build target (split uses cmd/server/main.go, monolithic uses cmd/1panel/main.go)
-BUILD_TARGET="cmd/server/main.go"
-if [[ "$SRC_SUBDIR" == "backend" ]]; then
-  BUILD_TARGET="cmd/1panel/main.go"
-fi
-log_info "Build target: $BUILD_TARGET"
-
-# Compact build: suppress verbose go module download output, show only on failure
 BUILD_LOG=$(mktemp)
 trap 'rm -f "$BUILD_LOG"; cleanup' EXIT
-BUILD_START=$SECONDS
-(
-  cd "$SRC_DIR"
-  CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -trimpath -ldflags '-s -w' -o 1panel-agent "$BUILD_TARGET"
-) >"$BUILD_LOG" 2>&1 &
-BUILD_PID=$!
 
-# Wait for build process to start writing logs
-sleep 0.5
+build_binary() {
+  local src_dir="$1"
+  local build_target="$2"
+  local output_name="$3"
+  local label="$4"
 
-# Show build progress (docker style: scrolling line-by-line output)
-echo -e "${GREEN}[INFO]${NC} Downloading dependencies and building (may take a few minutes on first run)..."
-LAST_PRINTED=""
-while kill -0 "$BUILD_PID" 2>/dev/null; do
-  ELAPSED=$(( SECONDS - BUILD_START ))
-  LAST_LINE=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
-  if [[ -n "$LAST_LINE" && "$LAST_LINE" != "$LAST_PRINTED" ]]; then
-    LAST_PRINTED="$LAST_LINE"
-    echo -e "${GREEN}[INFO]${NC} ${LAST_LINE} (${ELAPSED}s)"
+  log_info "Building ${label}..."
+  local build_start=$SECONDS
+  (
+    cd "$src_dir"
+    CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH \
+      go build -trimpath -ldflags '-s -w' -o "$output_name" "$build_target"
+  ) >"$BUILD_LOG" 2>&1 &
+  local build_pid=$!
+
+  sleep 0.5
+  echo -e "${GREEN}[INFO]${NC} Downloading dependencies and building ${label} (may take a few minutes on first run)..."
+  local last_printed=""
+  while kill -0 "$build_pid" 2>/dev/null; do
+    local elapsed=$(( SECONDS - build_start ))
+    local last_line
+    last_line=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
+    if [[ -n "$last_line" && "$last_line" != "$last_printed" ]]; then
+      last_printed="$last_line"
+      echo -e "${GREEN}[INFO]${NC} ${last_line} (${elapsed}s)"
+    fi
+    sleep 2
+  done
+
+  wait "$build_pid"
+  local rc=$?
+  elapsed=$(( SECONDS - build_start ))
+  if [[ $rc -ne 0 ]]; then
+    log_error "${label} build failed (${elapsed}s elapsed), log output:"
+    cat "$BUILD_LOG"
+    rm -f "$BUILD_LOG"
+    exit 1
   fi
-  sleep 2
-done
+  log_info "${label} build completed (${elapsed}s elapsed)"
+  : > "$BUILD_LOG"
+}
 
-wait "$BUILD_PID"
-BUILD_RC=$?
-ELAPSED=$(( SECONDS - BUILD_START ))
-if [[ $BUILD_RC -ne 0 ]]; then
-  log_error "Build failed (${ELAPSED}s elapsed), log output:"
-  cat "$BUILD_LOG"
-  rm -f "$BUILD_LOG"
-  exit 1
+if [[ "$INSTALL_TYPE" == "monolithic-v1" && "$HAS_SPLIT_SOURCE" -eq 1 ]]; then
+  build_binary "$SRC_DIR" "cmd/server/main.go" "1panel-agent" "1panel-agent (with HttpReq patch)"
+  AGENT_BUILD_OUTPUT="${SRC_DIR}/1panel-agent"
+  if [[ ! -f "$AGENT_BUILD_OUTPUT" ]]; then
+    log_error "Agent binary not found after build: $AGENT_BUILD_OUTPUT"
+    exit 1
+  fi
+
+  CORE_SRC_DIR="${WORK_DIR}/core"
+  build_binary "$CORE_SRC_DIR" "cmd/server/main.go" "1panel-core" "1panel-core (web UI)"
+  CORE_BUILD_OUTPUT="${CORE_SRC_DIR}/1panel-core"
+  if [[ ! -f "$CORE_BUILD_OUTPUT" ]]; then
+    log_error "Core binary not found after build: $CORE_BUILD_OUTPUT"
+    exit 1
+  fi
+else
+  BUILD_TARGET="cmd/server/main.go"
+  if [[ "$SRC_SUBDIR" == "backend" ]]; then
+    BUILD_TARGET="cmd/1panel/main.go"
+  fi
+  log_info "Build target: $BUILD_TARGET"
+  build_binary "$SRC_DIR" "$BUILD_TARGET" "1panel-agent" "1panel-agent"
 fi
-log_info "Build completed (${ELAPSED}s elapsed)"
-rm -f "$BUILD_LOG"
 
 # ============================================================
 # Install
 # ============================================================
-# Detect install path
-INSTALL_BIN=""
-case "$INSTALL_TYPE" in
-  split-v1|split-v2)
-    if [[ -f /usr/local/bin/1panel-agent ]]; then
-      INSTALL_BIN="/usr/local/bin/1panel-agent"
-    elif [[ -f /usr/bin/1panel-agent ]]; then
-      INSTALL_BIN="/usr/bin/1panel-agent"
+
+if [[ "$INSTALL_TYPE" == "monolithic-v1" && "$HAS_SPLIT_SOURCE" -eq 1 ]]; then
+  MONO_BIN=""
+  for p in /usr/local/bin/1panel /usr/bin/1panel; do
+    if [[ -f "$p" ]]; then
+      target=$(readlink -f "$p" 2>/dev/null)
+      if [[ "$target" != *"1panel-core"* ]]; then
+        MONO_BIN="$p"
+        break
+      fi
     fi
-    ;;
-  monolithic-v1|monolithic-v2)
-    if [[ -f /usr/local/bin/1panel ]]; then
-      INSTALL_BIN="/usr/local/bin/1panel"
-    elif [[ -f /usr/bin/1panel ]]; then
-      INSTALL_BIN="/usr/bin/1panel"
-    fi
-    ;;
-esac
+  done
 
-if [[ -z "$INSTALL_BIN" ]]; then
-  log_warn "Could not find installed binary"
-  log_info "Build output: ${SRC_DIR}/1panel-agent"
-  log_info "Please manually copy it to your 1Panel installation directory"
-  exit 0
-fi
-
-# Determine service name
-SERVICE_NAME=""
-case "$INSTALL_TYPE" in
-  split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
-  monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
-esac
-
-# Stop service first (avoids "text file busy" error)
-SERVICE_WAS_ACTIVE=0
-if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-  SERVICE_WAS_ACTIVE=1
-  log_info "Stopping $SERVICE_NAME service..."
-  systemctl stop "$SERVICE_NAME" || {
-    log_error "Failed to stop $SERVICE_NAME service"
+  if [[ -z "$MONO_BIN" ]]; then
+    log_error "Monolithic 1panel binary not found"
     exit 1
+  fi
+
+  NEW_BIN_DIR="/usr/local/bin"
+
+  log_info "Stopping 1panel service..."
+  if systemctl is-active --quiet 1panel 2>/dev/null; then
+    systemctl stop 1panel || {
+      log_error "Cannot stop 1panel service"
+      exit 1
+    }
+  fi
+
+  # Backup original service file
+  if [[ -f /etc/systemd/system/1panel.service ]]; then
+    cp /etc/systemd/system/1panel.service /etc/systemd/system/1panel.service.backup
+    log_info "Backed up 1panel.service to /etc/systemd/system/1panel.service.backup"
+  fi
+
+  BACKUP_PATH="${MONO_BIN}.backup.$(date +%Y%m%d%H%M%S)"
+  log_info "Backing up monolithic binary to $BACKUP_PATH"
+  cp "$MONO_BIN" "$BACKUP_PATH"
+
+  log_info "Installing 1panel-agent to ${NEW_BIN_DIR}/1panel-agent"
+  cp "$AGENT_BUILD_OUTPUT" "${NEW_BIN_DIR}/1panel-agent"
+  chmod +x "${NEW_BIN_DIR}/1panel-agent"
+
+  log_info "Installing 1panel-core to ${NEW_BIN_DIR}/1panel-core"
+  cp "$CORE_BUILD_OUTPUT" "${NEW_BIN_DIR}/1panel-core"
+  chmod +x "${NEW_BIN_DIR}/1panel-core"
+
+  for bin_name in 1panel-core 1panel-agent; do
+    if [[ "${NEW_BIN_DIR}" != "/usr/bin" ]]; then
+      ln -sf "${NEW_BIN_DIR}/${bin_name}" "/usr/bin/${bin_name}"
+    fi
+  done
+
+  if [[ "$MONO_BIN" == "/usr/bin/1panel" ]]; then
+    ln -sf "${NEW_BIN_DIR}/1panel-core" "/usr/bin/1panel"
+  fi
+
+  # Replace monolithic binary with symlink
+  if [[ -f "${NEW_BIN_DIR}/1panel" && ! -L "${NEW_BIN_DIR}/1panel" ]]; then
+    rm -f "${NEW_BIN_DIR}/1panel"
+    ln -sf "${NEW_BIN_DIR}/1panel-core" "${NEW_BIN_DIR}/1panel"
+    log_info "Replaced ${NEW_BIN_DIR}/1panel with symlink to 1panel-core"
+  fi
+
+  log_info "Downloading systemd service files..."
+  SVC_DOWNLOAD_OK=1
+  curl -fSL# "${SERVICE_FILES_URL}/1panel-core.service" \
+    -o /etc/systemd/system/1panel-core.service 2>/dev/null || SVC_DOWNLOAD_OK=0
+  curl -fSL# "${SERVICE_FILES_URL}/1panel-agent.service" \
+    -o /etc/systemd/system/1panel-agent.service 2>/dev/null || SVC_DOWNLOAD_OK=0
+
+  if [[ "$SVC_DOWNLOAD_OK" -eq 0 ]]; then
+    log_error "Failed to download service files from GitHub."
+    log_error "URL:"
+    log_error "  ${SERVICE_FILES_URL}/1panel-core.service"
+    log_error "  ${SERVICE_FILES_URL}/1panel-agent.service"
+    log_error ""
+    log_error "Binaries installed but services not configured."
+    log_error "Please manually download service files to /etc/systemd/system/"
+    log_error "Then run: systemctl daemon-reload && systemctl enable --now 1panel-core 1panel-agent"
+    CLEANUP_WORK_DIR=1
+    rm -f "$BUILD_LOG"
+    exit 1
+  fi
+
+  systemctl daemon-reload
+
+  log_info "Disabling old 1panel.service..."
+  systemctl disable 1panel 2>/dev/null || true
+
+  log_info "Enabling 1panel-core.service and 1panel-agent.service..."
+  systemctl enable 1panel-core 1panel-agent
+
+  log_info "Starting 1panel-core and 1panel-agent..."
+  systemctl start 1panel-core || {
+    log_warn "Cannot start 1panel-core, check: journalctl -u 1panel-core"
   }
-fi
-
-# Backup and install
-BACKUP_PATH="${INSTALL_BIN}.backup.$(date +%Y%m%d%H%M%S)"
-log_info "Backing up existing binary to $BACKUP_PATH"
-cp "$INSTALL_BIN" "$BACKUP_PATH"
-
-log_info "Installing new binary..."
-cp "${SRC_DIR}/1panel-agent" "$INSTALL_BIN"
-chmod +x "$INSTALL_BIN"
-
-# Start service
-if [[ $SERVICE_WAS_ACTIVE -eq 1 ]] || systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-  log_info "Starting $SERVICE_NAME service..."
-  systemctl start "$SERVICE_NAME" || {
-    log_warn "Could not auto-start service. Please start manually."
+  systemctl start 1panel-agent || {
+    log_warn "Cannot start 1panel-agent, check: journalctl -u 1panel-agent"
   }
+
+  log_info "Migration complete: monolithic -> split architecture"
+  log_info "Old monolithic binary backup: $BACKUP_PATH"
+
 else
-  log_warn "$SERVICE_NAME service not running. Please start manually."
+  INSTALL_BIN=""
+  case "$INSTALL_TYPE" in
+    split-v1|split-v2)
+      if [[ -f /usr/local/bin/1panel-agent ]]; then
+        INSTALL_BIN="/usr/local/bin/1panel-agent"
+      elif [[ -f /usr/bin/1panel-agent ]]; then
+        INSTALL_BIN="/usr/bin/1panel-agent"
+      fi
+      ;;
+    monolithic-v1|monolithic-v2)
+      if [[ -f /usr/local/bin/1panel ]]; then
+        INSTALL_BIN="/usr/local/bin/1panel"
+      elif [[ -f /usr/bin/1panel ]]; then
+        INSTALL_BIN="/usr/bin/1panel"
+      fi
+      ;;
+  esac
+
+  if [[ -z "$INSTALL_BIN" ]]; then
+    log_warn "Could not find installed binary"
+    log_info "Build output: ${SRC_DIR}/1panel-agent"
+    log_info "Please manually copy it to your 1Panel installation directory"
+    exit 0
+  fi
+
+  SERVICE_NAME=""
+  case "$INSTALL_TYPE" in
+    split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
+    monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
+  esac
+
+  SERVICE_WAS_ACTIVE=0
+  if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+    SERVICE_WAS_ACTIVE=1
+    log_info "Stopping $SERVICE_NAME service..."
+    systemctl stop "$SERVICE_NAME" || {
+      log_error "Failed to stop $SERVICE_NAME service"
+      exit 1
+    }
+  fi
+
+  BACKUP_PATH="${INSTALL_BIN}.backup.$(date +%Y%m%d%H%M%S)"
+  log_info "Backing up existing binary to $BACKUP_PATH"
+  cp "$INSTALL_BIN" "$BACKUP_PATH"
+
+  log_info "Installing new binary..."
+  cp "${SRC_DIR}/1panel-agent" "$INSTALL_BIN"
+  chmod +x "$INSTALL_BIN"
+
+  if [[ $SERVICE_WAS_ACTIVE -eq 1 ]] || systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+    log_info "Starting $SERVICE_NAME service..."
+    systemctl start "$SERVICE_NAME" || {
+      log_warn "Could not auto-start service. Please start manually."
+    }
+  else
+    log_warn "$SERVICE_NAME service not running. Please start manually."
+  fi
 fi
 
 CLEANUP_WORK_DIR=1

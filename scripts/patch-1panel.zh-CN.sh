@@ -12,6 +12,7 @@ PATCH_FILE_V2="${SCRIPT_DIR}/1panel-v2-httpreq.patch"
 REPO_URL="https://github.com/1Panel-dev/1Panel.git"
 WORK_DIR="/tmp/1panel-patch-$$"
 CLEANUP_WORK_DIR=0
+SERVICE_FILES_URL="https://github.com/1Panel-dev/installer/raw/v2/initscript"
 
 # 颜色
 RED='\033[0;31m'
@@ -65,6 +66,7 @@ if [[ -x /usr/local/go/bin/go ]] && [[ ":$PATH:" != *":/usr/local/go/bin:"* ]]; 
 fi
 ensure_command go golang-go
 ensure_command patch patch
+ensure_command curl curl
 
 # ============================================================
 # 检测 1Panel 安装状态
@@ -222,6 +224,11 @@ fi
 SRC_DIR="${WORK_DIR}/${SRC_SUBDIR}"
 log_info "源码目录: $SRC_DIR"
 
+HAS_SPLIT_SOURCE=0
+if [[ -d "${WORK_DIR}/agent" && -d "${WORK_DIR}/core" ]]; then
+  HAS_SPLIT_SOURCE=1
+fi
+
 # 验证 lego 版本兼容性
 if ! grep -q 'go-acme/lego/v4' "${SRC_DIR}/go.mod" 2>/dev/null; then
   log_error "此补丁仅支持使用 lego v4 的 1Panel"
@@ -323,8 +330,6 @@ patch -p2 < "$APPLY_PATCH"
 # ============================================================
 # 编译
 # ============================================================
-log_info "正在编译..."
-cd "$SRC_DIR"
 GOARCH=$(uname -m)
 case "$GOARCH" in
   x86_64)  GOARCH=amd64 ;;
@@ -332,115 +337,239 @@ case "$GOARCH" in
   armv7l)  GOARCH=arm ;;
 esac
 
-# 确定构建目标（分裂架构用 cmd/server/main.go，单体用 cmd/1panel/main.go 或 backend/cmd/1panel/main.go）
-BUILD_TARGET="cmd/server/main.go"
-if [[ "$SRC_SUBDIR" == "backend" ]]; then
-  BUILD_TARGET="cmd/1panel/main.go"
-fi
-log_info "构建目标: $BUILD_TARGET"
-
-# 紧凑构建：抑制 go 模块下载的大量输出，只在失败时显示日志
 BUILD_LOG=$(mktemp)
 trap 'rm -f "$BUILD_LOG"; cleanup' EXIT
-BUILD_START=$SECONDS
-(
-  cd "$SRC_DIR"
-  CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -trimpath -ldflags '-s -w' -o 1panel-agent "$BUILD_TARGET"
-) >"$BUILD_LOG" 2>&1 &
-BUILD_PID=$!
 
-# 等待构建进程开始写入日志
-sleep 0.5
+build_binary() {
+  local src_dir="$1"
+  local build_target="$2"
+  local output_name="$3"
+  local label="$4"
 
-# 显示构建进度（docker 风格：逐行滚动输出）
-echo -e "${GREEN}[INFO]${NC} 正在下载依赖并编译 (首次可能需要几分钟)..."
-LAST_PRINTED=""
-while kill -0 "$BUILD_PID" 2>/dev/null; do
-  ELAPSED=$(( SECONDS - BUILD_START ))
-  LAST_LINE=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
-  if [[ -n "$LAST_LINE" && "$LAST_LINE" != "$LAST_PRINTED" ]]; then
-    LAST_PRINTED="$LAST_LINE"
-    echo -e "${GREEN}[INFO]${NC} ${LAST_LINE} (${ELAPSED}s)"
+  log_info "正在编译 ${label}..."
+  local build_start=$SECONDS
+  (
+    cd "$src_dir"
+    CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH \
+      go build -trimpath -ldflags '-s -w' -o "$output_name" "$build_target"
+  ) >"$BUILD_LOG" 2>&1 &
+  local build_pid=$!
+
+  sleep 0.5
+  echo -e "${GREEN}[INFO]${NC} 正在下载依赖并编译 ${label} (首次可能需要几分钟)..."
+  local last_printed=""
+  while kill -0 "$build_pid" 2>/dev/null; do
+    local elapsed=$(( SECONDS - build_start ))
+    local last_line
+    last_line=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
+    if [[ -n "$last_line" && "$last_line" != "$last_printed" ]]; then
+      last_printed="$last_line"
+      echo -e "${GREEN}[INFO]${NC} ${last_line} (${elapsed}s)"
+    fi
+    sleep 2
+  done
+
+  wait "$build_pid"
+  local rc=$?
+  elapsed=$(( SECONDS - build_start ))
+  if [[ $rc -ne 0 ]]; then
+    log_error "${label} 编译失败 (耗时 ${elapsed}s)，日志如下:"
+    cat "$BUILD_LOG"
+    rm -f "$BUILD_LOG"
+    exit 1
   fi
-  sleep 2
-done
+  log_info "${label} 编译完成 (耗时 ${elapsed}s)"
+  : > "$BUILD_LOG"
+}
 
-wait "$BUILD_PID"
-BUILD_RC=$?
-ELAPSED=$(( SECONDS - BUILD_START ))
-if [[ $BUILD_RC -ne 0 ]]; then
-  log_error "编译失败 (耗时 ${ELAPSED}s)，日志如下:"
-  cat "$BUILD_LOG"
-  rm -f "$BUILD_LOG"
-  exit 1
+if [[ "$INSTALL_TYPE" == "monolithic-v1" && "$HAS_SPLIT_SOURCE" -eq 1 ]]; then
+  build_binary "$SRC_DIR" "cmd/server/main.go" "1panel-agent" "1panel-agent (含 HttpReq 补丁)"
+  AGENT_BUILD_OUTPUT="${SRC_DIR}/1panel-agent"
+  if [[ ! -f "$AGENT_BUILD_OUTPUT" ]]; then
+    log_error "编译产物未找到: $AGENT_BUILD_OUTPUT"
+    exit 1
+  fi
+
+  CORE_SRC_DIR="${WORK_DIR}/core"
+  build_binary "$CORE_SRC_DIR" "cmd/server/main.go" "1panel-core" "1panel-core (Web UI)"
+  CORE_BUILD_OUTPUT="${CORE_SRC_DIR}/1panel-core"
+  if [[ ! -f "$CORE_BUILD_OUTPUT" ]]; then
+    log_error "编译产物未找到: $CORE_BUILD_OUTPUT"
+    exit 1
+  fi
+else
+  BUILD_TARGET="cmd/server/main.go"
+  if [[ "$SRC_SUBDIR" == "backend" ]]; then
+    BUILD_TARGET="cmd/1panel/main.go"
+  fi
+  log_info "构建目标: $BUILD_TARGET"
+  build_binary "$SRC_DIR" "$BUILD_TARGET" "1panel-agent" "1panel-agent"
 fi
-log_info "编译完成 (耗时 ${ELAPSED}s)"
-rm -f "$BUILD_LOG"
 
 # ============================================================
 # 安装
 # ============================================================
-# 检测安装路径
-INSTALL_BIN=""
-case "$INSTALL_TYPE" in
-  split-v1|split-v2)
-    if [[ -f /usr/local/bin/1panel-agent ]]; then
-      INSTALL_BIN="/usr/local/bin/1panel-agent"
-    elif [[ -f /usr/bin/1panel-agent ]]; then
-      INSTALL_BIN="/usr/bin/1panel-agent"
+
+if [[ "$INSTALL_TYPE" == "monolithic-v1" && "$HAS_SPLIT_SOURCE" -eq 1 ]]; then
+  MONO_BIN=""
+  for p in /usr/local/bin/1panel /usr/bin/1panel; do
+    if [[ -f "$p" ]]; then
+      target=$(readlink -f "$p" 2>/dev/null)
+      if [[ "$target" != *"1panel-core"* ]]; then
+        MONO_BIN="$p"
+        break
+      fi
     fi
-    ;;
-  monolithic-v1|monolithic-v2)
-    if [[ -f /usr/local/bin/1panel ]]; then
-      INSTALL_BIN="/usr/local/bin/1panel"
-    elif [[ -f /usr/bin/1panel ]]; then
-      INSTALL_BIN="/usr/bin/1panel"
-    fi
-    ;;
-esac
+  done
 
-if [[ -z "$INSTALL_BIN" ]]; then
-  log_warn "未找到已安装的二进制文件"
-  log_info "编译产物: ${SRC_DIR}/1panel-agent"
-  log_info "请手动将其复制到 1Panel 安装目录"
-  exit 0
-fi
-
-# 确定服务名称
-SERVICE_NAME=""
-case "$INSTALL_TYPE" in
-  split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
-  monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
-esac
-
-# 停止服务（避免 "文本文件忙" 错误）
-SERVICE_WAS_ACTIVE=0
-if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-  SERVICE_WAS_ACTIVE=1
-  log_info "正在停止 $SERVICE_NAME 服务..."
-  systemctl stop "$SERVICE_NAME" || {
-    log_error "无法停止 $SERVICE_NAME 服务"
+  if [[ -z "$MONO_BIN" ]]; then
+    log_error "未找到单体 1panel 二进制文件"
     exit 1
+  fi
+
+  NEW_BIN_DIR="/usr/local/bin"
+
+  log_info "正在停止 1panel 服务..."
+  if systemctl is-active --quiet 1panel 2>/dev/null; then
+    systemctl stop 1panel || {
+      log_error "无法停止 1panel 服务"
+      exit 1
+    }
+  fi
+
+  # 备份原始服务文件
+  if [[ -f /etc/systemd/system/1panel.service ]]; then
+    cp /etc/systemd/system/1panel.service /etc/systemd/system/1panel.service.backup
+    log_info "已备份 1panel.service 到 /etc/systemd/system/1panel.service.backup"
+  fi
+
+  BACKUP_PATH="${MONO_BIN}.backup.$(date +%Y%m%d%H%M%S)"
+  log_info "正在备份单体二进制文件到 $BACKUP_PATH"
+  cp "$MONO_BIN" "$BACKUP_PATH"
+
+  log_info "正在安装 1panel-agent 到 ${NEW_BIN_DIR}/1panel-agent"
+  cp "$AGENT_BUILD_OUTPUT" "${NEW_BIN_DIR}/1panel-agent"
+  chmod +x "${NEW_BIN_DIR}/1panel-agent"
+
+  log_info "正在安装 1panel-core 到 ${NEW_BIN_DIR}/1panel-core"
+  cp "$CORE_BUILD_OUTPUT" "${NEW_BIN_DIR}/1panel-core"
+  chmod +x "${NEW_BIN_DIR}/1panel-core"
+
+  for bin_name in 1panel-core 1panel-agent; do
+    if [[ "${NEW_BIN_DIR}" != "/usr/bin" ]]; then
+      ln -sf "${NEW_BIN_DIR}/${bin_name}" "/usr/bin/${bin_name}"
+    fi
+  done
+
+  if [[ "$MONO_BIN" == "/usr/bin/1panel" ]]; then
+    ln -sf "${NEW_BIN_DIR}/1panel-core" "/usr/bin/1panel"
+  fi
+
+  # 替换单体二进制为 symlink
+  if [[ -f "${NEW_BIN_DIR}/1panel" && ! -L "${NEW_BIN_DIR}/1panel" ]]; then
+    rm -f "${NEW_BIN_DIR}/1panel"
+    ln -sf "${NEW_BIN_DIR}/1panel-core" "${NEW_BIN_DIR}/1panel"
+    log_info "已将 ${NEW_BIN_DIR}/1panel 替换为指向 1panel-core 的符号链接"
+  fi
+
+  log_info "正在下载 systemd 服务文件..."
+  SVC_DOWNLOAD_OK=1
+  curl -fSL# "${SERVICE_FILES_URL}/1panel-core.service" \
+    -o /etc/systemd/system/1panel-core.service 2>/dev/null || SVC_DOWNLOAD_OK=0
+  curl -fSL# "${SERVICE_FILES_URL}/1panel-agent.service" \
+    -o /etc/systemd/system/1panel-agent.service 2>/dev/null || SVC_DOWNLOAD_OK=0
+
+  if [[ "$SVC_DOWNLOAD_OK" -eq 0 ]]; then
+    log_error "无法从 GitHub 下载服务文件。"
+    log_error "URL:"
+    log_error "  ${SERVICE_FILES_URL}/1panel-core.service"
+    log_error "  ${SERVICE_FILES_URL}/1panel-agent.service"
+    log_error ""
+    log_error "二进制文件已安装但服务未配置。"
+    log_error "请手动下载服务文件到 /etc/systemd/system/"
+    log_error "然后运行: systemctl daemon-reload && systemctl enable --now 1panel-core 1panel-agent"
+    CLEANUP_WORK_DIR=1
+    rm -f "$BUILD_LOG"
+    exit 1
+  fi
+
+  systemctl daemon-reload
+
+  log_info "正在禁用旧 1panel.service..."
+  systemctl disable 1panel 2>/dev/null || true
+
+  log_info "正在启用 1panel-core.service 和 1panel-agent.service..."
+  systemctl enable 1panel-core 1panel-agent
+
+  log_info "正在启动 1panel-core 和 1panel-agent..."
+  systemctl start 1panel-core || {
+    log_warn "无法启动 1panel-core，请检查: journalctl -u 1panel-core"
   }
-fi
-
-# 备份并安装
-BACKUP_PATH="${INSTALL_BIN}.backup.$(date +%Y%m%d%H%M%S)"
-log_info "正在备份现有二进制文件到 $BACKUP_PATH"
-cp "$INSTALL_BIN" "$BACKUP_PATH"
-
-log_info "正在安装新二进制文件..."
-cp "${SRC_DIR}/1panel-agent" "$INSTALL_BIN"
-chmod +x "$INSTALL_BIN"
-
-# 重启服务
-if [[ $SERVICE_WAS_ACTIVE -eq 1 ]] || systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-  log_info "正在启动 $SERVICE_NAME 服务..."
-  systemctl start "$SERVICE_NAME" || {
-    log_warn "无法自动启动服务，请手动启动。"
+  systemctl start 1panel-agent || {
+    log_warn "无法启动 1panel-agent，请检查: journalctl -u 1panel-agent"
   }
+
+  log_info "迁移完成: 单体架构 -> 分裂架构"
+  log_info "旧单体二进制备份: $BACKUP_PATH"
+
 else
-  log_warn "未检测到 $SERVICE_NAME 服务，请手动启动。"
+  INSTALL_BIN=""
+  case "$INSTALL_TYPE" in
+    split-v1|split-v2)
+      if [[ -f /usr/local/bin/1panel-agent ]]; then
+        INSTALL_BIN="/usr/local/bin/1panel-agent"
+      elif [[ -f /usr/bin/1panel-agent ]]; then
+        INSTALL_BIN="/usr/bin/1panel-agent"
+      fi
+      ;;
+    monolithic-v1|monolithic-v2)
+      if [[ -f /usr/local/bin/1panel ]]; then
+        INSTALL_BIN="/usr/local/bin/1panel"
+      elif [[ -f /usr/bin/1panel ]]; then
+        INSTALL_BIN="/usr/bin/1panel"
+      fi
+      ;;
+  esac
+
+  if [[ -z "$INSTALL_BIN" ]]; then
+    log_warn "未找到已安装的二进制文件"
+    log_info "编译产物: ${SRC_DIR}/1panel-agent"
+    log_info "请手动将其复制到 1Panel 安装目录"
+    exit 0
+  fi
+
+  SERVICE_NAME=""
+  case "$INSTALL_TYPE" in
+    split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
+    monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
+  esac
+
+  SERVICE_WAS_ACTIVE=0
+  if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+    SERVICE_WAS_ACTIVE=1
+    log_info "正在停止 $SERVICE_NAME 服务..."
+    systemctl stop "$SERVICE_NAME" || {
+      log_error "无法停止 $SERVICE_NAME 服务"
+      exit 1
+    }
+  fi
+
+  BACKUP_PATH="${INSTALL_BIN}.backup.$(date +%Y%m%d%H%M%S)"
+  log_info "正在备份现有二进制文件到 $BACKUP_PATH"
+  cp "$INSTALL_BIN" "$BACKUP_PATH"
+
+  log_info "正在安装新二进制文件..."
+  cp "${SRC_DIR}/1panel-agent" "$INSTALL_BIN"
+  chmod +x "$INSTALL_BIN"
+
+  if [[ $SERVICE_WAS_ACTIVE -eq 1 ]] || systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+    log_info "正在启动 $SERVICE_NAME 服务..."
+    systemctl start "$SERVICE_NAME" || {
+      log_warn "无法自动启动服务，请手动启动。"
+    }
+  else
+    log_warn "未检测到 $SERVICE_NAME 服务，请手动启动。"
+  fi
 fi
 
 CLEANUP_WORK_DIR=1
