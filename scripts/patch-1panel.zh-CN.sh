@@ -357,7 +357,7 @@ build_binary() {
   local build_pid=$!
 
   sleep 0.5
-  echo -ne "${GREEN}[INFO]${NC} 正在下载依赖并编译 ${label} (首次可能需要几分钟)...\r"
+  echo -e "${GREEN}[INFO]${NC} 正在下载依赖并编译 ${label} (首次可能需要几分钟)..."
   local last_printed=""
   while kill -0 "$build_pid" 2>/dev/null; do
     local elapsed=$(( SECONDS - build_start ))
@@ -365,11 +365,11 @@ build_binary() {
     last_line=$(tail -c 500 "$BUILD_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
     if [[ -n "$last_line" && "$last_line" != "$last_printed" ]]; then
       last_printed="$last_line"
-      echo -ne "${GREEN}[INFO]${NC} ${last_line} (${elapsed}s)\033[K\r"
+      echo -ne "  ${last_line} (${elapsed}s)\033[K\r"
     fi
     sleep 2
   done
-  echo -e "\r\033[K"
+  echo -e "\033[K"
 
   wait "$build_pid"
   local rc=$?
