@@ -32,7 +32,7 @@ func (h *ScriptDownloadHandler) Download1PanelPatch(c *gin.Context) {
 
 	readmeFile := fmt.Sprintf("README.%s.md", lang)
 	patchFile := "1panel-v1-httpreq.patch"
-	scriptFile := "patch-1panel-v1.sh"
+	scriptFile := fmt.Sprintf("patch-1panel-v1.%s.sh", lang)
 
 	// Verify files exist
 	for _, f := range []string{patchFile, scriptFile, readmeFile} {
@@ -54,8 +54,8 @@ func (h *ScriptDownloadHandler) Download1PanelPatch(c *gin.Context) {
 		return // headers already sent, can't return JSON
 	}
 
-	// Add install script
-	if err := h.addFileToZip(zw, scriptFile, scriptFile); err != nil {
+	// Add install script (strip language suffix so users get clean filename)
+	if err := h.addFileToZip(zw, scriptFile, "patch-1panel-v1.sh"); err != nil {
 		return
 	}
 
