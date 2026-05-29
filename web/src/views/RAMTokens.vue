@@ -97,15 +97,40 @@
 
           <el-divider />
 
+          <h4>{{ $t('ramTokens.withHttpreq') }}</h4>
+          <p>{{ $t('ramTokens.httpreqDesc') }}</p>
+          <el-alert type="info" :closable="false" show-icon style="margin: 12px 0">
+            {{ $t('ramTokens.httpreq1PanelV1Note') }}
+          </el-alert>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item :label="$t('ramTokens.endpointLabel')">
+              <code>{{ httpreqEndpoint }}</code>
+              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(httpreqEndpoint)">{{ $t('common.copy') }}</el-button>
+            </el-descriptions-item>
+          </el-descriptions>
+          <el-button type="primary" size="small" style="margin-top: 12px" @click="download1PanelPatch">
+            <el-icon><Download /></el-icon>
+            {{ $t('ramTokens.download1PanelPatch') }}
+          </el-button>
+
+          <el-divider />
+
           <h4>{{ $t('ramTokens.withTechnitium') }}</h4>
           <p>{{ $t('ramTokens.technitiumDesc') }}</p>
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="BASE URL">
-              <code>{{ providerEndpoints.find(e => e.name === 'Technitium')?.url }}</code>
-              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(providerEndpoints.find(e => e.name === 'Technitium')?.url)">{{ $t('common.copy') }}</el-button>
+            <el-descriptions-item :label="$t('ramTokens.baseUrlLabel')">
+              <code>{{ technitiumEndpoint }}</code>
+              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(technitiumEndpoint)">{{ $t('common.copy') }}</el-button>
             </el-descriptions-item>
-            <el-descriptions-item label="Token">
-              {{ $t('ramTokens.tokenValue') }}: AccessKeySecret
+            <el-descriptions-item :label="$t('ramTokens.tokenLabel')">
+              <div v-if="firstEnabledToken" style="display: flex; align-items: center; gap: 8px;">
+                <code class="token-masked">{{ maskToken(firstEnabledToken.token) }}</code>
+                <el-button link type="primary" size="small" @click="copyToken(firstEnabledToken.token)">{{ $t('common.copy') }}</el-button>
+              </div>
+              <div v-else style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #909399">{{ $t('ramTokens.noTokenForTechnitium') }}</span>
+                <el-button link type="primary" size="small" @click="openCreate">{{ $t('ramTokens.createToken') }}</el-button>
+              </div>
             </el-descriptions-item>
           </el-descriptions>
 
@@ -114,9 +139,13 @@
           <h4>{{ $t('ramTokens.withAcmeDNS') }}</h4>
           <p>{{ $t('ramTokens.acmeDNSDesc') }}</p>
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="API BASE">
-              <code>{{ providerEndpoints.find(e => e.name === 'AcmeDNS')?.url }}</code>
-              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(providerEndpoints.find(e => e.name === 'AcmeDNS')?.url)">{{ $t('common.copy') }}</el-button>
+            <el-descriptions-item :label="$t('ramTokens.apiBaseLabel')">
+              <code>{{ acmednsEndpoint }}</code>
+              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(acmednsEndpoint)">{{ $t('common.copy') }}</el-button>
+            </el-descriptions-item>
+            <el-descriptions-item :label="$t('ramTokens.baseUrlLabel')">
+              <code>{{ acmednsEndpoint }}</code>
+              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(acmednsEndpoint)">{{ $t('common.copy') }}</el-button>
             </el-descriptions-item>
           </el-descriptions>
 
@@ -141,11 +170,6 @@
           <h4>{{ $t('ramTokens.withDdnsGo') }}</h4>
           <p>{{ $t('ramTokens.ddnsGoCallbackHint') }}</p>
           <el-button type="primary" size="small" @click="$router.push('/settings')">{{ $t('ramTokens.goToSettings') }}</el-button>
-
-          <el-divider />
-
-          <h4>{{ $t('ramTokens.withHttpreq') }}</h4>
-          <p>{{ $t('ramTokens.httpreqDesc') }}</p>
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -319,6 +343,16 @@ const copyAllCredentials = () => {
   ElMessage.success(t('ramTokens.copiedAll'))
 }
 
+const download1PanelPatch = () => {
+  const lang = localStorage.getItem('locale') || 'zh-CN'
+  const link = document.createElement('a')
+  link.href = `/api/v1/scripts/1panel-v1-patch.zip?lang=${lang}`
+  link.download = '1panel-v1-httpreq-patch.zip'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
 const downloadCSV = () => {
   const token = createdToken.value
   const escapeCsv = (val) => {
@@ -345,10 +379,6 @@ const downloadCSV = () => {
   document.body.removeChild(link)
 }
 
-const endpointUrl = computed(() => {
-  return window.location.origin + '/alidns'
-})
-
 const providerEndpoints = computed(() => {
   const base = window.location.origin
   return [
@@ -359,6 +389,22 @@ const providerEndpoints = computed(() => {
     { name: 'httpreq', url: base + '/httpreq' },
     { name: 'AcmeDNS', url: base + '/acmedns' },
   ]
+})
+
+const technitiumEndpoint = computed(() => {
+  return window.location.origin + '/technitium'
+})
+
+const firstEnabledToken = computed(() => {
+  return tokens.value.find(t => t.enabled) || null
+})
+
+const acmednsEndpoint = computed(() => {
+  return window.location.origin + '/acmedns'
+})
+
+const httpreqEndpoint = computed(() => {
+  return window.location.origin + '/httpreq'
 })
 
 const loadTokens = async () => {
