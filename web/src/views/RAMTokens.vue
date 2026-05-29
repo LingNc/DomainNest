@@ -136,24 +136,6 @@
 
           <el-divider />
 
-          <h4>{{ $t('ramTokens.withAcmeDNS') }}</h4>
-          <p>{{ $t('ramTokens.acmeDNSDesc') }}</p>
-          <el-descriptions :column="1" border size="small">
-            <el-descriptions-item :label="$t('ramTokens.apiBaseLabel')">
-              <code>{{ acmednsEndpoint }}</code>
-              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(acmednsEndpoint)">{{ $t('common.copy') }}</el-button>
-            </el-descriptions-item>
-            <el-descriptions-item :label="$t('ramTokens.baseUrlLabel')">
-              <code>{{ acmednsEndpoint }}</code>
-              <el-button link type="primary" size="small" style="margin-left: 8px" @click="copyText(acmednsEndpoint)">{{ $t('common.copy') }}</el-button>
-            </el-descriptions-item>
-          </el-descriptions>
-          <el-alert type="info" :closable="false" show-icon style="margin-top: 12px">
-            {{ $t('ramTokens.acmeDNSAuthHint') }}
-          </el-alert>
-
-          <el-divider />
-
           <h4>{{ $t('ramTokens.with1Panel') }}</h4>
           <el-alert type="info" :closable="false" show-icon style="margin-bottom: 12px">
             {{ $t('ramTokens.aliyunHostsHint') }}
@@ -390,7 +372,6 @@ const providerEndpoints = computed(() => {
     { name: 'TencentCloud', url: base + '/tcdns' },
     { name: 'Technitium', url: base + '/technitium' },
     { name: 'httpreq', url: base + '/httpreq' },
-    { name: 'AcmeDNS', url: base + '/acmedns' },
   ]
 })
 
@@ -400,10 +381,6 @@ const technitiumEndpoint = computed(() => {
 
 const firstEnabledToken = computed(() => {
   return tokens.value.find(t => t.enabled) || null
-})
-
-const acmednsEndpoint = computed(() => {
-  return window.location.origin + '/acmedns'
 })
 
 const httpreqEndpoint = computed(() => {
