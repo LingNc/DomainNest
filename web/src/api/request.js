@@ -2,6 +2,8 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import { useAvatarCache } from '../stores/avatarCache'
+import i18n from '../i18n'
+import { errorMessageMap } from '../i18n/errorMessages'
 
 const request = axios.create({
   baseURL: '/api/v1',
@@ -25,7 +27,8 @@ request.interceptors.response.use(
     const { data } = response
     if (data.code !== 0) {
       if (!response.config?.skipErrorToast) {
-        ElMessage.error(data.message || '请求失败')
+        const translatedKey = errorMessageMap.get(data.message)
+        ElMessage.error(translatedKey ? i18n.global.t(translatedKey) : (data.message || i18n.global.t('errors.requestFailed')))
       }
       return Promise.reject(data)
     }
@@ -45,7 +48,9 @@ request.interceptors.response.use(
         window.location.href = '/login'
       }
     }
-    ElMessage.error(error.response?.data?.message || '网络错误')
+    const errMsg = error.response?.data?.message
+    const translatedKey = errMsg ? errorMessageMap.get(errMsg) : null
+    ElMessage.error(translatedKey ? i18n.global.t(translatedKey) : (errMsg || i18n.global.t('errors.requestFailed')))
     return Promise.reject(error)
   }
 )
