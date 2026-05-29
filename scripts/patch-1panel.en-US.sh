@@ -390,17 +390,80 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
   )
 
   if [[ $HAS_NPM -eq 1 ]]; then
-    log_info "Building frontend..."
+    NPM_LOG=$(mktemp)
+    npm_start=$SECONDS
+
+    log_info "Installing frontend dependencies..."
     (
       cd "${WORK_DIR}/frontend"
-      npm install --prefer-offline 2>&1 | tail -1
-      npm run build:pro 2>&1 | tail -5
-    )
+      npm install --prefer-offline
+    ) >"$NPM_LOG" 2>&1 &
+    npm_pid=$!
+
+    sleep 0.5
+    echo -e "${GREEN}[INFO]${NC} Downloading frontend dependencies (may take a few minutes on first run)..."
+    last_printed=""
+    while kill -0 "$npm_pid" 2>/dev/null; do
+      elapsed=$(( SECONDS - npm_start ))
+      last_line=$(tail -c 500 "$NPM_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
+      if [[ -n "$last_line" && "$last_line" != "$last_printed" ]]; then
+        last_printed="$last_line"
+        echo -ne "  ${last_line} (${elapsed}s)\033[K\r"
+      fi
+      sleep 2
+    done
+    echo -e "\033[K"
+
+    rc=0
+    wait "$npm_pid" || rc=$?
+    npm_elapsed=$(( SECONDS - npm_start ))
+    if [[ $rc -ne 0 ]]; then
+      log_error "npm install failed (${npm_elapsed}s elapsed), log output:"
+      cat "$NPM_LOG"
+      rm -f "$NPM_LOG"
+    else
+      log_info "Frontend dependencies installed (${npm_elapsed}s elapsed)"
+      : > "$NPM_LOG"
+
+      log_info "Building frontend..."
+      (
+        cd "${WORK_DIR}/frontend"
+        npm run build:pro
+      ) >"$NPM_LOG" 2>&1 &
+      npm_pid=$!
+
+      sleep 0.5
+      echo -e "${GREEN}[INFO]${NC} Compiling frontend..."
+      last_printed=""
+      while kill -0 "$npm_pid" 2>/dev/null; do
+        elapsed=$(( SECONDS - npm_start ))
+        last_line=$(tail -c 500 "$NPM_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
+        if [[ -n "$last_line" && "$last_line" != "$last_printed" ]]; then
+          last_printed="$last_line"
+          echo -ne "  ${last_line} (${elapsed}s)\033[K\r"
+        fi
+        sleep 2
+      done
+      echo -e "\033[K"
+
+      rc=0
+      wait "$npm_pid" || rc=$?
+      npm_elapsed=$(( SECONDS - npm_start ))
+      if [[ $rc -ne 0 ]]; then
+        log_error "Frontend build failed (${npm_elapsed}s elapsed), log output:"
+        cat "$NPM_LOG"
+        rm -f "$NPM_LOG"
+      else
+        log_info "Frontend build completed (${npm_elapsed}s elapsed)"
+      fi
+    fi
+    rm -f "$NPM_LOG"
+
     # Copy built frontend to core web directory
     if [[ -d "${WORK_DIR}/frontend/dist" ]]; then
       rm -rf "${WORK_DIR}/core/cmd/server/web"
       cp -r "${WORK_DIR}/frontend/dist" "${WORK_DIR}/core/cmd/server/web"
-      log_info "Frontend build complete"
+      log_info "Frontend build output copied"
     else
       log_warn "Frontend build output not found, using original frontend"
     fi

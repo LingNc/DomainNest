@@ -13,7 +13,7 @@
          value: 'DnsPod',
 --- a/src/views/website/ssl/dns-account/create/index.vue
 +++ b/src/views/website/ssl/dns-account/create/index.vue
-@@ -160,6 +160,17 @@
+@@ -159,6 +159,17 @@
                          <el-form-item label="BASE URL" prop="authorization.baseURL" :rules="[Rules.requiredInput]">
                              <el-input v-model.trim="account.authorization['baseURL']"></el-input>
                          </el-form-item>

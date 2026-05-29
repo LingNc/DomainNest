@@ -391,17 +391,80 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
   )
 
   if [[ $HAS_NPM -eq 1 ]]; then
-    log_info "正在构建前端..."
+    NPM_LOG=$(mktemp)
+    npm_start=$SECONDS
+
+    log_info "正在安装前端依赖..."
     (
       cd "${WORK_DIR}/frontend"
-      npm install --prefer-offline 2>&1 | tail -1
-      npm run build:pro 2>&1 | tail -5
-    )
+      npm install --prefer-offline
+    ) >"$NPM_LOG" 2>&1 &
+    npm_pid=$!
+
+    sleep 0.5
+    echo -e "${GREEN}[INFO]${NC} 正在下载前端依赖 (首次可能需要几分钟)..."
+    last_printed=""
+    while kill -0 "$npm_pid" 2>/dev/null; do
+      elapsed=$(( SECONDS - npm_start ))
+      last_line=$(tail -c 500 "$NPM_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
+      if [[ -n "$last_line" && "$last_line" != "$last_printed" ]]; then
+        last_printed="$last_line"
+        echo -ne "  ${last_line} (${elapsed}s)\033[K\r"
+      fi
+      sleep 2
+    done
+    echo -e "\033[K"
+
+    rc=0
+    wait "$npm_pid" || rc=$?
+    npm_elapsed=$(( SECONDS - npm_start ))
+    if [[ $rc -ne 0 ]]; then
+      log_error "npm install 失败 (${npm_elapsed}s)，日志如下:"
+      cat "$NPM_LOG"
+      rm -f "$NPM_LOG"
+    else
+      log_info "前端依赖安装完成 (${npm_elapsed}s)"
+      : > "$NPM_LOG"
+
+      log_info "正在构建前端..."
+      (
+        cd "${WORK_DIR}/frontend"
+        npm run build:pro
+      ) >"$NPM_LOG" 2>&1 &
+      npm_pid=$!
+
+      sleep 0.5
+      echo -e "${GREEN}[INFO]${NC} 正在编译前端..."
+      last_printed=""
+      while kill -0 "$npm_pid" 2>/dev/null; do
+        elapsed=$(( SECONDS - npm_start ))
+        last_line=$(tail -c 500 "$NPM_LOG" 2>/dev/null | grep -v '^$' | tail -1 || true)
+        if [[ -n "$last_line" && "$last_line" != "$last_printed" ]]; then
+          last_printed="$last_line"
+          echo -ne "  ${last_line} (${elapsed}s)\033[K\r"
+        fi
+        sleep 2
+      done
+      echo -e "\033[K"
+
+      rc=0
+      wait "$npm_pid" || rc=$?
+      npm_elapsed=$(( SECONDS - npm_start ))
+      if [[ $rc -ne 0 ]]; then
+        log_error "前端构建失败 (${npm_elapsed}s)，日志如下:"
+        cat "$NPM_LOG"
+        rm -f "$NPM_LOG"
+      else
+        log_info "前端构建完成 (${npm_elapsed}s)"
+      fi
+    fi
+    rm -f "$NPM_LOG"
+
     # Copy built frontend to core web directory
     if [[ -d "${WORK_DIR}/frontend/dist" ]]; then
       rm -rf "${WORK_DIR}/core/cmd/server/web"
       cp -r "${WORK_DIR}/frontend/dist" "${WORK_DIR}/core/cmd/server/web"
-      log_info "前端构建完成"
+      log_info "前端构建产物已复制"
     else
       log_warn "前端构建产物未找到，将使用原有前端"
     fi
