@@ -28,10 +28,29 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Check prerequisites
-command -v git >/dev/null 2>&1 || { log_error "git is required"; exit 1; }
-command -v go >/dev/null 2>&1 || { log_error "Go is required"; exit 1; }
-command -v patch >/dev/null 2>&1 || { log_error "patch command is required"; exit 1; }
+# Check prerequisites, offer to install if missing
+ensure_command() {
+  local cmd="$1"
+  local pkg="$2"
+  command -v "$cmd" >/dev/null 2>&1 && return 0
+  log_error "$cmd is required"
+  if [[ ! -t 0 ]]; then
+    log_error "Non-interactive mode — cannot prompt. Please install manually: apt-get install -y $pkg"
+    exit 1
+  fi
+  read -p "Install via apt? [y/N] " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    log_info "Installing $pkg..."
+    apt-get update && apt-get install -y "$pkg"
+  else
+    exit 1
+  fi
+}
+
+ensure_command git git
+ensure_command go golang-go
+ensure_command patch patch
 
 # Find latest v1 LTS tag
 log_info "Finding latest 1Panel v1 LTS tag..."

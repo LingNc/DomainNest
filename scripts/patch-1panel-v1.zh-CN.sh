@@ -28,10 +28,29 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 检查依赖
-command -v git >/dev/null 2>&1 || { log_error "需要安装 git"; exit 1; }
-command -v go >/dev/null 2>&1 || { log_error "需要安装 Go"; exit 1; }
-command -v patch >/dev/null 2>&1 || { log_error "需要安装 patch 命令"; exit 1; }
+# 检查依赖，缺失时提供安装选项
+ensure_command() {
+  local cmd="$1"
+  local pkg="$2"
+  command -v "$cmd" >/dev/null 2>&1 && return 0
+  log_error "需要安装 $cmd"
+  if [[ ! -t 0 ]]; then
+    log_error "非交互模式，无法安装。请手动运行: apt-get install -y $pkg"
+    exit 1
+  fi
+  read -p "是否使用 apt 进行安装? [y/N] " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    log_info "正在安装 $pkg..."
+    apt-get update && apt-get install -y "$pkg"
+  else
+    exit 1
+  fi
+}
+
+ensure_command git git
+ensure_command go golang-go
+ensure_command patch patch
 
 # 查找最新的 v1 LTS 标签
 log_info "正在查找最新的 1Panel v1 LTS 标签..."
