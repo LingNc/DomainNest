@@ -22,7 +22,7 @@
               <el-option :label="$t('common.disabled')" value="disabled" />
             </el-select>
           </div>
-          <el-table :data="filteredTokens" stripe v-loading="loading" style="width:100%">
+          <el-table :data="filteredTokens" stripe v-loading="loading" style="width:100%" @sort-change="handleSortChange">
             <el-table-column prop="id" :label="$t('ramTokens.id')" width="80" sortable="custom" />
             <el-table-column prop="name" :label="$t('ramTokens.name')" min-width="120" sortable="custom" />
             <el-table-column prop="access_key_id" :label="$t('ramTokens.accessKeyID')" min-width="180">
@@ -258,6 +258,13 @@ const createdToken = ref({})
 const editTargetId = ref(null)
 const tokenSearch = ref('')
 const tokenStatusFilter = ref('')
+const sortProp = ref('')
+const sortOrder = ref('')
+
+const handleSortChange = ({ prop, order }) => {
+  sortProp.value = prop || ''
+  sortOrder.value = order || ''
+}
 
 const filteredTokens = computed(() => {
   let result = tokens.value
@@ -272,6 +279,17 @@ const filteredTokens = computed(() => {
     result = result.filter(t => t.enabled)
   } else if (tokenStatusFilter.value === 'disabled') {
     result = result.filter(t => !t.enabled)
+  }
+  if (sortProp.value && sortOrder.value) {
+    const prop = sortProp.value
+    const dir = sortOrder.value === 'ascending' ? 1 : -1
+    result = [...result].sort((a, b) => {
+      const va = a[prop] ?? ''
+      const vb = b[prop] ?? ''
+      if (va < vb) return -dir
+      if (va > vb) return dir
+      return 0
+    })
   }
   return result
 })
