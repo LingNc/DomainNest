@@ -124,7 +124,7 @@ if [[ -z "$INSTALL_BIN" ]]; then
   exit 1
 fi
 
-BACKUP_FILES=($(ls -1 $BACKUP_PATTERN 2>/dev/null | sort -V))
+BACKUP_FILES=($(ls -1 $BACKUP_PATTERN 2>/dev/null | sort -V || true))
 
 if [[ ${#BACKUP_FILES[@]} -eq 0 ]]; then
   log_error "未找到备份文件: $BACKUP_PATTERN"
@@ -146,25 +146,34 @@ else
   log_info "非交互模式，自动恢复最新备份..."
 fi
 
-# 恢复备份
-log_info "正在恢复备份..."
-cp "$LATEST_BACKUP" "$INSTALL_BIN"
-chmod +x "$INSTALL_BIN"
-
-# 重启服务
+# 停止服务
 SERVICE_NAME=""
 case "$INSTALL_TYPE" in
   split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
   monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
 esac
 
+SERVICE_WAS_ACTIVE=0
 if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-  log_info "正在重启 $SERVICE_NAME 服务..."
-  systemctl restart "$SERVICE_NAME" || {
-    log_warn "无法自动重启服务，请手动重启。"
+  SERVICE_WAS_ACTIVE=1
+  log_info "正在停止 $SERVICE_NAME 服务..."
+  systemctl stop "$SERVICE_NAME" || {
+    log_error "无法停止 $SERVICE_NAME 服务"
+    exit 1
   }
-else
-  log_warn "$SERVICE_NAME 服务未运行，请手动重启。"
+fi
+
+# 恢复备份
+log_info "正在恢复备份..."
+cp "$LATEST_BACKUP" "$INSTALL_BIN"
+chmod +x "$INSTALL_BIN"
+
+# 重启服务
+if [[ $SERVICE_WAS_ACTIVE -eq 1 ]]; then
+  log_info "正在启动 $SERVICE_NAME 服务..."
+  systemctl start "$SERVICE_NAME" || {
+    log_warn "无法自动启动服务，请手动启动。"
+  }
 fi
 
 log_info "回滚成功！已恢复: $LATEST_BACKUP"

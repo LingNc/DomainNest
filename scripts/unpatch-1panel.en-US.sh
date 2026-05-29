@@ -124,7 +124,7 @@ if [[ -z "$INSTALL_BIN" ]]; then
   exit 1
 fi
 
-BACKUP_FILES=($(ls -1 $BACKUP_PATTERN 2>/dev/null | sort -V))
+BACKUP_FILES=($(ls -1 $BACKUP_PATTERN 2>/dev/null | sort -V || true))
 
 if [[ ${#BACKUP_FILES[@]} -eq 0 ]]; then
   log_error "No backup files found: $BACKUP_PATTERN"
@@ -146,25 +146,34 @@ else
   log_info "Non-interactive mode, restoring latest backup automatically..."
 fi
 
-# Restore backup
-log_info "Restoring backup..."
-cp "$LATEST_BACKUP" "$INSTALL_BIN"
-chmod +x "$INSTALL_BIN"
-
-# Restart service
+# Stop service
 SERVICE_NAME=""
 case "$INSTALL_TYPE" in
   split-v1|split-v2) SERVICE_NAME="1panel-agent" ;;
   monolithic-v1|monolithic-v2) SERVICE_NAME="1panel" ;;
 esac
 
+SERVICE_WAS_ACTIVE=0
 if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-  log_info "Restarting $SERVICE_NAME service..."
-  systemctl restart "$SERVICE_NAME" || {
-    log_warn "Could not auto-restart service. Please restart manually."
+  SERVICE_WAS_ACTIVE=1
+  log_info "Stopping $SERVICE_NAME service..."
+  systemctl stop "$SERVICE_NAME" || {
+    log_error "Cannot stop $SERVICE_NAME service"
+    exit 1
   }
-else
-  log_warn "$SERVICE_NAME service not running. Please restart manually."
+fi
+
+# Restore backup
+log_info "Restoring backup..."
+cp "$LATEST_BACKUP" "$INSTALL_BIN"
+chmod +x "$INSTALL_BIN"
+
+# Restart service
+if [[ $SERVICE_WAS_ACTIVE -eq 1 ]]; then
+  log_info "Starting $SERVICE_NAME service..."
+  systemctl start "$SERVICE_NAME" || {
+    log_warn "Could not auto-start service. Please start manually."
+  }
 fi
 
 log_info "Rollback successful! Restored from: $LATEST_BACKUP"
