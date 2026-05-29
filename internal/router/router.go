@@ -337,5 +337,23 @@ func Setup(cfg *config.Config, db *gorm.DB, authService *service.AuthService,
 		tc.POST("", tcCompatHandler.Dispatch)
 	}
 
+	// Technitium DNS API compatibility endpoint
+	technitiumCompatHandler := handler.NewTechnitiumCompatHandler(aliyunCompatSvc)
+	technitium := r.Group("/technitium")
+	technitium.Use(middleware.TechnitiumAuth(ramTokenService))
+	{
+		technitium.POST("/api/zones/records/add", technitiumCompatHandler.AddRecord)
+		technitium.POST("/api/zones/records/delete", technitiumCompatHandler.DeleteRecord)
+	}
+
+	// httpreq DNS API compatibility endpoint
+	httpreqCompatHandler := handler.NewHTTPReqCompatHandler(aliyunCompatSvc)
+	httpreq := r.Group("/httpreq")
+	httpreq.Use(middleware.BasicAuthRAM(ramTokenService))
+	{
+		httpreq.POST("/present", httpreqCompatHandler.Present)
+		httpreq.POST("/cleanup", httpreqCompatHandler.Cleanup)
+	}
+
 	return r
 }
