@@ -1,11 +1,10 @@
 package service
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"time"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -89,7 +88,7 @@ func (s *TrashService) ListTrash(userID uint64, q TrashQuery) (*TrashListResult,
 		Limit(q.PageSize).
 		Find(&items).Error
 	if err != nil {
-		return nil, fmt.Errorf("查询回收站失败: %w", err)
+		return nil, errs.Wrap(errs.InternalError, err)
 	}
 
 	return &TrashListResult{Items: items, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
@@ -99,16 +98,16 @@ func (s *TrashService) ListTrash(userID uint64, q TrashQuery) (*TrashListResult,
 func (s *TrashService) TrashRecord(recordID, userID uint64) error {
 	var record model.DNSRecord
 	if err := s.db.First(&record, recordID).Error; err != nil {
-		return errors.New("记录不存在")
+		return errs.New(errs.RecordNotFound, "记录不存在")
 	}
 
 	// Verify ownership through node
 	var node model.DomainNode
 	if err := s.db.Unscoped().First(&node, record.NodeID).Error; err != nil {
-		return errors.New("域名不存在")
+		return errs.New(errs.DomainNotFound, "域名不存在")
 	}
 	if node.OwnerID != userID {
-		return errors.New("无权操作此记录")
+		return errs.New(errs.NoPermission, "无权操作此记录")
 	}
 
 	// Delete from provider first (if it has a provider_record_id)
@@ -133,19 +132,19 @@ func (s *TrashService) TrashRecord(recordID, userID uint64) error {
 func (s *TrashService) RestoreRecord(recordID, userID uint64) error {
 	var record model.DNSRecord
 	if err := s.db.Unscoped().First(&record, recordID).Error; err != nil {
-		return errors.New("记录不存在")
+		return errs.New(errs.RecordNotFound, "记录不存在")
 	}
 	if record.TrashedAt == nil {
-		return errors.New("记录不在回收站中")
+		return errs.New(errs.RecordNotInTrash, "记录不在回收站中")
 	}
 
 	// Verify ownership
 	var node model.DomainNode
 	if err := s.db.Unscoped().First(&node, record.NodeID).Error; err != nil {
-		return errors.New("域名不存在")
+		return errs.New(errs.DomainNotFound, "域名不存在")
 	}
 	if node.OwnerID != userID {
-		return errors.New("无权操作此记录")
+		return errs.New(errs.NoPermission, "无权操作此记录")
 	}
 
 	return s.db.Unscoped().Model(&record).Updates(map[string]interface{}{
@@ -160,19 +159,19 @@ func (s *TrashService) RestoreRecord(recordID, userID uint64) error {
 func (s *TrashService) PermanentDelete(recordID, userID uint64) error {
 	var record model.DNSRecord
 	if err := s.db.Unscoped().First(&record, recordID).Error; err != nil {
-		return errors.New("记录不存在")
+		return errs.New(errs.RecordNotFound, "记录不存在")
 	}
 	if record.TrashedAt == nil {
-		return errors.New("记录不在回收站中")
+		return errs.New(errs.RecordNotInTrash, "记录不在回收站中")
 	}
 
 	// Verify ownership
 	var node model.DomainNode
 	if err := s.db.Unscoped().First(&node, record.NodeID).Error; err != nil {
-		return errors.New("域名不存在")
+		return errs.New(errs.DomainNotFound, "域名不存在")
 	}
 	if node.OwnerID != userID {
-		return errors.New("无权操作此记录")
+		return errs.New(errs.NoPermission, "无权操作此记录")
 	}
 
 	return s.db.Unscoped().Delete(&record).Error

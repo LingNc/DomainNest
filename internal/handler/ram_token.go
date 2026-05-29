@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/service"
 
@@ -26,7 +27,7 @@ func (h *RAMTokenHandler) List(c *gin.Context) {
 
 	tokens, err := h.ramTokenService.List(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -43,13 +44,13 @@ func (h *RAMTokenHandler) Create(c *gin.Context) {
 		AllowedIPs     []string `json:"allowed_ips"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	token, err := h.ramTokenService.Create(userID, req.Name, req.AllowedDomains, req.AllowedTypes, req.AllowedIPs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -78,13 +79,13 @@ func (h *RAMTokenHandler) Get(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	tokenID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的令牌ID"})
+		errs.JSONErrorCode(c, errs.InvalidTokenID)
 		return
 	}
 
 	token, err := h.ramTokenService.Get(tokenID, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -95,7 +96,7 @@ func (h *RAMTokenHandler) Update(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	tokenID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的令牌ID"})
+		errs.JSONErrorCode(c, errs.InvalidTokenID)
 		return
 	}
 
@@ -107,13 +108,13 @@ func (h *RAMTokenHandler) Update(c *gin.Context) {
 		AllowedIPs     []string `json:"allowed_ips"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	token, err := h.ramTokenService.Update(tokenID, userID, req.Name, req.Enabled, req.AllowedDomains, req.AllowedTypes, req.AllowedIPs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -134,19 +135,19 @@ func (h *RAMTokenHandler) ResetToken(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	tokenID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的令牌ID"})
+		errs.JSONErrorCode(c, errs.InvalidTokenID)
 		return
 	}
 
 	existingToken, err := h.ramTokenService.Get(tokenID, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	token, err := h.ramTokenService.ResetToken(tokenID, userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -173,18 +174,18 @@ func (h *RAMTokenHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	tokenID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的令牌ID"})
+		errs.JSONErrorCode(c, errs.InvalidTokenID)
 		return
 	}
 
 	existingToken, err := h.ramTokenService.Get(tokenID, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.ramTokenService.Delete(tokenID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

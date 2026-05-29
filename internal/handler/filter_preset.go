@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (h *FilterPresetHandler) List(c *gin.Context) {
 
 	presets, err := h.filterPresetService.ListPresets(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -39,13 +40,13 @@ func (h *FilterPresetHandler) Save(c *gin.Context) {
 		Filters string `json:"filters" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		errs.JSONErrorCode(c, errs.InvalidParams)
 		return
 	}
 
 	preset, err := h.filterPresetService.SavePreset(userID, req.Name, req.Filters)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -56,12 +57,12 @@ func (h *FilterPresetHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	presetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的预设ID"})
+		errs.JSONErrorCode(c, errs.InvalidPresetID)
 		return
 	}
 
 	if err := h.filterPresetService.DeletePreset(presetID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

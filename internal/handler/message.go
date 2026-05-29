@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/service"
 	"domainnest/internal/ws"
 
@@ -30,13 +31,13 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 		Content    string `json:"content" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	msg, err := h.messageService.SendMessage(userID, req.ReceiverID, req.Content)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -55,7 +56,7 @@ func (h *MessageHandler) GetConversations(c *gin.Context) {
 
 	conversations, err := h.messageService.GetConversations(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -67,7 +68,7 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	otherID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
@@ -82,7 +83,7 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 
 	messages, total, err := h.messageService.GetMessages(userID, otherID, page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -102,12 +103,12 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	otherID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
 	if err := h.messageService.MarkAsRead(userID, otherID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -125,7 +126,7 @@ func (h *MessageHandler) UnreadCount(c *gin.Context) {
 
 	count, err := h.messageService.UnreadCount(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -146,7 +147,7 @@ func (h *MessageHandler) GetNotifications(c *gin.Context) {
 
 	notifications, total, err := h.messageService.GetNotifications(userID, page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"items": notifications, "total": total, "page": page, "page_size": pageSize}})
@@ -157,7 +158,7 @@ func (h *MessageHandler) NotificationUnreadCount(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	count, err := h.messageService.GetNotificationUnreadCount(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"count": count}})
@@ -168,11 +169,11 @@ func (h *MessageHandler) MarkNotificationAsRead(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	notifID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的通知ID"})
+		errs.JSONErrorCode(c, errs.InvalidNotificationID)
 		return
 	}
 	if err := h.messageService.MarkNotificationAsRead(userID, notifID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已标记为已读"})
@@ -182,7 +183,7 @@ func (h *MessageHandler) MarkNotificationAsRead(c *gin.Context) {
 func (h *MessageHandler) MarkAllNotificationsAsRead(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	if err := h.messageService.MarkAllNotificationsAsRead(userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -199,18 +200,18 @@ func (h *MessageHandler) HandleNotificationAction(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	notifID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的通知ID"})
+		errs.JSONErrorCode(c, errs.InvalidNotificationID)
 		return
 	}
 	var req struct {
 		Action string `json:"action" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	if err := h.messageService.HandleNotificationAction(userID, notifID, req.Action); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "操作成功"})

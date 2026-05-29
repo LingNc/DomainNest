@@ -16,6 +16,7 @@ import (
 
 	"domainnest/internal/config"
 	"domainnest/internal/domain/notification"
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -88,13 +89,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	user, err := h.authService.Register(req.Username, req.Password, req.Email, req.InviteCode)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -149,19 +150,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	user, err := h.authService.Login(req.Username, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	token, err := middleware.GenerateToken(h.jwtSecret, user.ID, user.Username, user.Role, h.jwtExpire)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成令牌失败"})
+		errs.JSONErrorCode(c, errs.GenerateTokenFailed)
 		return
 	}
 
@@ -190,7 +191,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 
 	user, err := h.authService.GetUserByID(userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "用户不存在"})
+		errs.JSONErrorCode(c, errs.UserNotFound)
 		return
 	}
 
@@ -224,21 +225,21 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	changed := map[string]interface{}{}
 	if req.Username != "" {
 		if err := h.authService.UpdateUsername(userID, req.Username); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+			errs.JSONError(c, err)
 			return
 		}
 		changed["username"] = req.Username
 	}
 
 	if err := h.authService.UpdateProfile(userID, req.Nickname, req.Phone, req.Email, req.Avatar); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	if req.Nickname != "" {
@@ -264,7 +265,7 @@ func (h *AuthHandler) ResetToken(c *gin.Context) {
 
 	newToken, err := h.authService.ResetToken(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "重置令牌失败"})
+		errs.JSONErrorCode(c, errs.ResetTokenFailed)
 		return
 	}
 
@@ -288,12 +289,12 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	if err := h.authService.ChangePassword(userID, req.OldPassword, req.NewPassword); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -308,7 +309,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
@@ -321,7 +322,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 
 	code, err := service.GenerateVerifyCode()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成验证码失败"})
+		errs.JSONErrorCode(c, errs.GenerateVerifyCodeFailed)
 		return
 	}
 
@@ -342,7 +343,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		ExpiresAt: time.Now().Add(time.Duration(expiryMinutes) * time.Minute),
 	}
 	if err := h.db.Create(reset).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建重置验证码失败"})
+		errs.JSONErrorCode(c, errs.CreateResetCodeFailed)
 		return
 	}
 
@@ -362,18 +363,18 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	var reset model.PasswordReset
 	if err := h.db.Where("token = ? AND used = false AND expires_at > ?", req.Token, time.Now()).First(&reset).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "验证码无效或已过期"})
+		errs.JSONErrorCode(c, errs.VerifyCodeInvalidOrExpired)
 		return
 	}
 
 	if err := h.authService.AdminResetPassword(reset.UserID, req.NewPassword); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "重置密码失败"})
+		errs.JSONErrorCode(c, errs.ResetPasswordFailed)
 		return
 	}
 
@@ -390,7 +391,7 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "文件上传失败"})
+		errs.JSONErrorCode(c, errs.FileUploadFailed)
 		return
 	}
 	defer file.Close()
@@ -408,11 +409,11 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	case "image/png":
 		img, err = png.Decode(file)
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "仅支持 JPEG 和 PNG 格式"})
+		errs.JSONErrorCode(c, errs.ImageFormatNotAllowed)
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "failed to decode image: " + err.Error()})
+		errs.JSONErrorCode(c, errs.ImageEncodeFailed)
 		return
 	}
 
@@ -422,7 +423,7 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	// Encode to JPEG
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, resized, &jpeg.Options{Quality: 85}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "图片编码失败"})
+		errs.JSONErrorCode(c, errs.ImageEncodeFailed)
 		return
 	}
 
@@ -431,7 +432,7 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	dataURI := fmt.Sprintf("data:image/jpeg;base64,%s", b64)
 
 	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("avatar", dataURI).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存头像失败"})
+		errs.JSONErrorCode(c, errs.AvatarSaveFailed)
 		return
 	}
 
@@ -498,12 +499,12 @@ func (h *AuthHandler) GrantInviteQuota(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	if err := h.authService.GrantInviteQuota(userID, req.TargetUserID, req.Amount); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -534,12 +535,12 @@ func (h *AuthHandler) RevokeInviteQuota(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	if err := h.authService.RevokeInviteQuota(userID, req.TargetUserID, req.Amount); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -602,7 +603,7 @@ func (h *AuthHandler) GetInviteLogs(c *gin.Context) {
 func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	if err := h.authService.DeleteAccount(userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -619,12 +620,12 @@ func (h *AuthHandler) SendVerifyEmail(c *gin.Context) {
 		Purpose string `json:"purpose" binding:"required,oneof=register change_email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	if err := h.emailVerifySvc.SendCode(req.Email, req.Purpose); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "验证码发送失败: " + err.Error()})
+		errs.JSONErrorCode(c, errs.GenerateVerifyCodeFailed)
 		return
 	}
 
@@ -640,12 +641,12 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 		Purpose string `json:"purpose" binding:"required,oneof=register change_email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	if !h.emailVerifySvc.VerifyCode(req.Email, req.Code, req.Purpose) {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "验证码无效或已过期"})
+		errs.JSONErrorCode(c, errs.VerifyCodeInvalidOrExpired)
 		return
 	}
 
@@ -653,12 +654,12 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	if req.Purpose == "change_email" {
 		userID := c.GetUint64("user_id")
 		if userID == 0 {
-			c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "请先登录"})
+			errs.JSONErrorCode(c, errs.LoginRequired)
 			return
 		}
 		if err := h.db.Model(&model.User{}).Where("id = ?", userID).
 			Updates(map[string]interface{}{"email": req.Email, "email_verified": true}).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新邮箱失败"})
+			errs.JSONErrorCode(c, errs.UpdateEmailFailed)
 			return
 		}
 

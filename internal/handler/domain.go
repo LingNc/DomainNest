@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"domainnest/internal/domain/notification"
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -33,7 +34,7 @@ func (h *DomainHandler) List(c *gin.Context) {
 
 	nodes, err := h.domainService.GetUserNodes(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -49,13 +50,13 @@ func (h *DomainHandler) Create(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	node, err := h.domainService.CreateNode(req.ParentID, req.Host, userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -73,13 +74,13 @@ func (h *DomainHandler) Get(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	node, err := h.domainService.GetNode(nodeID, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -90,7 +91,7 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -99,13 +100,13 @@ func (h *DomainHandler) Transfer(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	transferResult, err := h.domainService.TransferNode(nodeID, userID, req.TargetUserID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -167,7 +168,7 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -176,7 +177,7 @@ func (h *DomainHandler) Delete(c *gin.Context) {
 	nodeLoaded := h.db.First(&node, nodeID).Error == nil
 
 	if err := h.domainService.DeleteNode(nodeID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -210,13 +211,13 @@ func (h *DomainHandler) BatchDelete(c *gin.Context) {
 		NodeIDs []uint64 `json:"node_ids" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	deleted, skipped, err := h.domainService.BatchDeleteNodes(req.NodeIDs, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -235,7 +236,7 @@ func (h *DomainHandler) GetTransferredAway(c *gin.Context) {
 
 	nodes, err := h.domainService.GetTransferredAwayNodes(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取转出域名失败"})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -247,7 +248,7 @@ func (h *DomainHandler) ConvertToNode(c *gin.Context) {
 
 	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的父节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidParentNodeID)
 		return
 	}
 
@@ -256,7 +257,7 @@ func (h *DomainHandler) ConvertToNode(c *gin.Context) {
 		TargetUserID uint64 `json:"target_user_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -268,13 +269,13 @@ func (h *DomainHandler) ConvertToNode(c *gin.Context) {
 
 	// Require write permission on the parent node
 	if err := h.permService.RequireLevel(userID, parentID, 2); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	node, err := h.domainService.MaterializeOrRestore(parentID, req.Host, userID, targetUserID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -305,13 +306,13 @@ func (h *DomainHandler) DemoteNode(c *gin.Context) {
 
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	// Require owner permission (level 4) to demote a node
 	if err := h.permService.RequireLevel(userID, nodeID, 4); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -320,7 +321,7 @@ func (h *DomainHandler) DemoteNode(c *gin.Context) {
 	h.db.First(&node, nodeID)
 
 	if err := h.domainService.DemoteNode(nodeID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -340,19 +341,19 @@ func (h *DomainHandler) GetConversionLogs(c *gin.Context) {
 
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	// Require read permission on the node
 	if err := h.permService.RequireLevel(userID, nodeID, 1); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	logs, err := h.domainService.GetConversionLogs(nodeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -363,25 +364,25 @@ func (h *DomainHandler) ReclaimDomain(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	providerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的服务商ID"})
+		errs.JSONErrorCode(c, errs.InvalidProviderID)
 		return
 	}
 	domainNodeID, err := strconv.ParseUint(c.Param("did"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	// Load the node to get old owner before reclaim
 	var node model.DomainNode
 	if err := h.db.First(&node, domainNodeID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "节点不存在"})
+		errs.JSONErrorCode(c, errs.NodeNotFound)
 		return
 	}
 	oldOwnerID := node.OwnerID
 
 	if err := h.domainService.ForceReclaim(domainNodeID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -416,7 +417,7 @@ func (h *DomainHandler) ReactivateDomain(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -424,12 +425,12 @@ func (h *DomainHandler) ReactivateDomain(c *gin.Context) {
 		ProviderID uint64 `json:"provider_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.domainService.ReactivateNode(nodeID, req.ProviderID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -466,18 +467,18 @@ func (h *DomainHandler) ArchiveInfo(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	if err := h.permService.RequireLevel(userID, nodeID, 1); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	var node model.DomainNode
 	if err := h.db.First(&node, nodeID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "节点不存在"})
+		errs.JSONErrorCode(c, errs.NodeNotFound)
 		return
 	}
 
@@ -500,13 +501,13 @@ func (h *DomainHandler) ArchiveInfo(c *gin.Context) {
 func (h *DomainHandler) ArchiveDomain(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 	userID := c.GetUint64("user_id")
 
 	if err := h.domainService.ArchiveDomainTree(nodeID, userID); err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -537,13 +538,13 @@ func (h *DomainHandler) ArchiveDomain(c *gin.Context) {
 func (h *DomainHandler) RestoreDomain(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 	userID := c.GetUint64("user_id")
 
 	if err := h.domainService.RestoreDomainTree(nodeID, userID); err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -567,7 +568,7 @@ func (h *DomainHandler) GetArchivedDomains(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodes, err := h.domainService.GetArchivedDomains(userID)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": nodes})
@@ -579,7 +580,7 @@ func (h *DomainHandler) ListArchivedChildren(c *gin.Context) {
 
 	list, err := h.domainService.ListArchivedChildren(id, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -592,7 +593,7 @@ func (h *DomainHandler) RestoreArchivedChild(c *gin.Context) {
 
 	err := h.domainService.RestoreArchivedChild(childID, userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -602,7 +603,7 @@ func (h *DomainHandler) RestoreArchivedChild(c *gin.Context) {
 func (h *DomainHandler) ReturnSubdomain(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 	userID := c.GetUint64("user_id")
@@ -610,12 +611,12 @@ func (h *DomainHandler) ReturnSubdomain(c *gin.Context) {
 	// Get node before return for notification
 	var node model.DomainNode
 	if err := h.db.First(&node, nodeID).Error; err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 404, "message": "节点不存在"})
+		errs.JSONErrorCode(c, errs.NodeNotFound)
 		return
 	}
 
 	if err := h.domainService.ReturnSubdomainToClaimer(nodeID, userID); err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -640,12 +641,12 @@ func (h *DomainHandler) SyncFromProvider(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	domainID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	if err := h.domainService.SyncFromProvider(domainID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

@@ -4,12 +4,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/netip"
 	"strings"
 	"time"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -25,7 +25,7 @@ func NewRAMTokenService(db *gorm.DB) *RAMTokenService {
 
 func (s *RAMTokenService) Create(userID uint64, name string, allowedDomains []uint64, allowedTypes, allowedIPs []string) (*model.RAMToken, error) {
 	if name == "" {
-		return nil, errors.New("令牌名称不能为空")
+		return nil, errs.New(errs.TokenNameRequired, "令牌名称不能为空")
 	}
 
 	token, err := generateRAMToken()
@@ -85,7 +85,7 @@ func (s *RAMTokenService) List(userID uint64) ([]model.RAMToken, error) {
 func (s *RAMTokenService) Get(tokenID, userID uint64) (*model.RAMToken, error) {
 	var token model.RAMToken
 	if err := s.db.Where("id = ? AND user_id = ?", tokenID, userID).First(&token).Error; err != nil {
-		return nil, errors.New("令牌不存在")
+		return nil, errs.New(errs.TokenNotFound, "令牌不存在")
 	}
 	return &token, nil
 }
@@ -94,7 +94,7 @@ func (s *RAMTokenService) Get(tokenID, userID uint64) (*model.RAMToken, error) {
 func (s *RAMTokenService) GetByID(tokenID uint64) (*model.RAMToken, error) {
 	var token model.RAMToken
 	if err := s.db.First(&token, tokenID).Error; err != nil {
-		return nil, errors.New("令牌不存在")
+		return nil, errs.New(errs.TokenNotFound, "令牌不存在")
 	}
 	return &token, nil
 }
@@ -102,7 +102,7 @@ func (s *RAMTokenService) GetByID(tokenID uint64) (*model.RAMToken, error) {
 func (s *RAMTokenService) Update(tokenID, userID uint64, name string, enabled *bool, allowedDomains []uint64, allowedTypes, allowedIPs []string) (*model.RAMToken, error) {
 	var token model.RAMToken
 	if err := s.db.Where("id = ? AND user_id = ?", tokenID, userID).First(&token).Error; err != nil {
-		return nil, errors.New("令牌不存在")
+		return nil, errs.New(errs.TokenNotFound, "令牌不存在")
 	}
 
 	updates := map[string]interface{}{}
@@ -138,7 +138,7 @@ func (s *RAMTokenService) Update(tokenID, userID uint64, name string, enabled *b
 func (s *RAMTokenService) ResetToken(tokenID, userID uint64) (*model.RAMToken, error) {
 	var token model.RAMToken
 	if err := s.db.Where("id = ? AND user_id = ?", tokenID, userID).First(&token).Error; err != nil {
-		return nil, errors.New("令牌不存在")
+		return nil, errs.New(errs.TokenNotFound, "令牌不存在")
 	}
 
 	newToken, err := generateRAMToken()
@@ -172,7 +172,7 @@ func (s *RAMTokenService) ResetToken(tokenID, userID uint64) (*model.RAMToken, e
 func (s *RAMTokenService) Delete(tokenID, userID uint64) error {
 	var token model.RAMToken
 	if err := s.db.Where("id = ? AND user_id = ?", tokenID, userID).First(&token).Error; err != nil {
-		return errors.New("令牌不存在")
+		return errs.New(errs.TokenNotFound, "令牌不存在")
 	}
 	return s.db.Delete(&token).Error
 }
@@ -181,7 +181,7 @@ func (s *RAMTokenService) Delete(tokenID, userID uint64) error {
 func (s *RAMTokenService) ValidateAndLookup(tokenStr string) (*model.RAMToken, error) {
 	var token model.RAMToken
 	if err := s.db.Where("token = ? AND enabled = ?", tokenStr, true).First(&token).Error; err != nil {
-		return nil, errors.New("RAM令牌无效或已禁用")
+		return nil, errs.New(errs.RAMTokenInvalid, "RAM令牌无效或已禁用")
 	}
 
 	// Update usage stats
@@ -198,7 +198,7 @@ func (s *RAMTokenService) ValidateAndLookup(tokenStr string) (*model.RAMToken, e
 func (s *RAMTokenService) LookupByAccessKeyID(accessKeyID string) (*model.RAMToken, error) {
 	var token model.RAMToken
 	if err := s.db.Where("access_key_id = ? AND enabled = ?", accessKeyID, true).First(&token).Error; err != nil {
-		return nil, errors.New("AccessKeyID无效或已禁用")
+		return nil, errs.New(errs.AccessKeyIDInvalid, "AccessKeyID无效或已禁用")
 	}
 	now := time.Now()
 	s.db.Model(&token).Updates(map[string]interface{}{
@@ -225,7 +225,7 @@ func (s *RAMTokenService) CheckDomainAccess(token *model.RAMToken, domainNodeID 
 		}
 	}
 
-	return fmt.Errorf("RAM令牌无权访问域名 %d", domainNodeID)
+	return errs.New(errs.NoAccess, fmt.Sprintf("RAM令牌无权访问域名 %d", domainNodeID))
 }
 
 // CheckRecordType verifies the RAM token can use the given record type.
@@ -245,7 +245,7 @@ func (s *RAMTokenService) CheckRecordType(token *model.RAMToken, recordType stri
 		}
 	}
 
-	return fmt.Errorf("RAM令牌不允许使用记录类型 %s", recordType)
+	return errs.New(errs.NoPermission, fmt.Sprintf("RAM令牌不允许使用记录类型 %s", recordType))
 }
 
 // ValidateIP checks if the IP value is within the token's allowed CIDRs.
@@ -274,7 +274,7 @@ func (s *RAMTokenService) ValidateIP(token *model.RAMToken, value string) error 
 		}
 	}
 
-	return fmt.Errorf("IP %s 不在允许的范围内", value)
+	return errs.New(errs.InvalidParams, fmt.Sprintf("IP %s 不在允许的范围内", value))
 }
 
 func generateRAMToken() (string, error) {

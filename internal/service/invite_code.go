@@ -3,9 +3,9 @@ package service
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"time"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -28,12 +28,12 @@ func (s *InviteCodeService) GenerateCodes(creatorID uint64, count int) ([]model.
 
 	var user model.User
 	if err := s.db.First(&user, creatorID).Error; err != nil {
-		return nil, errors.New("用户不存在")
+		return nil, errs.New(errs.UserNotFound, "用户不存在")
 	}
 
 	available := user.InviteLimit - user.InviteCount
 	if available < count {
-		return nil, errors.New("邀请额度不足")
+		return nil, errs.New(errs.NoRevocableInviteQuotaGlobal, "邀请额度不足")
 	}
 
 	codes := make([]model.InviteCode, 0, count)
@@ -106,7 +106,7 @@ func (s *InviteCodeService) DeleteCode(id, userID uint64) error {
 		return err
 	}
 	if code.UsedBy != nil {
-		return errors.New("已使用的邀请码不能删除")
+		return errs.New(errs.CannotDeleteUsedInviteCode, "已使用的邀请码不能删除")
 	}
 
 	var creator model.User
@@ -138,7 +138,7 @@ func (s *InviteCodeService) BatchDeleteCodes(ids []uint64, userID uint64) (int, 
 
 	var user model.User
 	if err := s.db.First(&user, userID).Error; err != nil {
-		return 0, errors.New("用户不存在")
+		return 0, errs.New(errs.UserNotFound, "用户不存在")
 	}
 
 	// Find unused codes owned by this user among the requested IDs
@@ -177,7 +177,7 @@ func (s *InviteCodeService) ConsumeCode(db *gorm.DB, codeStr string, userID uint
 	var code model.InviteCode
 	err := db.Where("code = ? AND used_by IS NULL", codeStr).First(&code).Error
 	if err != nil {
-		return 0, errors.New("邀请码无效或已使用")
+		return 0, errs.New(errs.InviteCodeInvalid, "邀请码无效或已使用")
 	}
 	now := time.Now()
 	updates := map[string]interface{}{"used_by": userID, "used_at": now}

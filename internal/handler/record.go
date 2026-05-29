@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"domainnest/internal/domain/notification"
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -34,7 +35,7 @@ func (h *RecordHandler) List(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -59,7 +60,7 @@ func (h *RecordHandler) List(c *gin.Context) {
 
 	result, err := h.recordService.ListRecords(nodeID, userID, q)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -70,7 +71,7 @@ func (h *RecordHandler) Create(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -85,7 +86,7 @@ func (h *RecordHandler) Create(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	if req.Host == "" {
@@ -94,7 +95,7 @@ func (h *RecordHandler) Create(c *gin.Context) {
 
 	record, err := h.recordService.CreateRecord(nodeID, userID, req.Host, req.RecordType, req.Value, req.TTL, req.Priority, req.Line, req.ProviderRecordID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -113,7 +114,7 @@ func (h *RecordHandler) Update(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
@@ -125,13 +126,13 @@ func (h *RecordHandler) Update(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	record, err := h.recordService.UpdateRecord(recordID, userID, req.Value, req.TTL, req.Priority, req.Host)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	if syncErr := h.ddnsService.SyncRecord(recordID); syncErr != nil {
@@ -148,7 +149,7 @@ func (h *RecordHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
@@ -156,7 +157,7 @@ func (h *RecordHandler) Delete(c *gin.Context) {
 	h.db.First(&record, recordID)
 
 	if err := h.recordService.DeleteRecord(recordID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -170,7 +171,7 @@ func (h *RecordHandler) Toggle(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
@@ -178,13 +179,13 @@ func (h *RecordHandler) Toggle(c *gin.Context) {
 		Enabled bool `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	record, err := h.recordService.ToggleRecord(recordID, userID, req.Enabled)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -205,12 +206,12 @@ func (h *RecordHandler) BatchDelete(c *gin.Context) {
 		IDs []uint64 `json:"ids" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.recordService.BatchDelete(req.IDs, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -228,12 +229,12 @@ func (h *RecordHandler) BatchToggle(c *gin.Context) {
 		Enabled bool     `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.recordService.BatchToggle(req.IDs, userID, req.Enabled); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -255,12 +256,12 @@ func (h *RecordHandler) BatchTag(c *gin.Context) {
 		GroupTag  string   `json:"group_tag"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.recordService.BatchUpdateGroupTag(req.RecordIDs, userID, req.GroupTag); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -276,16 +277,16 @@ func (h *RecordHandler) BatchSetOwnNode(c *gin.Context) {
 		NodeID    uint64   `json:"node_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	userID := c.GetUint64("user_id")
 	if err := h.permService.RequireLevel(userID, req.NodeID, 1); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	if err := h.recordService.BatchSetOwnNode(req.RecordIDs, req.NodeID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "接管成功"})
@@ -299,12 +300,12 @@ func (h *RecordHandler) TransferRecords(c *gin.Context) {
 		TargetNodeID uint64   `json:"target_node_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.recordService.TransferRecords(req.RecordIDs, req.TargetNodeID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -325,7 +326,7 @@ func (h *RecordHandler) TransferByHost(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -334,7 +335,7 @@ func (h *RecordHandler) TransferByHost(c *gin.Context) {
 		TargetUserID uint64   `json:"target_user_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -350,7 +351,7 @@ func (h *RecordHandler) RenameTag(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -359,13 +360,13 @@ func (h *RecordHandler) RenameTag(c *gin.Context) {
 		NewTag string `json:"new_tag" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	affected, err := h.recordService.RenameGroupTag(nodeID, userID, req.OldTag, req.NewTag)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -379,7 +380,7 @@ func (h *RecordHandler) DeleteTag(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -387,13 +388,13 @@ func (h *RecordHandler) DeleteTag(c *gin.Context) {
 		Tag string `json:"tag" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	affected, err := h.recordService.DeleteGroupTag(nodeID, userID, req.Tag)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -407,7 +408,7 @@ func (h *RecordHandler) Export(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -415,7 +416,7 @@ func (h *RecordHandler) Export(c *gin.Context) {
 
 	records, err := h.recordService.ExportRecords(nodeID, userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -442,7 +443,7 @@ func (h *RecordHandler) Import(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -454,7 +455,7 @@ func (h *RecordHandler) Import(c *gin.Context) {
 	case "csv":
 		file, _, err := c.Request.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请上传CSV文件"})
+			errs.JSONErrorCode(c, errs.UploadCSVRequired)
 			return
 		}
 		defer file.Close()
@@ -462,11 +463,11 @@ func (h *RecordHandler) Import(c *gin.Context) {
 		reader := csv.NewReader(file)
 		rows, err := reader.ReadAll()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "读取CSV文件失败: " + err.Error()})
+			errs.JSONError(c, err)
 			return
 		}
 		if len(rows) < 2 {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "CSV文件必须包含表头和至少一行数据"})
+			errs.JSONErrorCode(c, errs.CSVNeedsHeaderAndData)
 			return
 		}
 
@@ -503,23 +504,23 @@ func (h *RecordHandler) Import(c *gin.Context) {
 	default:
 		body, err := c.GetRawData()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "读取请求体失败"})
+			errs.JSONErrorCode(c, errs.ReadRequestBodyFailed)
 			return
 		}
 		if err := json.Unmarshal(body, &records); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "JSON格式无效: " + err.Error()})
+			errs.JSONErrorCode(c, errs.InvalidJSON)
 			return
 		}
 	}
 
 	if len(records) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "没有要导入的记录"})
+		errs.JSONErrorCode(c, errs.NoRecordsToImport)
 		return
 	}
 
 	result, err := h.recordService.ImportRecords(nodeID, userID, records)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -533,7 +534,7 @@ func (h *RecordHandler) CheckConflict(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -542,20 +543,20 @@ func (h *RecordHandler) CheckConflict(c *gin.Context) {
 		RecordType string `json:"record_type" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	// Verify user has at least read access
 	if err := h.recordService.CheckPermission(userID, nodeID, 1); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	// Get the domain node
 	var node model.DomainNode
 	if err := h.db.First(&node, nodeID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "节点不存在"})
+		errs.JSONErrorCode(c, errs.NodeNotFound)
 		return
 	}
 
@@ -639,29 +640,29 @@ func (h *RecordHandler) AdoptRecord(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
 	var record model.DNSRecord
 	if err := h.db.First(&record, recordID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在"})
+		errs.JSONErrorCode(c, errs.RecordNotFound)
 		return
 	}
 
 	// Verify ownership through node
 	var node model.DomainNode
 	if err := h.db.First(&node, record.NodeID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "域名不存在"})
+		errs.JSONErrorCode(c, errs.DomainNotFound)
 		return
 	}
 	if node.OwnerID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "无权操作"})
+		errs.JSONErrorCode(c, errs.NoPermission)
 		return
 	}
 
 	if err := h.db.Model(&record).Update("source", "platform").Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "接管失败"})
+		errs.JSONErrorCode(c, errs.TakeoverFailed)
 		return
 	}
 
@@ -671,20 +672,20 @@ func (h *RecordHandler) AdoptRecord(c *gin.Context) {
 func (h *RecordHandler) SyncNow(c *gin.Context) {
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
 	// Verify record exists and user has write permission on the node
 	var record model.DNSRecord
 	if err := h.db.First(&record, recordID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在"})
+		errs.JSONErrorCode(c, errs.RecordNotFound)
 		return
 	}
 
 	userID := c.GetUint64("user_id")
 	if err := h.recordService.CheckPermission(userID, record.NodeID, 2); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "无权操作"})
+		errs.JSONError(c, err)
 		return
 	}
 

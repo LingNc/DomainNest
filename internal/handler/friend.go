@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"domainnest/internal/domain/notification"
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -34,12 +35,12 @@ func (h *FriendHandler) SendRequest(c *gin.Context) {
 		ReceiverID uint64 `json:"receiver_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.friendService.SendRequest(userID, req.ReceiverID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -69,19 +70,19 @@ func (h *FriendHandler) AcceptRequest(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	requestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求ID"})
+		errs.JSONErrorCode(c, errs.InvalidRequestID)
 		return
 	}
 
 	// Look up request to get senderID for broadcasting
 	var friendReq model.FriendRequest
 	if err := h.db.First(&friendReq, requestID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求不存在"})
+		errs.JSONErrorCode(c, errs.RequestNotFound)
 		return
 	}
 
 	if err := h.friendService.AcceptRequest(requestID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -109,19 +110,19 @@ func (h *FriendHandler) RejectRequest(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	requestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求ID"})
+		errs.JSONErrorCode(c, errs.InvalidRequestID)
 		return
 	}
 
 	// Look up request to get senderID for broadcasting
 	var friendReq model.FriendRequest
 	if err := h.db.First(&friendReq, requestID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求不存在"})
+		errs.JSONErrorCode(c, errs.RequestNotFound)
 		return
 	}
 
 	if err := h.friendService.RejectRequest(requestID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -149,12 +150,12 @@ func (h *FriendHandler) RemoveFriend(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	friendID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的好友ID"})
+		errs.JSONErrorCode(c, errs.InvalidFriendID)
 		return
 	}
 
 	if err := h.friendService.RemoveFriend(userID, friendID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -180,7 +181,7 @@ func (h *FriendHandler) ListFriends(c *gin.Context) {
 
 	friendships, err := h.friendService.ListFriends(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -193,7 +194,7 @@ func (h *FriendHandler) ListPendingRequests(c *gin.Context) {
 
 	requests, err := h.friendService.ListPendingRequests(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -206,7 +207,7 @@ func (h *FriendHandler) ListSentRequests(c *gin.Context) {
 
 	requests, err := h.friendService.ListSentRequests(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -220,7 +221,7 @@ func (h *FriendHandler) SearchAllUsers(c *gin.Context) {
 
 	users, err := h.friendService.SearchAllUsers(userID, keyword)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -234,7 +235,7 @@ func (h *FriendHandler) SearchUsers(c *gin.Context) {
 
 	users, err := h.friendService.SearchUsers(userID, keyword)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

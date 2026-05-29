@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"domainnest/internal/domain/notification"
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -31,13 +32,13 @@ func (h *TrashHandler) List(c *gin.Context) {
 
 	var q service.TrashQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		errs.JSONErrorCode(c, errs.InvalidParams)
 		return
 	}
 
 	result, err := h.trashService.ListTrash(userID, q)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -48,7 +49,7 @@ func (h *TrashHandler) Trash(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
@@ -57,7 +58,7 @@ func (h *TrashHandler) Trash(c *gin.Context) {
 	h.db.First(&record, id)
 
 	if err := h.trashService.TrashRecord(id, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -90,7 +91,7 @@ func (h *TrashHandler) Restore(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
@@ -99,7 +100,7 @@ func (h *TrashHandler) Restore(c *gin.Context) {
 	h.db.First(&record, id)
 
 	if err := h.trashService.RestoreRecord(id, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -132,7 +133,7 @@ func (h *TrashHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
@@ -141,7 +142,7 @@ func (h *TrashHandler) Delete(c *gin.Context) {
 	h.db.First(&record, id)
 
 	if err := h.trashService.PermanentDelete(id, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -156,7 +157,7 @@ func (h *TrashHandler) Empty(c *gin.Context) {
 
 	count, err := h.trashService.EmptyTrash(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -173,7 +174,7 @@ func (h *TrashHandler) BatchTrash(c *gin.Context) {
 		RecordIDs []uint64 `json:"record_ids" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -192,7 +193,7 @@ func (h *TrashHandler) BatchRestore(c *gin.Context) {
 		RecordIDs []uint64 `json:"record_ids" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		errs.JSONError(c, err)
 		return
 	}
 

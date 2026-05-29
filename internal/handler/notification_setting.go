@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (h *NotificationSettingHandler) List(c *gin.Context) {
 
 	var settings []model.NotificationSetting
 	if err := h.db.Where("user_id = ?", userID).Find(&settings).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -40,7 +41,7 @@ func (h *NotificationSettingHandler) Update(c *gin.Context) {
 		Muted    bool   `json:"muted"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"domainnest/internal/domain/notification"
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -30,19 +31,19 @@ func (h *PermissionHandler) List(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	// Must be at least admin level to view permissions
 	if err := h.permissionService.RequireLevel(userID, nodeID, 3); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	perms, err := h.permissionService.ListPermissions(nodeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -53,7 +54,7 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -68,7 +69,7 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 		SourceFilter *string          `json:"source_filter"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -84,7 +85,7 @@ func (h *PermissionHandler) Grant(c *gin.Context) {
 	}
 
 	if err := h.permissionService.Grant(req.TargetUserID, nodeID, req.Level, allowedTypesJSON, allowedIPsJSON, req.HostPrefix, req.HostRules, req.MaxDepth, req.SourceFilter, userID); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -133,7 +134,7 @@ func (h *PermissionHandler) BatchGrant(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -148,7 +149,7 @@ func (h *PermissionHandler) BatchGrant(c *gin.Context) {
 		SourceFilter  *string          `json:"source_filter"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -245,7 +246,7 @@ func (h *PermissionHandler) BatchGrantMultiDomain(c *gin.Context) {
 		SourceFilter  *string          `json:"source_filter"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -343,24 +344,24 @@ func (h *PermissionHandler) Revoke(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	targetUserID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
 	// Must be at least admin level to revoke; owner (level 4) can always revoke
 	if err := h.permissionService.RequireLevel(userID, nodeID, 3); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.permissionService.Revoke(targetUserID, nodeID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -394,7 +395,7 @@ func (h *PermissionHandler) MyPermissions(c *gin.Context) {
 
 	perms, err := h.permissionService.GetUserPermissions(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -405,24 +406,24 @@ func (h *PermissionHandler) RevokeRequest(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	targetUserID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
 	// Must be at least admin level to request revoke
 	if err := h.permissionService.RequireLevel(userID, nodeID, 3); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.permissionService.RevokeRequest(targetUserID, nodeID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -451,13 +452,13 @@ func (h *PermissionHandler) AcceptReturn(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	targetUserID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
@@ -465,7 +466,7 @@ func (h *PermissionHandler) AcceptReturn(c *gin.Context) {
 	if userID != targetUserID {
 		// Or an admin/owner can force accept
 		if err := h.permissionService.RequireLevel(userID, nodeID, 3); err != nil {
-			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅权限持有者或管理员可接受"})
+			errs.JSONErrorCode(c, errs.OnlyHolderOrAdminAccept)
 			return
 		}
 	}
@@ -476,12 +477,12 @@ func (h *PermissionHandler) AcceptReturn(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.permissionService.AcceptReturn(targetUserID, nodeID, req.Action, req.TargetUserID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -514,24 +515,24 @@ func (h *PermissionHandler) RejectReturn(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	targetUserID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
 	// Only the target user can reject
 	if userID != targetUserID {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅权限持有者可拒绝"})
+		errs.JSONErrorCode(c, errs.OnlyHolderReject)
 		return
 	}
 
 	if err := h.permissionService.RejectReturn(targetUserID, nodeID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -563,19 +564,19 @@ func (h *PermissionHandler) GetPendingRecords(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	// Must be at least admin level
 	if err := h.permissionService.RequireLevel(userID, nodeID, 3); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	records, err := h.permissionService.GetPendingRecords(nodeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -586,13 +587,13 @@ func (h *PermissionHandler) AssignPendingRecords(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	// Must be at least admin level
 	if err := h.permissionService.RequireLevel(userID, nodeID, 3); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -601,12 +602,12 @@ func (h *PermissionHandler) AssignPendingRecords(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.permissionService.AssignPendingRecords(req.RecordIDs); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -620,13 +621,13 @@ func (h *PermissionHandler) DeletePendingRecords(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	// Must be at least admin level
 	if err := h.permissionService.RequireLevel(userID, nodeID, 3); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -635,12 +636,12 @@ func (h *PermissionHandler) DeletePendingRecords(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.permissionService.DeletePendingRecords(req.RecordIDs); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -656,7 +657,7 @@ func (h *PermissionHandler) GetPendingReturns(c *gin.Context) {
 	var perms []model.DomainPermission
 	if err := h.db.Preload("DomainNode").Preload("Creator").
 		Where("user_id = ? AND status = ?", userID, "pending_return").Find(&perms).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

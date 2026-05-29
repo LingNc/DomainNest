@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"domainnest/internal/dns"
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -30,7 +31,7 @@ func NewDDNSService(db *gorm.DB, domainService *DomainService, recordService *Re
 func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return nil, err
+		return nil, errs.New(errs.NodeNotFound, "节点不存在")
 	}
 	// Walk up the parent chain to find a node with a provider binding.
 	// Independent (materialized) domains inherit the provider from their parent.
@@ -59,7 +60,7 @@ func (s *DDNSService) getClientForNode(nodeID uint64) (dns.Provider, error) {
 			break
 		}
 	}
-	return nil, errors.New("该域名没有可用的DNS提供商")
+	return nil, errs.New(errs.NoDNSProviderAvailable, "该域名没有可用的DNS提供商")
 }
 
 func (s *DDNSService) GetProviderForNode(nodeID uint64) (dns.Provider, error) {

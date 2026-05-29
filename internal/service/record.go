@@ -2,12 +2,12 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -164,7 +164,7 @@ func jsonUnmarshal(s string, v interface{}) error {
 
 func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, value string, ttl int, priority *int, line string, extraArgs ...interface{}) (*model.DNSRecord, error) {
 	if !IsValidRecordType(recordType) {
-		return nil, fmt.Errorf("不支持的记录类型: %s", recordType)
+		return nil, errs.New(errs.InvalidRequest, fmt.Sprintf("不支持的记录类型: %s", recordType))
 	}
 
 	if err := s.perm.RequireLevel(userID, nodeID, 2); err != nil {
@@ -172,7 +172,7 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 	}
 
 	if !s.perm.CanUseRecordType(userID, nodeID, recordType) {
-		return nil, fmt.Errorf("您无权在该域名上创建 %s 记录", recordType)
+		return nil, errs.New(errs.NoPermissionForRecord, fmt.Sprintf("您无权在该域名上创建 %s 记录", recordType))
 	}
 
 	if err := s.perm.ValidateIPValue(userID, nodeID, recordType, value); err != nil {
@@ -207,7 +207,9 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		var childNode model.DomainNode
 		if err := s.db.Where("parent_id = ? AND host = ? AND deleted_at IS NULL", nodeID, host).
 			First(&childNode).Error; err == nil {
-			return nil, fmt.Errorf("主机名 '%s' 已被子节点 %s 占用，请在该节点下创建记录", host, childNode.FullDomain)
+			return nil, errs.WithParamsMsg(errs.SubdomainInUse,
+				fmt.Sprintf("主机名 '%s' 已被子节点 %s 占用，请在该节点下创建记录", host, childNode.FullDomain),
+				host, childNode.FullDomain)
 		}
 	}
 
@@ -236,7 +238,7 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 		if existing.SyncStatus == "failed" {
 			s.db.Unscoped().Delete(&existing)
 		} else {
-			return nil, errors.New("记录已存在")
+			return nil, errs.New(errs.RecordAlreadyExists, "记录已存在")
 		}
 	}
 
@@ -265,7 +267,7 @@ func (s *RecordService) CreateRecord(nodeID, userID uint64, host, recordType, va
 func (s *RecordService) UpdateRecord(recordID, userID uint64, value string, ttl *int, priority *int, host string) (*model.DNSRecord, error) {
 	var record model.DNSRecord
 	if err := s.db.First(&record, recordID).Error; err != nil {
-		return nil, errors.New("记录不存在")
+		return nil, errs.New(errs.RecordNotFound, "记录不存在")
 	}
 
 	if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
@@ -305,7 +307,7 @@ func (s *RecordService) UpdateRecord(recordID, userID uint64, value string, ttl 
 func (s *RecordService) DeleteRecord(recordID, userID uint64) error {
 	var record model.DNSRecord
 	if err := s.db.First(&record, recordID).Error; err != nil {
-		return errors.New("记录不存在")
+		return errs.New(errs.RecordNotFound, "记录不存在")
 	}
 
 	if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
@@ -318,7 +320,7 @@ func (s *RecordService) DeleteRecord(recordID, userID uint64) error {
 func (s *RecordService) ToggleRecord(recordID, userID uint64, enabled bool) (*model.DNSRecord, error) {
 	var record model.DNSRecord
 	if err := s.db.First(&record, recordID).Error; err != nil {
-		return nil, errors.New("记录不存在")
+		return nil, errs.New(errs.RecordNotFound, "记录不存在")
 	}
 
 	if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
@@ -346,10 +348,10 @@ func (s *RecordService) BatchDelete(recordIDs []uint64, userID uint64) error {
 	for _, id := range recordIDs {
 		var record model.DNSRecord
 		if err := s.db.First(&record, id).Error; err != nil {
-			return fmt.Errorf("记录 %d 不存在", id)
+			return errs.WithParamsMsg(errs.RecordNotFound, fmt.Sprintf("记录 %d 不存在", id), id)
 		}
 		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
-			return fmt.Errorf("无权访问记录 %d", id)
+			return errs.WithParamsMsg(errs.NoPermission, fmt.Sprintf("无权访问记录 %d", id), id)
 		}
 	}
 
@@ -360,10 +362,10 @@ func (s *RecordService) BatchToggle(recordIDs []uint64, userID uint64, enabled b
 	for _, id := range recordIDs {
 		var record model.DNSRecord
 		if err := s.db.First(&record, id).Error; err != nil {
-			return fmt.Errorf("记录 %d 不存在", id)
+			return errs.WithParamsMsg(errs.RecordNotFound, fmt.Sprintf("记录 %d 不存在", id), id)
 		}
 		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
-			return fmt.Errorf("无权访问记录 %d", id)
+			return errs.WithParamsMsg(errs.NoPermission, fmt.Sprintf("无权访问记录 %d", id), id)
 		}
 	}
 
@@ -380,10 +382,10 @@ func (s *RecordService) BatchUpdateGroupTag(recordIDs []uint64, userID uint64, g
 	for _, id := range recordIDs {
 		var record model.DNSRecord
 		if err := s.db.First(&record, id).Error; err != nil {
-			return fmt.Errorf("记录 %d 不存在", id)
+			return errs.WithParamsMsg(errs.RecordNotFound, fmt.Sprintf("记录 %d 不存在", id), id)
 		}
 		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
-			return fmt.Errorf("无权访问记录 %d", id)
+			return errs.WithParamsMsg(errs.NoPermission, fmt.Sprintf("无权访问记录 %d", id), id)
 		}
 	}
 
@@ -402,7 +404,7 @@ func (s *RecordService) GetRecordByID(recordID uint64) (*model.DNSRecord, error)
 func (s *RecordService) TransferRecords(recordIDs []uint64, targetNodeID uint64, userID uint64) error {
 	var target model.DomainNode
 	if err := s.db.First(&target, targetNodeID).Error; err != nil {
-		return fmt.Errorf("目标节点不存在")
+		return errs.New(errs.TargetNodeNotFound, "目标节点不存在")
 	}
 	if err := s.perm.RequireLevel(userID, targetNodeID, 1); err != nil {
 		return err
@@ -410,33 +412,33 @@ func (s *RecordService) TransferRecords(recordIDs []uint64, targetNodeID uint64,
 	var targetNode model.DomainNode
 	if err := s.db.First(&targetNode, targetNodeID).Error; err == nil {
 		if targetNode.Status == "archived" {
-			return fmt.Errorf("目标节点已归档，无法转入记录")
+			return errs.New(errs.TargetNodeArchived, "目标节点已归档，无法转入记录")
 		}
 	}
 
 	for _, id := range recordIDs {
 		var record model.DNSRecord
 		if err := s.db.First(&record, id).Error; err != nil {
-			return fmt.Errorf("记录 %d 不存在", id)
+			return errs.WithParamsMsg(errs.RecordNotFound, fmt.Sprintf("记录 %d 不存在", id), id)
 		}
 		if err := s.perm.RequireLevel(userID, record.NodeID, 2); err != nil {
-			return fmt.Errorf("无权访问记录 %d", id)
+			return errs.WithParamsMsg(errs.NoPermission, fmt.Sprintf("无权访问记录 %d", id), id)
 		}
 
 		var source model.DomainNode
 		if err := s.db.First(&source, record.NodeID).Error; err != nil {
-			return fmt.Errorf("源节点不存在")
+			return errs.New(errs.SourceNodeNotFound, "源节点不存在")
 		}
 
 		if record.Host == "@" {
-			return errors.New("根域名记录（@）不能被转移")
+			return errs.New(errs.RootRecordNotTransferable, "根域名记录（@）不能被转移")
 		}
 
 		// Target must be a parent or child of source (source is a subdomain of target, or vice versa)
 		isUpward := strings.HasSuffix(source.FullDomain, "."+target.FullDomain)
 		isDownward := strings.HasSuffix(target.FullDomain, "."+source.FullDomain)
 		if !isUpward && !isDownward {
-			return fmt.Errorf("目标域名与源域名之间没有上下级关系")
+			return errs.New(errs.NoParentChildRelation, "目标域名与源域名之间没有上下级关系")
 		}
 
 		newHost := record.Host
@@ -678,15 +680,15 @@ func (s *RecordService) RenameGroupTag(nodeID, userID uint64, oldTag, newTag str
 		return 0, err
 	}
 	if oldTag == "" || newTag == "" {
-		return 0, fmt.Errorf("分组名称不能为空")
+		return 0, errs.New(errs.GroupNameRequired, "分组名称不能为空")
 	}
 	if oldTag == newTag {
-		return 0, fmt.Errorf("新旧分组名称相同")
+		return 0, errs.New(errs.GroupNameUnchanged, "新旧分组名称相同")
 	}
 	var count int64
 	s.db.Model(&model.DNSRecord{}).Where("node_id = ? AND group_tag = ?", nodeID, newTag).Count(&count)
 	if count > 0 {
-		return 0, fmt.Errorf("分组 '%s' 已存在", newTag)
+		return 0, errs.WithParamsMsg(errs.GroupNameExists, fmt.Sprintf("分组 '%s' 已存在", newTag), newTag)
 	}
 	result := s.db.Model(&model.DNSRecord{}).
 		Where("node_id = ? AND group_tag = ?", nodeID, oldTag).
@@ -706,7 +708,7 @@ func (s *RecordService) DeleteGroupTag(nodeID, userID uint64, tag string) (int64
 		return 0, err
 	}
 	if tag == "" {
-		return 0, fmt.Errorf("分组名称不能为空")
+		return 0, errs.New(errs.GroupNameRequired, "分组名称不能为空")
 	}
 	result := s.db.Model(&model.DNSRecord{}).
 		Where("node_id = ? AND group_tag = ?", nodeID, tag).
@@ -718,52 +720,52 @@ func validateRecordValue(recordType, value string, priority *int) error {
 	switch recordType {
 	case "A":
 		if net.ParseIP(value) == nil || !strings.Contains(value, ".") {
-			return errors.New("A记录值必须是合法的IPv4地址")
+			return errs.New(errs.InvalidIPv4Value, "A记录值必须是合法的IPv4地址")
 		}
 	case "AAAA":
 		if net.ParseIP(value) == nil || !strings.Contains(value, ":") {
-			return errors.New("AAAA记录值必须是合法的IPv6地址")
+			return errs.New(errs.InvalidIPv6Value, "AAAA记录值必须是合法的IPv6地址")
 		}
 	case "CNAME", "ALIAS", "NS":
 		if !isValidDomainName(value) {
-			return fmt.Errorf("%s记录值必须是合法的域名", recordType)
+			return errs.New(errs.InvalidParams, fmt.Sprintf("%s记录值必须是合法的域名", recordType))
 		}
 	case "MX":
 		if priority == nil {
-			return errors.New("MX记录需要指定优先级")
+			return errs.New(errs.MXPriorityRequired, "MX记录需要指定优先级")
 		}
 		if !isValidDomainName(value) {
-			return errors.New("MX记录值必须是合法的域名")
+			return errs.New(errs.MXValueMustBeDomain, "MX记录值必须是合法的域名")
 		}
 	case "SRV":
 		parts := strings.Fields(value)
 		if len(parts) != 4 {
-			return errors.New("SRV记录值格式必须为 '优先级 权重 端口 目标'")
+			return errs.New(errs.SRVFormatInvalid, "SRV记录值格式必须为 '优先级 权重 端口 目标'")
 		}
 		if _, err := strconv.Atoi(parts[0]); err != nil {
-			return errors.New("SRV优先级必须为数字")
+			return errs.New(errs.SRVPriorityMustBeNumber, "SRV优先级必须为数字")
 		}
 		if _, err := strconv.Atoi(parts[1]); err != nil {
-			return errors.New("SRV权重必须为数字")
+			return errs.New(errs.SRVWeightMustBeNumber, "SRV权重必须为数字")
 		}
 		port, err := strconv.Atoi(parts[2])
 		if err != nil {
-			return errors.New("SRV端口必须为数字")
+			return errs.New(errs.SRVPortMustBeNumber, "SRV端口必须为数字")
 		}
 		if port < 0 || port > 65535 {
-			return errors.New("SRV端口范围为0-65535")
+			return errs.New(errs.SRVPortRangeInvalid, "SRV端口范围为0-65535")
 		}
 		if !isValidDomainName(parts[3]) {
-			return errors.New("SRV目标必须是合法的域名")
+			return errs.New(errs.SRVTargetMustBeDomain, "SRV目标必须是合法的域名")
 		}
 	case "CAA":
 		parts := strings.SplitN(value, " ", 3)
 		if len(parts) != 3 {
-			return errors.New("CAA记录值格式必须为 '标志 标签 值'")
+			return errs.New(errs.CAAFormatInvalid, "CAA记录值格式必须为 '标志 标签 值'")
 		}
 		flag, err := strconv.Atoi(parts[0])
 		if err != nil || flag < 0 || flag > 255 {
-			return errors.New("CAA标志必须为0-255的数字")
+			return errs.New(errs.CAAFlagRangeInvalid, "CAA标志必须为0-255的数字")
 		}
 	case "TXT":
 		// TXT records accept any string, no validation needed

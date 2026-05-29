@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"domainnest/internal/domain/notification"
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -36,12 +37,12 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 		Endpoint        string `json:"endpoint"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	provider, err := h.providerService.Create(userID, req.ProviderType, req.Name, req.AccessKeyID, req.AccessKeySecret, req.Endpoint)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	middleware.LogOperation(h.db, userID, "create_provider", "dns_provider", &provider.ID,
@@ -53,7 +54,7 @@ func (h *ProviderHandler) List(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	providers, err := h.providerService.List(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": providers})
@@ -63,12 +64,12 @@ func (h *ProviderHandler) Get(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
+		errs.JSONErrorCode(c, errs.InvalidProviderID)
 		return
 	}
 	provider, err := h.providerService.Get(id, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": provider})
@@ -78,7 +79,7 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
+		errs.JSONErrorCode(c, errs.InvalidProviderID)
 		return
 	}
 	var req struct {
@@ -86,11 +87,11 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 		Endpoint string `json:"endpoint"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	if err := h.providerService.Update(id, userID, req.Name, req.Endpoint); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -104,7 +105,7 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
+		errs.JSONErrorCode(c, errs.InvalidProviderID)
 		return
 	}
 
@@ -119,10 +120,10 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 	count, err := h.providerService.Delete(id, userID, confirm)
 	if err != nil {
 		if count > 0 {
-			c.JSON(http.StatusConflict, gin.H{"code": 409, "message": err.Error(), "data": gin.H{"linked_domains": count}})
+			errs.JSONError(c, err)
 			return
 		}
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	middleware.LogOperation(h.db, userID, "delete_provider", "dns_provider", &id,
@@ -147,12 +148,12 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 func (h *ProviderHandler) ListDomains(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
+		errs.JSONErrorCode(c, errs.InvalidProviderID)
 		return
 	}
 	domains, err := h.providerService.ListDomainsWithStatus(id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": domains})
@@ -162,19 +163,19 @@ func (h *ProviderHandler) ClaimDomain(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
+		errs.JSONErrorCode(c, errs.InvalidProviderID)
 		return
 	}
 	var req struct {
 		DomainName string `json:"domain_name" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	node, err := h.providerService.ClaimDomain(userID, id, req.DomainName)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	middleware.LogOperation(h.db, userID, "claim_domain", "domain_node", &node.ID,

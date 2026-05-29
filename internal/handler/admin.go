@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"domainnest/internal/domain/notification"
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -37,7 +38,7 @@ func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -46,13 +47,13 @@ func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
 	// Verify provider exists
 	var provider model.DNSProvider
 	if err := h.db.First(&provider, req.ProviderID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "DNS服务商不存在"})
+		errs.JSONErrorCode(c, errs.DNSProviderNotFound)
 		return
 	}
 
 	var existing model.DomainNode
 	if err := h.db.Where("full_domain = ?", req.DomainName).First(&existing).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "域名已存在"})
+		errs.JSONErrorCode(c, errs.DomainAlreadyExists)
 		return
 	}
 
@@ -64,7 +65,7 @@ func (h *AdminHandler) CreateRootDomain(c *gin.Context) {
 		ProviderID: &req.ProviderID,
 	}
 	if err := h.db.Create(node).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -86,7 +87,7 @@ func extractHostFromDomain(domain string) string {
 func (h *AdminHandler) AssignDomain(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
@@ -95,25 +96,25 @@ func (h *AdminHandler) AssignDomain(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	var user model.User
 	if err := h.db.First(&user, req.UserID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "目标用户不存在"})
+		errs.JSONErrorCode(c, errs.TargetUserNotFound)
 		return
 	}
 
 	var node model.DomainNode
 	if err := h.db.First(&node, nodeID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "域名不存在"})
+		errs.JSONErrorCode(c, errs.DomainNotFound)
 		return
 	}
 	oldOwnerID := node.OwnerID
 
 	if err := h.domainService.AdminTransferNode(nodeID, req.UserID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -160,7 +161,7 @@ func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
 		NodeIDs []uint64 `json:"node_ids" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -197,7 +198,7 @@ func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
 
 	deleted, skipped, err := h.domainService.AdminBatchDeleteNodes(req.NodeIDs)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -241,7 +242,7 @@ func (h *AdminHandler) BatchDeleteDomains(c *gin.Context) {
 func (h *AdminHandler) ListDomains(c *gin.Context) {
 	var nodes []model.DomainNode
 	if err := h.db.Preload("Owner").Order("id ASC").Find(&nodes).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": nodes})
@@ -250,7 +251,7 @@ func (h *AdminHandler) ListDomains(c *gin.Context) {
 func (h *AdminHandler) ListUsers(c *gin.Context) {
 	var users []model.User
 	if err := h.db.Find(&users).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -302,7 +303,7 @@ func (h *AdminHandler) ListLogs(c *gin.Context) {
 func (h *AdminHandler) RetrySync(c *gin.Context) {
 	recordID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
@@ -313,7 +314,7 @@ func (h *AdminHandler) RetrySync(c *gin.Context) {
 			"next_sync_at":    nil,
 			"last_sync_error": "",
 		}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -323,7 +324,7 @@ func (h *AdminHandler) RetrySync(c *gin.Context) {
 func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
@@ -338,7 +339,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -346,11 +347,11 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	if req.Username != "" {
 		var existing model.User
 		if err := h.db.Where("username = ? AND id != ?", req.Username, userID).First(&existing).Error; err == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户名已被占用"})
+			errs.JSONErrorCode(c, errs.UsernameExists)
 			return
 		}
 		if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("username", req.Username).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			errs.JSONError(c, err)
 			return
 		}
 	}
@@ -362,25 +363,25 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	// Fetch target user for permission checks
 	var targetUser model.User
 	if err := h.db.First(&targetUser, userID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
+		errs.JSONErrorCode(c, errs.UserNotFound)
 		return
 	}
 
 	// Non-superadmin cannot edit superadmin
 	if targetUser.IsSuperAdmin && !caller.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可编辑超级管理员账号"})
+		errs.JSONErrorCode(c, errs.CannotEditSuperAdmin)
 		return
 	}
 	// Non-superadmin cannot edit other admins
 	if targetUser.Role == "admin" && !caller.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可编辑其他管理员账号"})
+		errs.JSONErrorCode(c, errs.CannotEditOtherAdmin)
 		return
 	}
 
 	updates := map[string]interface{}{}
 	if req.Role != "" {
 		if !caller.IsSuperAdmin {
-			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅超级管理员可修改用户角色"})
+			errs.JSONErrorCode(c, errs.OnlySuperAdminChangeRole)
 			return
 		}
 		updates["role"] = req.Role
@@ -399,12 +400,12 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	}
 	if req.InviteLimit != nil {
 		if *req.InviteLimit < 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "邀请额度上限不能为负数"})
+			errs.JSONErrorCode(c, errs.InviteLimitNegative)
 			return
 		}
 		// Cannot decrease below current invite_count (skip for superadmin)
 		if !caller.IsSuperAdmin && *req.InviteLimit < targetUser.InviteCount {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("邀请额度上限不能低于已使用数量 (%d)", targetUser.InviteCount)})
+			errs.JSONErrorCode(c, errs.InviteLimitNegative)
 			return
 		}
 
@@ -414,18 +415,18 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 			if additionalAmount > 0 {
 				available := caller.InviteLimit - caller.InviteCount
 				if available < additionalAmount {
-					c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": fmt.Sprintf("您的邀请额度池不足（可用: %d，需要: %d)", available, additionalAmount)})
+					errs.JSONErrorCode(c, errs.InviteLimitNegative)
 					return
 				}
 				// Deduct from admin's pool
 				if err := h.db.Model(&caller).UpdateColumn("invite_count", gorm.Expr("invite_count + ?", additionalAmount)).Error; err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+					errs.JSONError(c, err)
 					return
 				}
 			} else if additionalAmount < 0 {
 				// Return quota to admin's pool
 				if err := h.db.Model(&caller).UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count + ?, 0)", additionalAmount)).Error; err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+					errs.JSONError(c, err)
 					return
 				}
 			}
@@ -435,12 +436,12 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	}
 
 	if len(updates) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "没有要更新的字段"})
+		errs.JSONErrorCode(c, errs.NoFieldsToUpdate)
 		return
 	}
 
 	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -453,18 +454,18 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
 	var targetUser model.User
 	if err := h.db.First(&targetUser, userID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
+		errs.JSONErrorCode(c, errs.UserNotFound)
 		return
 	}
 	callerID := c.GetUint64("user_id")
 	if targetUser.IsSuperAdmin && callerID != targetUser.ID {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可重置超级管理员密码"})
+		errs.JSONErrorCode(c, errs.CannotResetSuperAdminPassword)
 		return
 	}
 
@@ -473,18 +474,18 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": friendlyValidationError(err)})
+		errs.JSONErrorCode(c, errs.InvalidRequest)
 		return
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "密码加密失败"})
+		errs.JSONErrorCode(c, errs.PasswordEncryptFailed)
 		return
 	}
 
 	if err := h.db.Model(&model.User{}).Where("id = ?", userID).Update("password", string(hashedPassword)).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -504,14 +505,14 @@ func (h *AdminHandler) AdminResetPassword(c *gin.Context) {
 func (h *AdminHandler) DisableUser(c *gin.Context) {
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
 	// Prevent self-disable
 	callerID := c.GetUint64("user_id")
 	if userID == callerID {
-		c.JSON(http.StatusOK, gin.H{"code": 400, "message": "不能禁用自己"})
+		errs.JSONErrorCode(c, errs.CannotDisableSelf)
 		return
 	}
 
@@ -521,33 +522,33 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	var caller model.User
 	if err := tx.First(&caller, callerID).Error; err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "内部错误"})
+		errs.JSONErrorCode(c, errs.InternalError)
 		return
 	}
 
 	// Handle invite pool cleanup: free the registration slot from the inviter
 	var user model.User
 	if err := tx.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
+		errs.JSONErrorCode(c, errs.UserNotFound)
 		return
 	}
 
 	if user.IsSuperAdmin {
 		if !caller.IsSuperAdmin {
-			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅超级管理员可禁用超级管理员账号"})
+			errs.JSONErrorCode(c, errs.OnlySuperAdminDisableSuperAdmin)
 			return
 		}
 	}
 	// Non-superadmin cannot disable other admins
 	if user.Role == "admin" && !caller.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可禁用其他管理员账号"})
+		errs.JSONErrorCode(c, errs.CannotDisableOtherAdmin)
 		return
 	}
 
 	if user.InvitedBy != nil {
 		if err := tx.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
 			UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - 1, 0)")).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			errs.JSONError(c, err)
 			return
 		}
 
@@ -556,7 +557,7 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 		if unusedQuota > 0 {
 			if err := tx.Model(&model.User{}).Where("id = ?", *user.InvitedBy).
 				UpdateColumn("invite_count", gorm.Expr("GREATEST(invite_count - ?, 0)", unusedQuota)).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+				errs.JSONError(c, err)
 				return
 			}
 		}
@@ -571,13 +572,13 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 	} else {
 		// No inviter — just zero out the orphaned quota
 		if err := tx.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("invite_limit", 0).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			errs.JSONError(c, err)
 			return
 		}
 	}
 
 	if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("status", 0).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -599,7 +600,7 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
@@ -607,23 +608,23 @@ func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 	callerID := c.GetUint64("user_id")
 	var caller model.User
 	if err := h.db.First(&caller, callerID).Error; err != nil || !caller.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅超级管理员可提升用户"})
+		errs.JSONErrorCode(c, errs.OnlySuperAdminPromote)
 		return
 	}
 
 	var target model.User
 	if err := h.db.First(&target, targetID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
+		errs.JSONErrorCode(c, errs.UserNotFound)
 		return
 	}
 
 	if target.Role == "admin" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "该用户已是管理员"})
+		errs.JSONErrorCode(c, errs.UserAlreadyAdmin)
 		return
 	}
 
 	if err := h.db.Model(&target).Update("role", "admin").Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -643,35 +644,35 @@ func (h *AdminHandler) PromoteToAdmin(c *gin.Context) {
 func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
 	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
 	callerID := c.GetUint64("user_id")
 	var caller model.User
 	if err := h.db.First(&caller, callerID).Error; err != nil || !caller.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅超级管理员可降级管理员"})
+		errs.JSONErrorCode(c, errs.OnlySuperAdminDemote)
 		return
 	}
 
 	var target model.User
 	if err := h.db.First(&target, targetID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户不存在"})
+		errs.JSONErrorCode(c, errs.UserNotFound)
 		return
 	}
 
 	if target.IsSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "不可降级超级管理员"})
+		errs.JSONErrorCode(c, errs.CannotDemoteSuperAdmin)
 		return
 	}
 
 	if target.Role != "admin" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "该用户不是管理员"})
+		errs.JSONErrorCode(c, errs.UserNotAdmin)
 		return
 	}
 
 	if err := h.db.Model(&target).Update("role", "user").Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -691,7 +692,7 @@ func (h *AdminHandler) DemoteFromAdmin(c *gin.Context) {
 func (h *AdminHandler) GetDomainTree(c *gin.Context) {
 	var nodes []model.DomainNode
 	if err := h.db.Preload("Owner").Order("id ASC").Find(&nodes).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -747,13 +748,13 @@ func (h *AdminHandler) GetDomainTree(c *gin.Context) {
 func (h *AdminHandler) GetDomainDetail(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	var node model.DomainNode
 	if err := h.db.Preload("Owner").Preload("Provider").First(&node, nodeID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "域名节点不存在"})
+		errs.JSONErrorCode(c, errs.DomainNodeNotFound)
 		return
 	}
 
@@ -776,14 +777,14 @@ func (h *AdminHandler) GetDomainDetail(c *gin.Context) {
 func (h *AdminHandler) ListDomainRecords(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	// Verify domain exists
 	var node model.DomainNode
 	if err := h.db.First(&node, nodeID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "域名节点不存在"})
+		errs.JSONErrorCode(c, errs.DomainNodeNotFound)
 		return
 	}
 
@@ -796,7 +797,7 @@ func (h *AdminHandler) ListDomainRecords(c *gin.Context) {
 
 	var records []model.DNSRecord
 	if err := query.Order("id ASC").Find(&records).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -834,7 +835,7 @@ func (h *AdminHandler) ListDomainRecords(c *gin.Context) {
 func (h *AdminHandler) AdminDeleteRecord(c *gin.Context) {
 	recordID, err := strconv.ParseUint(c.Param("rid"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
@@ -847,11 +848,11 @@ func (h *AdminHandler) AdminDeleteRecord(c *gin.Context) {
 
 	result := h.db.Unscoped().Where("id = ?", recordID).Delete(&model.DNSRecord{})
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
+		errs.JSONError(c, result.Error)
 		return
 	}
 	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在"})
+		errs.JSONErrorCode(c, errs.RecordNotFound)
 		return
 	}
 
@@ -866,7 +867,7 @@ func (h *AdminHandler) AdminDeleteRecord(c *gin.Context) {
 func (h *AdminHandler) AdminToggleRecord(c *gin.Context) {
 	recordID, err := strconv.ParseUint(c.Param("rid"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的记录ID"})
+		errs.JSONErrorCode(c, errs.InvalidRecordID)
 		return
 	}
 
@@ -874,17 +875,17 @@ func (h *AdminHandler) AdminToggleRecord(c *gin.Context) {
 		Enabled bool `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	result := h.db.Model(&model.DNSRecord{}).Where("id = ?", recordID).Update("enabled", req.Enabled)
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
+		errs.JSONError(c, result.Error)
 		return
 	}
 	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在"})
+		errs.JSONErrorCode(c, errs.RecordNotFound)
 		return
 	}
 
@@ -916,7 +917,7 @@ func (h *AdminHandler) BroadcastNotification(c *gin.Context) {
 		UserIDs  []uint64 `json:"user_ids"` // optional: send to specific users only
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -925,14 +926,11 @@ func (h *AdminHandler) BroadcastNotification(c *gin.Context) {
 		// Broadcast to all active users
 		var users []model.User
 		if err := h.db.Where("status = 1").Select("id").Find(&users).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+			errs.JSONError(c, err)
 			return
 		}
 		if len(users) > 10000 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    400,
-				"message": "活跃用户超过 10000 人，请使用 batch 模式指定 user_ids 分批发送",
-			})
+			errs.JSONErrorCode(c, errs.InvalidParams)
 			return
 		}
 		targetIDs = make([]uint64, len(users))
@@ -949,7 +947,7 @@ func (h *AdminHandler) BroadcastNotification(c *gin.Context) {
 	}
 
 	if err := h.notifSvc.SendToMultiple(targetIDs, n); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -1032,17 +1030,17 @@ func (h *AdminHandler) GetNotificationStats(c *gin.Context) {
 func (h *AdminHandler) AdminDeleteNotification(c *gin.Context) {
 	notifID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的通知ID"})
+		errs.JSONErrorCode(c, errs.InvalidNotificationID)
 		return
 	}
 
 	result := h.db.Where("id = ? AND type = ?", notifID, "system").Delete(&model.Message{})
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
+		errs.JSONError(c, result.Error)
 		return
 	}
 	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "通知不存在"})
+		errs.JSONErrorCode(c, errs.NotificationNotFound)
 		return
 	}
 
@@ -1058,23 +1056,23 @@ func (h *AdminHandler) AdminPurgeExpiredNotifications(c *gin.Context) {
 func (h *AdminHandler) RevokePermission(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	userID, err := strconv.ParseUint(c.Param("userId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的用户ID"})
+		errs.JSONErrorCode(c, errs.InvalidUserID)
 		return
 	}
 
 	result := h.db.Where("domain_node_id = ? AND user_id = ?", nodeID, userID).Delete(&model.DomainPermission{})
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": result.Error.Error()})
+		errs.JSONError(c, result.Error)
 		return
 	}
 	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "权限记录不存在"})
+		errs.JSONErrorCode(c, errs.PermissionNotFound)
 		return
 	}
 
@@ -1109,13 +1107,13 @@ func (h *AdminHandler) GenerateInviteCodes(c *gin.Context) {
 		Count int `json:"count"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	callerID := c.GetUint64("user_id")
 	codes, err := h.inviteCodeService.GenerateCodes(callerID, req.Count)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": codes})
@@ -1132,7 +1130,7 @@ func (h *AdminHandler) ListInviteCodes(c *gin.Context) {
 	}
 	codes, total, err := h.inviteCodeService.ListCodes(page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -1149,17 +1147,17 @@ func (h *AdminHandler) ListInviteCodes(c *gin.Context) {
 func (h *AdminHandler) DeleteInviteCode(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的ID"})
+		errs.JSONErrorCode(c, errs.InvalidID)
 		return
 	}
 	// Admin can delete any code — find it first to check usage
 	var code model.InviteCode
 	if err := h.db.First(&code, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "邀请码不存在"})
+		errs.JSONErrorCode(c, errs.InviteCodeNotFound)
 		return
 	}
 	if code.UsedBy != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "已使用的邀请码不能删除"})
+		errs.JSONErrorCode(c, errs.CannotDeleteUsedInviteCode)
 		return
 	}
 	creatorID := code.CreatorID
@@ -1169,7 +1167,7 @@ func (h *AdminHandler) DeleteInviteCode(c *gin.Context) {
 		creatorUsername = creator.Username
 	}
 	if err := h.db.Delete(&code).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -1186,7 +1184,7 @@ func (h *AdminHandler) DeleteInviteCode(c *gin.Context) {
 func (h *AdminHandler) ListAllProviders(c *gin.Context) {
 	providers, err := h.providerService.ListAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	// Hide access_key_secret
@@ -1199,20 +1197,20 @@ func (h *AdminHandler) ListAllProviders(c *gin.Context) {
 func (h *AdminHandler) GetProviderDetail(c *gin.Context) {
 	providerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的提供商ID"})
+		errs.JSONErrorCode(c, errs.InvalidProviderIDAdmin)
 		return
 	}
 
 	var provider model.DNSProvider
 	if err := h.db.Preload("User").First(&provider, providerID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "提供商不存在"})
+		errs.JSONErrorCode(c, errs.ProviderNotFound)
 		return
 	}
 	provider.AccessKeySecret = ""
 
 	domains, err := h.providerService.ListDomainsWithStatus(providerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -1225,7 +1223,7 @@ func (h *AdminHandler) GetProviderDetail(c *gin.Context) {
 func (h *AdminHandler) UpdateProvider(c *gin.Context) {
 	providerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的提供商ID"})
+		errs.JSONErrorCode(c, errs.InvalidProviderIDAdmin)
 		return
 	}
 
@@ -1234,12 +1232,12 @@ func (h *AdminHandler) UpdateProvider(c *gin.Context) {
 		Endpoint string `json:"endpoint"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	if err := h.providerService.AdminUpdate(providerID, req.Name, req.Endpoint); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -1253,7 +1251,7 @@ func (h *AdminHandler) UpdateProvider(c *gin.Context) {
 func (h *AdminHandler) DeleteProvider(c *gin.Context) {
 	providerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的提供商ID"})
+		errs.JSONErrorCode(c, errs.InvalidProviderIDAdmin)
 		return
 	}
 
@@ -1262,10 +1260,10 @@ func (h *AdminHandler) DeleteProvider(c *gin.Context) {
 	affected, err := h.providerService.AdminDelete(providerID, confirm)
 	if err != nil {
 		if affected > 0 {
-			c.JSON(http.StatusConflict, gin.H{"code": 409, "message": err.Error(), "data": gin.H{"linked_domains": affected}})
+			errs.JSONError(c, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

@@ -2,13 +2,13 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/netip"
 	"regexp"
 	"strings"
 	"time"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -65,7 +65,7 @@ func (s *PermissionService) AccessLevel(userID, domainNodeID uint64) (int, strin
 func (s *PermissionService) RequireLevel(userID, domainNodeID uint64, minLevel int) error {
 	level, name := s.AccessLevel(userID, domainNodeID)
 	if level < minLevel {
-		return fmt.Errorf("权限不足：需要 %s 或更高级别，当前为 %s", levelName(minLevel), name)
+		return errs.New(errs.NoPermission, fmt.Sprintf("权限不足：需要 %s 或更高级别，当前为 %s", levelName(minLevel), name))
 	}
 	return nil
 }
@@ -126,7 +126,7 @@ func (s *PermissionService) ValidateIPValue(userID, domainNodeID uint64, recordT
 
 	ip, err := netip.ParseAddr(value)
 	if err != nil {
-		return fmt.Errorf("无效的IP地址: %s", value)
+		return errs.New(errs.InvalidParams, fmt.Sprintf("无效的IP地址: %s", value))
 	}
 
 	for _, cidr := range cidrs {
@@ -139,7 +139,7 @@ func (s *PermissionService) ValidateIPValue(userID, domainNodeID uint64, recordT
 		}
 	}
 
-	return fmt.Errorf("IP %s 不在允许的范围内", value)
+	return errs.New(errs.InvalidParams, fmt.Sprintf("IP %s 不在允许的范围内", value))
 }
 
 // ValidateHostPrefix checks if the given host matches the required prefix restriction.
@@ -172,7 +172,7 @@ func (s *PermissionService) ValidateHostRules(userID, domainNodeID uint64, host 
 		}
 	}
 
-	return fmt.Errorf("主机名 '%s' 不符合限制规则", host)
+	return errs.New(errs.InvalidParams, fmt.Sprintf("主机名 '%s' 不符合限制规则", host))
 }
 
 // matchHost checks if a host matches a single rule.
@@ -234,7 +234,7 @@ func (s *PermissionService) ValidateDepth(userID, domainNodeID uint64, host stri
 	}
 
 	if depth > *perm.MaxDepth {
-		return fmt.Errorf("子域名层级 %d 超过最大允许值 %d", depth, *perm.MaxDepth)
+		return errs.New(errs.InvalidParams, fmt.Sprintf("子域名层级 %d 超过最大允许值 %d", depth, *perm.MaxDepth))
 	}
 	return nil
 }
@@ -260,7 +260,7 @@ func (s *PermissionService) ValidateSourceFilter(userID, domainNodeID uint64, re
 		return nil
 	}
 
-	return fmt.Errorf("无权操作来源为 %s 的记录", recordSource)
+	return errs.New(errs.NoPermission, fmt.Sprintf("无权操作来源为 %s 的记录", recordSource))
 }
 
 // FilterBySourceFilter adds a WHERE clause to filter records by source_filter if set.
@@ -286,13 +286,13 @@ func (s *PermissionService) FilterBySourceFilter(userID, domainNodeID uint64, qu
 // Grant creates or updates a permission entry.
 func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTypes, allowedIPs, hostPrefix string, hostRules []model.HostRule, maxDepth *int, sourceFilter *string, createdBy uint64) error {
 	if PermLevelValue(level) == 0 && level != "read" {
-		return fmt.Errorf("无效的权限级别: %s", level)
+		return errs.New(errs.InvalidParams, fmt.Sprintf("无效的权限级别: %s", level))
 	}
 
 	// Cannot grant higher than your own level
 	grantorLevel, _ := s.AccessLevel(createdBy, domainNodeID)
 	if PermLevelValue(level) >= grantorLevel {
-		return errors.New("不能授予等于或高于自己级别的权限")
+		return errs.New(errs.CannotGrantHigherPermission, "不能授予等于或高于自己级别的权限")
 	}
 
 	// Serialize host_rules
@@ -302,7 +302,7 @@ func (s *PermissionService) Grant(userID, domainNodeID uint64, level, allowedTyp
 		for _, r := range hostRules {
 			if r.Type == model.HostRuleRegex {
 				if _, err := regexp.Compile(r.Value); err != nil {
-					return fmt.Errorf("无效的正则表达式 '%s': %v", r.Value, err)
+					return errs.New(errs.InvalidParams, fmt.Sprintf("无效的正则表达式 '%s': %v", r.Value, err))
 				}
 			}
 		}
@@ -362,13 +362,13 @@ func (s *PermissionService) Revoke(userID, domainNodeID uint64) error {
 func (s *PermissionService) RevokeRequest(targetUserID, domainNodeID, requestedBy uint64) error {
 	var perm model.DomainPermission
 	if err := s.db.Where("user_id = ? AND domain_node_id = ?", targetUserID, domainNodeID).First(&perm).Error; err != nil {
-		return errors.New("权限不存在")
+		return errs.New(errs.PermissionNotFound, "权限不存在")
 	}
 
 	// Cannot revoke owner
 	var node model.DomainNode
 	if err := s.db.First(&node, domainNodeID).Error; err == nil && node.OwnerID == targetUserID {
-		return errors.New("不能撤销所有者的权限")
+		return errs.New(errs.CannotRevokeOwnerPermission, "不能撤销所有者的权限")
 	}
 
 	if perm.PermissionLevel != "admin" && perm.PermissionLevel != "write" {
@@ -384,7 +384,7 @@ func (s *PermissionService) RevokeRequest(targetUserID, domainNodeID, requestedB
 func (s *PermissionService) AcceptReturn(targetUserID, domainNodeID uint64, action string, transferUserID *uint64) error {
 	var perm model.DomainPermission
 	if err := s.db.Where("user_id = ? AND domain_node_id = ?", targetUserID, domainNodeID).First(&perm).Error; err != nil {
-		return errors.New("权限不存在")
+		return errs.New(errs.PermissionNotFound, "权限不存在")
 	}
 
 	tx := s.db.Begin()
@@ -399,7 +399,7 @@ func (s *PermissionService) AcceptReturn(targetUserID, domainNodeID uint64, acti
 	case "transfer":
 		if transferUserID == nil {
 			tx.Rollback()
-			return errors.New("转移操作需要指定目标用户")
+			return errs.New(errs.TransferTargetRequired, "转移操作需要指定目标用户")
 		}
 		// Records stay but ownership concept changes - just mark them
 		if err := tx.Model(&model.DNSRecord{}).Where("node_id = ? AND created_by = ?", domainNodeID, targetUserID).
@@ -417,7 +417,7 @@ func (s *PermissionService) AcceptReturn(targetUserID, domainNodeID uint64, acti
 		}
 	default:
 		tx.Rollback()
-		return errors.New("无效操作：必须为 keep、delete 或 transfer")
+		return errs.New(errs.InvalidDomainOperation, "无效操作：必须为 keep、delete 或 transfer")
 	}
 
 	// Remove the permission

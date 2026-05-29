@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -31,7 +32,7 @@ func (h *DDNSHandler) Callback(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -42,14 +43,14 @@ func (h *DDNSHandler) Callback(c *gin.Context) {
 	// Check RAM token scope before update
 	if ramTokenID, exists := c.Get("ram_token_id"); exists {
 		if err := h.checkRAMScopeByName(ramTokenID.(uint64), req.Domain, req.RecordType, req.IP); err != nil {
-			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error()})
+			errs.JSONError(c, err)
 			return
 		}
 	}
 
 	result, err := h.ddnsService.Update(userID, req.Domain, req.IP, req.RecordType, req.TTL)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -73,7 +74,7 @@ func (h *DDNSHandler) Webhook(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

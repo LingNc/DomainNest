@@ -1,12 +1,12 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"strings"
 
 	"domainnest/internal/dns"
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -24,10 +24,10 @@ func (s *ProviderService) Create(userID uint64, providerType, name, ak, sk, endp
 	// Verify credentials by creating a provider instance and listing domains
 	provider, err := dns.Create(providerType, ak, sk, endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("创建DNS客户端失败: %w", err)
+		return nil, errs.Wrap(errs.InternalError, err)
 	}
 	if _, err := provider.ListDomains(); err != nil {
-		return nil, fmt.Errorf("身份验证失败: %w", err)
+		return nil, errs.Wrap(errs.InternalError, err)
 	}
 	dp := &model.DNSProvider{
 		UserID:          userID,
@@ -59,7 +59,7 @@ func (s *ProviderService) ListAll() ([]model.DNSProvider, error) {
 func (s *ProviderService) Get(providerID, userID uint64) (*model.DNSProvider, error) {
 	var p model.DNSProvider
 	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&p).Error; err != nil {
-		return nil, errors.New("DNS服务商不存在")
+		return nil, errs.New(errs.DNSProviderNotFound, "DNS服务商不存在")
 	}
 	return &p, nil
 }
@@ -74,7 +74,7 @@ func (s *ProviderService) AdminDelete(providerID uint64, confirm bool) (int, err
 	s.db.Model(&model.DomainNode{}).Where("provider_id = ?", providerID).Count(&count)
 
 	if count > 0 && !confirm {
-		return int(count), fmt.Errorf("此操作将归档 %d 个关联域名，请确认", count)
+		return int(count), errs.WithParamsMsg(errs.InvalidOperation, fmt.Sprintf("此操作将归档 %d 个关联域名，请确认", count), count)
 	}
 
 	if count > 0 && confirm {
@@ -104,7 +104,7 @@ func (s *ProviderService) Delete(providerID, userID uint64, confirm bool) (int, 
 	s.db.Model(&model.DomainNode{}).Where("provider_id = ?", providerID).Count(&count)
 
 	if count > 0 && !confirm {
-		return int(count), fmt.Errorf("此操作将归档 %d 个关联域名，请确认", count)
+		return int(count), errs.WithParamsMsg(errs.InvalidOperation, fmt.Sprintf("此操作将归档 %d 个关联域名，请确认", count), count)
 	}
 
 	if count > 0 && confirm {
@@ -116,7 +116,7 @@ func (s *ProviderService) Delete(providerID, userID uint64, confirm bool) (int, 
 					"archived_provider_id": providerID,
 					"provider_id":          nil,
 				}).Error; err != nil {
-				return fmt.Errorf("归档关联域名失败: %w", err)
+				return errs.Wrap(errs.InternalError, err)
 			}
 			// Delete the provider
 			return tx.Where("id = ? AND user_id = ?", providerID, userID).Delete(&model.DNSProvider{}).Error
@@ -196,7 +196,7 @@ func (s *ProviderService) ListDomainsWithStatus(providerID uint64) ([]DomainWith
 func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName string) (*model.DomainNode, error) {
 	var provider model.DNSProvider
 	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&provider).Error; err != nil {
-		return nil, errors.New("DNS服务商不存在")
+		return nil, errs.New(errs.DNSProviderNotFound, "DNS服务商不存在")
 	}
 	p, err := s.GetDNSProvider(providerID)
 	if err != nil {
@@ -204,7 +204,7 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 	}
 	// Verify domain access
 	if _, err := p.ListRecords(domainName); err != nil {
-		return nil, fmt.Errorf("无权访问域名 %s: %w", domainName, err)
+		return nil, errs.New(errs.NoAccess, fmt.Sprintf("无权访问域名 %s", domainName))
 	}
 	var existing model.DomainNode
 	if err := s.db.Unscoped().Where("full_domain = ?", domainName).First(&existing).Error; err == nil {
@@ -259,7 +259,7 @@ func (s *ProviderService) ClaimDomain(userID, providerID uint64, domainName stri
 			existing.Status = "active"
 			return &existing, nil
 		}
-		return nil, errors.New("域名已存在于系统中")
+		return nil, errs.New(errs.DomainAlreadyInSystem, "域名已存在于系统中")
 	}
 	host := extractHost(domainName)
 	node := &model.DomainNode{
@@ -344,7 +344,7 @@ func convertPriority(p *int64) *int {
 func (s *ProviderService) GetDNSProvider(providerID uint64) (dns.Provider, error) {
 	var provider model.DNSProvider
 	if err := s.db.First(&provider, providerID).Error; err != nil {
-		return nil, errors.New("DNS服务商不存在")
+		return nil, errs.New(errs.DNSProviderNotFound, "DNS服务商不存在")
 	}
 	return dns.Create(provider.ProviderType, provider.AccessKeyID, provider.AccessKeySecret, provider.Endpoint)
 }
@@ -354,7 +354,7 @@ func (s *ProviderService) GetDNSProvider(providerID uint64) (dns.Provider, error
 func (s *ProviderService) GetDNSProviderArchived(providerID uint64) (dns.Provider, error) {
 	var provider model.DNSProvider
 	if err := s.db.Unscoped().First(&provider, providerID).Error; err != nil {
-		return nil, errors.New("DNS服务商不存在")
+		return nil, errs.New(errs.DNSProviderNotFound, "DNS服务商不存在")
 	}
 	return dns.Create(provider.ProviderType, provider.AccessKeyID, provider.AccessKeySecret, provider.Endpoint)
 }

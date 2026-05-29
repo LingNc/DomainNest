@@ -3,7 +3,28 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import { useAvatarCache } from '../stores/avatarCache'
 import i18n from '../i18n'
-import { errorMessageMap } from '../i18n/errorMessages'
+
+function snakeToCamel(str) {
+  return str.toLowerCase().replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+}
+
+function showErrorToast(data) {
+  const errorCode = data?.error_code
+  const params = data?.params || []
+
+  if (errorCode) {
+    const i18nKey = `errors.${snakeToCamel(errorCode)}`
+    const message = i18n.global.t(i18nKey, params)
+    // If i18n returns the key itself (missing translation), fall back
+    if (message !== i18nKey) {
+      ElMessage.error(message)
+      return
+    }
+  }
+
+  // Fallback: backend message or generic error
+  ElMessage.error(data?.message || i18n.global.t('errors.requestFailed'))
+}
 
 const request = axios.create({
   baseURL: '/api/v1',
@@ -27,8 +48,7 @@ request.interceptors.response.use(
     const { data } = response
     if (data.code !== 0) {
       if (!response.config?.skipErrorToast) {
-        const translatedKey = errorMessageMap.get(data.message)
-        ElMessage.error(translatedKey ? i18n.global.t(translatedKey) : (data.message || i18n.global.t('errors.requestFailed')))
+        showErrorToast(data)
       }
       return Promise.reject(data)
     }
@@ -48,9 +68,7 @@ request.interceptors.response.use(
         window.location.href = '/login'
       }
     }
-    const errMsg = error.response?.data?.message
-    const translatedKey = errMsg ? errorMessageMap.get(errMsg) : null
-    ElMessage.error(translatedKey ? i18n.global.t(translatedKey) : (errMsg || i18n.global.t('errors.requestFailed')))
+    showErrorToast(error.response?.data)
     return Promise.reject(error)
   }
 )

@@ -1,11 +1,11 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -43,7 +43,7 @@ func (e *DomainConflictError) Error() string {
 func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64) (*model.DomainNode, error) {
 	var parent model.DomainNode
 	if err := s.db.First(&parent, parentID).Error; err != nil {
-		return nil, errors.New("父节点不存在")
+		return nil, errs.New(errs.ParentNodeNotFound, "父节点不存在")
 	}
 
 	if err := s.perm.RequireLevel(ownerID, parentID, 2); err != nil {
@@ -54,7 +54,9 @@ func (s *DomainService) CreateNode(parentID uint64, host string, ownerID uint64)
 
 	var existing model.DomainNode
 	if err := s.db.Preload("Owner").Where("full_domain = ?", fullDomain).First(&existing).Error; err == nil {
-		return nil, &DomainConflictError{Status: existing.Status, Msg: fmt.Sprintf("域名 %s 已存在，当前归属于用户 %s", existing.FullDomain, existing.Owner.Username)}
+		return nil, errs.WithParamsMsg(errs.DomainAlreadyExists,
+			fmt.Sprintf("域名 %s 已存在，当前归属于用户 %s", existing.FullDomain, existing.Owner.Username),
+			existing.FullDomain, existing.Owner.Username)
 	}
 
 	node := &model.DomainNode{
@@ -139,7 +141,7 @@ func (s *DomainService) GetNode(nodeID, userID uint64) (*model.DomainNode, error
 		Preload("Owner", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).
 		Preload("Claimer", func(db *gorm.DB) *gorm.DB { return db.Select("id,username,nickname,avatar") }).
 		First(&node, nodeID).Error; err != nil {
-		return nil, errors.New("域名节点不存在")
+		return nil, errs.New(errs.DomainNodeNotFound, "域名节点不存在")
 	}
 	return &node, nil
 }
@@ -150,7 +152,7 @@ func (s *DomainService) FindNodeByDomain(domain string, userID uint64) (*model.D
 		return nil, "", err
 	}
 	if len(accessibleIDs) == 0 {
-		return nil, "", errors.New("域名不存在或无访问权限")
+		return nil, "", errs.New(errs.DomainNotFoundOrNoAccess, "域名不存在或无访问权限")
 	}
 
 	var node model.DomainNode
@@ -160,7 +162,7 @@ func (s *DomainService) FindNodeByDomain(domain string, userID uint64) (*model.D
 		First(&node).Error
 
 	if err != nil {
-		return nil, "", errors.New("域名不存在或无访问权限")
+		return nil, "", errs.New(errs.DomainNotFoundOrNoAccess, "域名不存在或无访问权限")
 	}
 
 	var rr string
@@ -184,7 +186,7 @@ type TransferNodeResult struct {
 func (s *DomainService) TransferNode(nodeID, ownerID, targetUserID uint64) (*TransferNodeResult, error) {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return nil, errors.New("节点不存在")
+		return nil, errs.New(errs.NodeNotFound, "节点不存在")
 	}
 
 	if err := s.perm.RequireLevel(ownerID, nodeID, 4); err != nil {
@@ -248,7 +250,7 @@ func (s *DomainService) deleteProviderRecords(nodeIDs []uint64) error {
 	if err := s.db.Unscoped().
 		Where("node_id IN ? AND deleted_at IS NULL AND provider_record_id != ''", nodeIDs).
 		Find(&records).Error; err != nil {
-		return fmt.Errorf("查询DNS记录失败: %w", err)
+		return errs.Wrap(errs.InternalError, err)
 	}
 
 	if len(records) == 0 {
@@ -336,7 +338,7 @@ func (s *DomainService) getSubtreeNodeIDs(nodeID uint64) ([]uint64, error) {
 func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 
 	if err := s.perm.RequireLevel(userID, nodeID, 4); err != nil {
@@ -348,7 +350,7 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	// Root domain: non-claimer returns to claimer; claimer proceeds with deletion
 	if node.ParentID == nil {
 		if node.Status != "archived" {
-			return errors.New("根域名请先归档后再删除")
+			return errs.New(errs.RootNodeCannotDowngrade, "根域名请先归档后再删除")
 		}
 		claimerID := node.OwnerID
 		if node.ClaimerID != nil {
@@ -364,7 +366,7 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 						"sync_status": "pending",
 						"enabled":     false,
 					}).Error; err != nil {
-					return fmt.Errorf("标记待删除失败: %w", err)
+					return errs.Wrap(errs.InternalError, err)
 				}
 				if err := tx.Model(&model.DNSRecord{}).
 					Where("node_id = ? AND deleted_at IS NULL AND provider_record_id = ''", nodeID).
@@ -373,7 +375,7 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 						"deleted_at":  now,
 						"sync_status": "disabled",
 					}).Error; err != nil {
-					return fmt.Errorf("移入回收站失败: %w", err)
+					return errs.Wrap(errs.InternalError, err)
 				}
 				// Provider records: left untouched (external to the platform)
 				// Return domain to claimer, restore to active
@@ -394,12 +396,12 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 	var childCount int64
 	s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL AND status = 'active'", nodeID).Count(&childCount)
 	if childCount > 0 {
-		return errors.New("无法删除含有子节点的节点，请先删除所有子域名")
+		return errs.New(errs.CannotDeleteWithChildren, "无法删除含有子节点的节点，请先删除所有子域名")
 	}
 
 	// Delete platform records from provider before soft-delete (sync worker won't process deleted nodes)
 	if err := s.deleteProviderRecords([]uint64{nodeID}); err != nil {
-		return fmt.Errorf("删除DNS记录失败: %w", err)
+		return errs.Wrap(errs.InternalError, err)
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
@@ -412,14 +414,14 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 				"sync_status":  "trashed",
 				"provider_record_id": "",
 			}).Error; err != nil {
-			return fmt.Errorf("移入回收站失败: %w", err)
+			return errs.Wrap(errs.InternalError, err)
 		}
 
 		// Soft-delete permission records
 		if err := tx.Model(&model.DomainPermission{}).
 			Where("domain_node_id = ?", nodeID).
 			Update("status", "frozen").Error; err != nil {
-			return fmt.Errorf("冻结权限失败: %w", err)
+			return errs.Wrap(errs.InternalError, err)
 		}
 
 		// Soft-delete the node itself
@@ -435,7 +437,7 @@ func (s *DomainService) DeleteNode(nodeID, userID uint64) error {
 func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, triggeredBy uint64, targetUserID uint64) (*model.DomainNode, error) {
 	var parent model.DomainNode
 	if err := s.db.First(&parent, parentID).Error; err != nil {
-		return nil, errors.New("父节点不存在")
+		return nil, errs.New(errs.ParentNodeNotFound, "父节点不存在")
 	}
 
 	fullDomain := host + "." + parent.FullDomain
@@ -457,12 +459,12 @@ func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, trigg
 			var activeCount int64
 			s.db.Model(&model.DomainNode{}).Where("full_domain = ? AND status = 'active' AND deleted_at IS NULL", fullDomain).Count(&activeCount)
 			if activeCount > 0 {
-				return nil, errors.New("该子域名已被使用")
+				return nil, errs.New(errs.SubdomainInUse, "该子域名已被使用")
 			}
 			// No active node → hard-delete the archived and proceed to create new
 			s.db.Unscoped().Delete(&model.DNSRecord{}, "node_id = ?", existing.ID)
 			if err := s.db.Unscoped().Delete(&existing).Error; err != nil {
-				return nil, fmt.Errorf("删除归档节点失败: %w", err)
+				return nil, errs.Wrap(errs.InternalError, err)
 			}
 		} else {
 			// Active node already exists
@@ -474,7 +476,7 @@ func (s *DomainService) MaterializeOrRestore(parentID uint64, host string, trigg
 	var count int64
 	s.db.Model(&model.DNSRecord{}).Where("node_id = ? AND host = ? AND deleted_at IS NULL", parentID, host).Count(&count)
 	if count == 0 {
-		return nil, errors.New("该主机名下没有DNS记录，无法转换为节点")
+		return nil, errs.New(errs.InvalidParams, "该主机名下没有DNS记录，无法转换为节点")
 	}
 
 	node := &model.DomainNode{
@@ -573,43 +575,43 @@ func (s *DomainService) MaterializeNode(parentID uint64, host string, triggeredB
 func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 
 	if !node.IsMaterialized {
-		return errors.New("该节点不是由记录转换而来，无法降级")
+		return errs.New(errs.InvalidOperation, "该节点不是由记录转换而来，无法降级")
 	}
 
 	if node.ParentID == nil {
-		return errors.New("根节点无法降级")
+		return errs.New(errs.RootNodeCannotDowngrade, "根节点无法降级")
 	}
 
 	parentID := *node.ParentID
 
 	var parent model.DomainNode
 	if err := s.db.First(&parent, parentID).Error; err != nil {
-		return errors.New("父节点不存在")
+		return errs.New(errs.ParentNodeNotFound, "父节点不存在")
 	}
 
 	// Check no children
 	var childCount int64
 	s.db.Model(&model.DomainNode{}).Where("parent_id = ? AND deleted_at IS NULL", nodeID).Count(&childCount)
 	if childCount > 0 {
-		return errors.New("无法降级含有子节点的节点")
+		return errs.New(errs.CannotDowngradeWithChildren, "无法降级含有子节点的节点")
 	}
 
 	// Check no delegated permissions
 	var permCount int64
 	s.db.Model(&model.DomainPermission{}).Where("domain_node_id = ?", nodeID).Count(&permCount)
 	if permCount > 0 {
-		return errors.New("无法降级含有权限委托的节点")
+		return errs.New(errs.CannotDowngradeWithPermissions, "无法降级含有权限委托的节点")
 	}
 
 	// Provider binding: allow demotion if provider was inherited from parent (materialized node).
 	// In that case the provider stays with the parent and we just clear it here.
 	if node.ProviderID != nil {
 		if node.ParentID == nil {
-			return errors.New("无法降级绑定了DNS提供商的节点")
+			return errs.New(errs.CannotDowngradeWithProvider, "无法降级绑定了DNS提供商的节点")
 		}
 		// Will be cleared during demotion — parent absorbs the provider relationship
 	}
@@ -680,33 +682,33 @@ func (s *DomainService) DemoteNode(nodeID uint64, triggeredBy uint64) error {
 func (s *DomainService) ForceReclaim(nodeID, providerOwnerID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 
 	if node.ProviderID == nil {
-		return errors.New("该节点未绑定DNS服务商")
+		return errs.New(errs.NodeNoProviderBound, "该节点未绑定DNS服务商")
 	}
 
 	var provider model.DNSProvider
 	if err := s.db.First(&provider, *node.ProviderID).Error; err != nil {
-		return errors.New("DNS服务商不存在")
+		return errs.New(errs.DNSProviderNotFound, "DNS服务商不存在")
 	}
 
 	if provider.UserID != providerOwnerID {
-		return errors.New("无权操作此服务商")
+		return errs.New(errs.NoPermissionForProvider, "无权操作此服务商")
 	}
 
 	if providerOwnerID == node.OwnerID {
-		return errors.New("不能回收自己拥有的节点")
+		return errs.New(errs.CannotReclaimOwnNode, "不能回收自己拥有的节点")
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&node).Update("owner_id", providerOwnerID).Error; err != nil {
-			return fmt.Errorf("转移所有权失败: %w", err)
+			return errs.Wrap(errs.InternalError, err)
 		}
 
 		if err := tx.Where("domain_node_id = ?", nodeID).Delete(&model.DomainPermission{}).Error; err != nil {
-			return fmt.Errorf("删除权限记录失败: %w", err)
+			return errs.Wrap(errs.InternalError, err)
 		}
 
 		log := &model.OperationLog{
@@ -724,7 +726,7 @@ func (s *DomainService) ForceReclaim(nodeID, providerOwnerID uint64) error {
 func (s *DomainService) ArchiveNode(nodeID uint64, reason string) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 
 	return s.db.Model(&node).Updates(map[string]interface{}{
@@ -738,16 +740,16 @@ func (s *DomainService) ArchiveNode(nodeID uint64, reason string) error {
 func (s *DomainService) ReactivateNode(nodeID, providerID, userID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 
 	if node.Status != "archived" {
-		return errors.New("节点未处于归档状态")
+		return errs.New(errs.NodeNotArchived, "节点未处于归档状态")
 	}
 
 	var provider model.DNSProvider
 	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&provider).Error; err != nil {
-		return errors.New("DNS服务商不存在或无权操作")
+		return errs.New(errs.DNSProviderNotFound, "DNS服务商不存在或无权操作")
 	}
 
 	return s.db.Model(&node).Updates(map[string]interface{}{
@@ -761,7 +763,7 @@ func (s *DomainService) ReactivateNode(nodeID, providerID, userID uint64) error 
 func (s *DomainService) ListProviderDomains(providerID, userID uint64) ([]model.DomainNode, error) {
 	var provider model.DNSProvider
 	if err := s.db.Where("id = ? AND user_id = ?", providerID, userID).First(&provider).Error; err != nil {
-		return nil, errors.New("DNS服务商不存在或无权操作")
+		return nil, errs.New(errs.DNSProviderNotFound, "DNS服务商不存在或无权操作")
 	}
 
 	var nodes []model.DomainNode
@@ -787,7 +789,7 @@ func (s *DomainService) GetConversionLogs(nodeID uint64) ([]model.NodeConversion
 func (s *DomainService) AdminTransferNode(nodeID, targetUserID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
@@ -942,10 +944,10 @@ func (s *DomainService) ArchiveDomainTree(nodeID, userID uint64) error {
 
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 	if node.Status == "archived" {
-		return errors.New("域名已归档")
+		return errs.New(errs.DomainArchived, "域名已归档")
 	}
 
 	// Collect ALL subtree node IDs (recursive CTE, regardless of owner)
@@ -962,7 +964,7 @@ func (s *DomainService) ArchiveDomainTree(nodeID, userID uint64) error {
 
 	// Delete provider records before archiving (uses archived_provider_id for lookup)
 	if err := s.deleteProviderRecords(nodeIDs); err != nil {
-		return fmt.Errorf("删除DNS记录失败: %w", err)
+		return errs.Wrap(errs.InternalError, err)
 	}
 
 	now := time.Now()
@@ -977,7 +979,7 @@ func (s *DomainService) ArchiveDomainTree(nodeID, userID uint64) error {
 				"sync_status":        "archived",
 				"provider_record_id": "",
 			}).Error; err != nil {
-			return fmt.Errorf("归档DNS记录失败: %w", err)
+			return errs.Wrap(errs.InternalError, err)
 		}
 
 		// Archive all nodes in subtree
@@ -997,7 +999,7 @@ func (s *DomainService) ArchiveDomainTree(nodeID, userID uint64) error {
 		if err := tx.Model(&model.DomainPermission{}).
 			Where("domain_node_id IN ?", nodeIDs).
 			Update("status", "frozen").Error; err != nil {
-			return err
+			return errs.Wrap(errs.InternalError, err)
 		}
 
 		return nil
@@ -1012,24 +1014,26 @@ func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
 
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 	if node.Status != "archived" {
-		return errors.New("域名未归档")
+		return errs.New(errs.DomainNotArchived, "域名未归档")
 	}
 
 	// Prevent restore if the provider was deleted (no fallback available)
 	if node.ArchivedProviderID != nil {
 		var provider model.DNSProvider
 		if err := s.db.First(&provider, *node.ArchivedProviderID).Error; err != nil {
-			return errors.New("该域名的DNS提供商已被删除，无法恢复，请重新添加服务商后再试")
+			return errs.New(errs.ProviderDeletedCannotRestore, "该域名的DNS提供商已被删除，无法恢复，请重新添加服务商后再试")
 		}
 	}
 
 	// Check if an active node already exists for the same full_domain
 	var conflict model.DomainNode
 	if err := s.db.Where("full_domain = ? AND status = 'active' AND deleted_at IS NULL AND id != ?", node.FullDomain, nodeID).First(&conflict).Error; err == nil {
-		return fmt.Errorf("域名 %s 已存在活跃节点 (ID=%d)，无法恢复", node.FullDomain, conflict.ID)
+		return errs.WithParamsMsg(errs.DomainAlreadyExists,
+			fmt.Sprintf("域名 %s 已存在活跃节点 (ID=%d)，无法恢复", node.FullDomain, conflict.ID),
+			node.FullDomain, conflict.ID)
 	}
 
 	// Collect ALL archived subtree nodes (regardless of owner)
@@ -1073,7 +1077,7 @@ func (s *DomainService) RestoreDomainTree(nodeID, userID uint64) error {
 func (s *DomainService) ListArchivedChildren(rootNodeID, callerID uint64) ([]model.DomainNode, error) {
 	var root model.DomainNode
 	if err := s.db.First(&root, rootNodeID).Error; err != nil {
-		return nil, errors.New("节点不存在")
+		return nil, errs.New(errs.NodeNotFound, "节点不存在")
 	}
 
 	if err := s.perm.RequireLevel(callerID, rootNodeID, 4); err != nil {
@@ -1093,16 +1097,18 @@ func (s *DomainService) ListArchivedChildren(rootNodeID, callerID uint64) ([]mod
 func (s *DomainService) RestoreArchivedChild(nodeID, callerID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 	if node.Status != "archived" {
-		return errors.New("节点未处于归档状态")
+		return errs.New(errs.NodeNotArchived, "节点未处于归档状态")
 	}
 
 	// Check if an active node already exists for the same full_domain
 	var conflict model.DomainNode
 	if err := s.db.Where("full_domain = ? AND status = 'active' AND deleted_at IS NULL", node.FullDomain).First(&conflict).Error; err == nil {
-		return fmt.Errorf("该子域名已存在活跃节点 (ID=%d)，请使用现有节点或先删除后再恢复", conflict.ID)
+		return errs.WithParamsMsg(errs.SubdomainInUse,
+			fmt.Sprintf("该子域名已存在活跃节点 (ID=%d)，请使用现有节点或先删除后再恢复", conflict.ID),
+			conflict.ID)
 	}
 
 	// Find root domain (same full_domain suffix, not archived)
@@ -1110,7 +1116,7 @@ func (s *DomainService) RestoreArchivedChild(nodeID, callerID uint64) error {
 	err := s.db.Where("full_domain = ? AND status != 'archived' AND deleted_at IS NULL",
 		node.FullDomain[strings.Index(node.FullDomain, ".")+1:]).First(&root).Error
 	if err != nil {
-		return errors.New("未找到可用的根域名")
+		return errs.New(errs.NoAvailableRootDomain, "未找到可用的根域名")
 	}
 
 	if err := s.perm.RequireLevel(callerID, root.ID, 4); err != nil {
@@ -1120,7 +1126,7 @@ func (s *DomainService) RestoreArchivedChild(nodeID, callerID uint64) error {
 	if node.ArchivedProviderID != nil {
 		var provider model.DNSProvider
 		if err := s.db.Unscoped().First(&provider, *node.ArchivedProviderID).Error; err != nil {
-			return errors.New("该域名的DNS提供商已被删除，无法恢复，请重新添加服务商后再试")
+			return errs.New(errs.ProviderDeletedCannotRestore, "该域名的DNS提供商已被删除，无法恢复，请重新添加服务商后再试")
 		}
 	}
 
@@ -1159,15 +1165,15 @@ func (s *DomainService) GetArchivedDomains(userID uint64) ([]model.DomainNode, e
 func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, domainID).Error; err != nil {
-		return errors.New("域名节点不存在")
+		return errs.New(errs.DomainNodeNotFound, "域名节点不存在")
 	}
 
 	// Ensure the domain exists and is actively managed (not deleted/archived)
 	if node.DeletedAt.Valid {
-		return errors.New("域名已被删除，无法同步")
+		return errs.New(errs.DomainDeletedCannotSync, "域名已被删除，无法同步")
 	}
 	if node.Status == "archived" {
-		return errors.New("域名已归档，请先恢复后再同步")
+		return errs.New(errs.DomainArchivedCannotSync, "域名已归档，请先恢复后再同步")
 	}
 
 	if err := s.perm.RequireLevel(userID, domainID, 2); err != nil {
@@ -1175,18 +1181,18 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 	}
 
 	if node.ProviderID == nil {
-		return errors.New("该域名未绑定DNS服务商")
+		return errs.New(errs.DomainNoProviderBound, "该域名未绑定DNS服务商")
 	}
 
 	p, err := s.providerSvc.GetDNSProvider(*node.ProviderID)
 	if err != nil {
-		return fmt.Errorf("获取DNS服务商失败: %w", err)
+		return errs.Wrap(errs.InternalError, err)
 	}
 
 	rootDomain := getRootDomain(node.FullDomain)
 	providerRecords, err := p.ListRecords(rootDomain)
 	if err != nil {
-		return fmt.Errorf("获取服务商记录失败: %w", err)
+		return errs.Wrap(errs.InternalError, err)
 	}
 
 	// Skip records belonging to materialized (independent) child domains
@@ -1200,7 +1206,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 	// Get all local records (including platform-created ones that have provider_record_id)
 	var localRecords []model.DNSRecord
 	if err := s.db.Where("node_id = ? AND deleted_at IS NULL", domainID).Find(&localRecords).Error; err != nil {
-		return fmt.Errorf("查询本地记录失败: %w", err)
+		return errs.Wrap(errs.InternalError, err)
 	}
 
 	// Build map by provider_record_id and by host+type (for fallback matching)
@@ -1268,7 +1274,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 						"provider_record_id": pr.RecordID,
 					}
 					if err := tx.Model(&model.DNSRecord{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
-						return fmt.Errorf("更新记录失败: %w", err)
+						return errs.Wrap(errs.InternalError, err)
 					}
 				}
 				matchedLocalIDs[existing.ID] = true
@@ -1320,7 +1326,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 							updates["priority"] = priority
 						}
 						if err := tx.Model(&model.DNSRecord{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
-							return fmt.Errorf("更新记录ID失败: %w", err)
+							return errs.Wrap(errs.InternalError, err)
 						}
 						matchedLocalIDs[existing.ID] = true
 						foundPRIDs[pr.RecordID] = true
@@ -1345,7 +1351,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 					Source:           "provider",
 				}
 				if err := tx.Create(newRec).Error; err != nil {
-					return fmt.Errorf("创建记录失败: %w", err)
+					return errs.Wrap(errs.InternalError, err)
 				}
 				localByPRID[pr.RecordID] = newRec
 				localByHostType[host+"|"+pr.Type] = append(localByHostType[host+"|"+pr.Type], newRec)
@@ -1363,7 +1369,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 		for _, rec := range localRecords {
 			if rec.Source == "provider" && matchedHostTypes[rec.Host+"|"+rec.RecordType] {
 				if err := tx.Unscoped().Delete(&model.DNSRecord{}, "id = ?", rec.ID).Error; err != nil {
-					return fmt.Errorf("删除重复记录失败: %w", err)
+					return errs.Wrap(errs.InternalError, err)
 				}
 			}
 		}
@@ -1376,7 +1382,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 			}
 			if rec.Source == "provider" || rec.Source == "" {
 				if err := tx.Unscoped().Delete(&model.DNSRecord{}, "id = ?", rec.ID).Error; err != nil {
-					return fmt.Errorf("删除记录失败: %w", err)
+					return errs.Wrap(errs.InternalError, err)
 				}
 			} else if rec.Source == "platform" && rec.ProviderRecordID != "" {
 				if err := tx.Model(&model.DNSRecord{}).Where("id = ?", rec.ID).Updates(map[string]interface{}{
@@ -1385,7 +1391,7 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 					"sync_attempts":   0,
 					"next_sync_at":    nil,
 				}).Error; err != nil {
-					return fmt.Errorf("更新平台记录状态失败: %w", err)
+					return errs.Wrap(errs.InternalError, err)
 				}
 			}
 		}
@@ -1398,19 +1404,19 @@ func (s *DomainService) SyncFromProvider(domainID, userID uint64) error {
 func (s *DomainService) ReturnSubdomainToClaimer(nodeID, userID uint64) error {
 	var node model.DomainNode
 	if err := s.db.First(&node, nodeID).Error; err != nil {
-		return errors.New("节点不存在")
+		return errs.New(errs.NodeNotFound, "节点不存在")
 	}
 	if node.OwnerID != userID {
-		return errors.New("你不是该子域名的所有者")
+		return errs.New(errs.NotSubdomainOwner, "你不是该子域名的所有者")
 	}
 	if node.ParentID == nil || *node.ParentID == 0 {
-		return errors.New("根域名不能归还，请使用删除功能")
+		return errs.New(errs.CannotReturnRootDomain, "根域名不能归还，请使用删除功能")
 	}
 
 	// Find parent to get claimer
 	var parent model.DomainNode
 	if err := s.db.First(&parent, *node.ParentID).Error; err != nil {
-		return errors.New("父节点不存在")
+		return errs.New(errs.ParentNodeNotFound, "父节点不存在")
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {

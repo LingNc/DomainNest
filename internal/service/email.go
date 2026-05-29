@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"domainnest/internal/config"
+	"domainnest/internal/errs"
 )
 
 type EmailService struct {
@@ -143,7 +144,7 @@ var resetEmailTmpl = template.Must(template.New("reset").Parse(`<!DOCTYPE html>
 func (s *EmailService) SendPasswordReset(to, code string, expiryMinutes int) error {
 	cfg := s.getSMTPConfig()
 	if cfg == nil || cfg.Host == "" || cfg.Username == "" {
-		return fmt.Errorf("SMTP未配置")
+		return errs.New(errs.SMTPNotConfigured, "SMTP未配置")
 	}
 
 	subject := "DomainNest - 密码重置验证码"
@@ -153,7 +154,7 @@ func (s *EmailService) SendPasswordReset(to, code string, expiryMinutes int) err
 		Code          string
 		ExpiryMinutes int
 	}{Code: code, ExpiryMinutes: expiryMinutes}); err != nil {
-		return fmt.Errorf("模板渲染失败: %w", err)
+		return errs.Wrap(errs.InternalError, err)
 	}
 
 	msg := fmt.Sprintf("From: %s <%s>\r\n"+
@@ -174,7 +175,7 @@ func (s *EmailService) SendPasswordReset(to, code string, expiryMinutes int) err
 func (s *EmailService) SendTestEmail(to string) error {
 	cfg := s.getSMTPConfig()
 	if cfg == nil || cfg.Host == "" || cfg.Username == "" {
-		return fmt.Errorf("SMTP未配置")
+		return errs.New(errs.SMTPNotConfigured, "SMTP未配置")
 	}
 
 	subject := "DomainNest SMTP Test"
@@ -226,14 +227,14 @@ var verifyEmailTmpl = template.Must(template.New("verify").Parse(`<!DOCTYPE html
 func (s *EmailService) SendEmailVerification(to, code string) error {
 	cfg := s.getSMTPConfig()
 	if cfg == nil || cfg.Host == "" || cfg.Username == "" {
-		return fmt.Errorf("SMTP未配置")
+		return errs.New(errs.SMTPNotConfigured, "SMTP未配置")
 	}
 
 	subject := "DomainNest - 邮箱验证码"
 
 	var body bytes.Buffer
 	if err := verifyEmailTmpl.Execute(&body, struct{ Code string }{Code: code}); err != nil {
-		return fmt.Errorf("模板渲染失败: %w", err)
+		return errs.Wrap(errs.InternalError, err)
 	}
 
 	msg := fmt.Sprintf("From: %s <%s>\r\n"+

@@ -1,8 +1,7 @@
 package service
 
 import (
-	"errors"
-
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -24,7 +23,7 @@ func (s *FilterPresetService) ListPresets(userID uint64) ([]model.FilterPreset, 
 
 func (s *FilterPresetService) SavePreset(userID uint64, name string, filters string) (*model.FilterPreset, error) {
 	if name == "" {
-		return nil, errors.New("预设名称不能为空")
+		return nil, errs.New(errs.PresetNameRequired, "预设名称不能为空")
 	}
 	preset := &model.FilterPreset{
 		UserID:  userID,
@@ -40,7 +39,7 @@ func (s *FilterPresetService) SavePreset(userID uint64, name string, filters str
 func (s *FilterPresetService) DeletePreset(presetID, userID uint64) error {
 	result := s.db.Where("id = ? AND user_id = ?", presetID, userID).Delete(&model.FilterPreset{})
 	if result.RowsAffected == 0 {
-		return errors.New("预设不存在")
+		return errs.New(errs.PresetNotFound, "预设不存在")
 	}
 	return result.Error
 }

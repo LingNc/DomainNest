@@ -1,9 +1,9 @@
 package service
 
 import (
-	"errors"
 	"strconv"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -20,20 +20,20 @@ func NewFriendService(db *gorm.DB) *FriendService {
 // SendRequest creates a friend request from sender to receiver.
 func (s *FriendService) SendRequest(senderID, receiverID uint64) error {
 	if senderID == receiverID {
-		return errors.New("不能添加自己为好友")
+		return errs.New(errs.CannotAddSelfAsFriend, "不能添加自己为好友")
 	}
 
 	// Check receiver exists
 	var receiver model.User
 	if err := s.db.First(&receiver, receiverID).Error; err != nil {
-		return errors.New("用户不存在")
+		return errs.New(errs.TargetUserNotFound, "用户不存在")
 	}
 
 	// Check if already friends
 	var count int64
 	s.db.Model(&model.Friendship{}).Where("user_id = ? AND friend_id = ?", senderID, receiverID).Count(&count)
 	if count > 0 {
-		return errors.New("已经是好友")
+		return errs.New(errs.AlreadyFriends, "已经是好友")
 	}
 
 	// Check if pending request already exists (either direction)
@@ -43,7 +43,7 @@ func (s *FriendService) SendRequest(senderID, receiverID uint64) error {
 		senderID, receiverID, receiverID, senderID, "pending",
 	).First(&existing).Error
 	if err == nil {
-		return errors.New("好友请求已发送，请等待处理")
+		return errs.New(errs.FriendRequestPending, "好友请求已发送，请等待处理")
 	}
 
 	req := &model.FriendRequest{
@@ -58,15 +58,15 @@ func (s *FriendService) SendRequest(senderID, receiverID uint64) error {
 func (s *FriendService) AcceptRequest(requestID, userID uint64) error {
 	var req model.FriendRequest
 	if err := s.db.First(&req, requestID).Error; err != nil {
-		return errors.New("请求不存在")
+		return errs.New(errs.RequestNotFound, "请求不存在")
 	}
 
 	if req.ReceiverID != userID {
-		return errors.New("您不是该请求的接收者")
+		return errs.New(errs.NotRequestReceiver, "您不是该请求的接收者")
 	}
 
 	if req.Status != "pending" {
-		return errors.New("该请求已处理")
+		return errs.New(errs.RequestAlreadyProcessed, "该请求已处理")
 	}
 
 	tx := s.db.Begin()
@@ -94,15 +94,15 @@ func (s *FriendService) AcceptRequest(requestID, userID uint64) error {
 func (s *FriendService) RejectRequest(requestID, userID uint64) error {
 	var req model.FriendRequest
 	if err := s.db.First(&req, requestID).Error; err != nil {
-		return errors.New("请求不存在")
+		return errs.New(errs.RequestNotFound, "请求不存在")
 	}
 
 	if req.ReceiverID != userID {
-		return errors.New("您不是该请求的接收者")
+		return errs.New(errs.NotRequestReceiver, "您不是该请求的接收者")
 	}
 
 	if req.Status != "pending" {
-		return errors.New("该请求已处理")
+		return errs.New(errs.RequestAlreadyProcessed, "该请求已处理")
 	}
 
 	return s.db.Model(&req).Update("status", "rejected").Error
@@ -113,7 +113,7 @@ func (s *FriendService) RemoveFriend(userID, friendID uint64) error {
 	result := s.db.Where("(user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)",
 		userID, friendID, friendID, userID).Delete(&model.Friendship{})
 	if result.RowsAffected == 0 {
-		return errors.New("好友关系不存在")
+		return errs.New(errs.FriendRelationNotFound, "好友关系不存在")
 	}
 	return result.Error
 }
@@ -144,7 +144,7 @@ func (s *FriendService) ListSentRequests(userID uint64) ([]model.FriendRequest, 
 // SearchUsers searches users by username or nickname, excluding self and existing friends.
 func (s *FriendService) SearchUsers(userID uint64, keyword string) ([]model.User, error) {
 	if len(keyword) < 2 {
-		return nil, errors.New("搜索关键词太短")
+		return nil, errs.New(errs.SearchKeywordTooShort, "搜索关键词太短")
 	}
 
 	// Get friend IDs
@@ -166,7 +166,7 @@ func (s *FriendService) SearchUsers(userID uint64, keyword string) ([]model.User
 // SearchAllUsers searches all users by username or nickname, with friends sorted first.
 func (s *FriendService) SearchAllUsers(userID uint64, keyword string) ([]model.User, error) {
 	if len(keyword) < 2 {
-		return nil, errors.New("搜索关键词太短")
+		return nil, errs.New(errs.SearchKeywordTooShort, "搜索关键词太短")
 	}
 
 	var users []model.User

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -29,13 +30,13 @@ func NewSyncHandler(syncService *service.SyncService, recordService *service.Rec
 func (h *SyncHandler) ManualSync(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	userID := c.GetUint64("user_id")
 	if err := h.recordService.CheckPermission(userID, nodeID, 4); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "无权操作"})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -60,13 +61,13 @@ func (h *SyncHandler) ManualSync(c *gin.Context) {
 func (h *SyncHandler) GetSyncLogs(c *gin.Context) {
 	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的节点ID"})
+		errs.JSONErrorCode(c, errs.InvalidNodeID)
 		return
 	}
 
 	userID := c.GetUint64("user_id")
 	if err := h.recordService.CheckPermission(userID, nodeID, 1); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "无权访问"})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -75,7 +76,7 @@ func (h *SyncHandler) GetSyncLogs(c *gin.Context) {
 
 	logs, total, err := h.syncService.GetSyncLogs(nodeID, page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

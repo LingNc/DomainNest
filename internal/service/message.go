@@ -1,9 +1,9 @@
 package service
 
 import (
-	"errors"
 	"time"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -28,17 +28,17 @@ type Conversation struct {
 // SendMessage sends a message from sender to receiver.
 func (s *MessageService) SendMessage(senderID, receiverID uint64, content string) (*model.Message, error) {
 	if senderID == receiverID {
-		return nil, errors.New("不能给自己发送消息")
+		return nil, errs.New(errs.CannotMessageSelf, "不能给自己发送消息")
 	}
 
 	if content == "" {
-		return nil, errors.New("消息内容不能为空")
+		return nil, errs.New(errs.MessageContentRequired, "消息内容不能为空")
 	}
 
 	// Check receiver exists
 	var receiver model.User
 	if err := s.db.First(&receiver, receiverID).Error; err != nil {
-		return nil, errors.New("接收者不存在")
+		return nil, errs.New(errs.ReceiverNotFound, "接收者不存在")
 	}
 
 	msg := &model.Message{
@@ -235,7 +235,7 @@ func (s *MessageService) DeleteNotification(userID, notifID uint64) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("通知不存在")
+		return errs.New(errs.NotificationNotFound, "通知不存在")
 	}
 	return nil
 }
@@ -243,18 +243,18 @@ func (s *MessageService) DeleteNotification(userID, notifID uint64) error {
 // HandleNotificationAction processes an accept/reject action on a notification.
 func (s *MessageService) HandleNotificationAction(userID, notifID uint64, action string) error {
 	if action != "accepted" && action != "rejected" {
-		return errors.New("无效的操作")
+		return errs.New(errs.InvalidOperation, "无效的操作")
 	}
 
 	var msg model.Message
 	if err := s.db.Where("id = ? AND receiver_id = ? AND type = ?", notifID, userID, "system").First(&msg).Error; err != nil {
-		return errors.New("通知不存在")
+		return errs.New(errs.NotificationNotFound, "通知不存在")
 	}
 	if msg.ActionType == "" {
-		return errors.New("该通知不支持操作")
+		return errs.New(errs.NotificationActionNotSupported, "该通知不支持操作")
 	}
 	if msg.ActionStatus != "" {
-		return errors.New("该通知已处理")
+		return errs.New(errs.NotificationAlreadyProcessed, "该通知已处理")
 	}
 
 	return s.db.Model(&msg).Update("action_status", action).Error

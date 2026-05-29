@@ -1,10 +1,9 @@
 package service
 
 import (
-	"errors"
-	"fmt"
 	"strconv"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -46,7 +45,7 @@ func (s *AliyunCompatService) DescribeDomains(userID uint64) ([]map[string]inter
 func (s *AliyunCompatService) DescribeDomainRecords(userID uint64, domainName string, rrKeyword, typeKeyword, valueKeyword string, pageNumber, pageSize int) (*RecordListResult, uint64, error) {
 	node, _, err := s.domainSvc.FindNodeByDomain(domainName, userID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("域名不存在或无访问权限")
+		return nil, 0, errs.New(errs.DomainNotFoundOrNoAccess, "域名不存在或无访问权限")
 	}
 
 	if err := s.permSvc.RequireLevel(userID, node.ID, 1); err != nil {
@@ -86,7 +85,7 @@ func (s *AliyunCompatService) AddDomainRecord(userID uint64, domainName, rr, rec
 
 	node, _, err := s.domainSvc.FindNodeByDomain(fqdn, userID)
 	if err != nil {
-		return nil, fmt.Errorf("域名不存在或无访问权限")
+		return nil, errs.New(errs.DomainNotFoundOrNoAccess, "域名不存在或无访问权限")
 	}
 
 	host := rr
@@ -101,12 +100,12 @@ func (s *AliyunCompatService) AddDomainRecord(userID uint64, domainName, rr, rec
 func (s *AliyunCompatService) UpdateDomainRecord(userID uint64, recordIDStr, rr, recordType, value string, ttl int, priority *int) (*model.DNSRecord, error) {
 	recordID, err := strconv.ParseUint(recordIDStr, 10, 64)
 	if err != nil {
-		return nil, errors.New("无效的记录ID")
+		return nil, errs.New(errs.InvalidRecordID, "无效的记录ID")
 	}
 
 	record, err := s.recordSvc.GetRecordByID(recordID)
 	if err != nil {
-		return nil, errors.New("记录不存在")
+		return nil, errs.New(errs.RecordNotFound, "记录不存在")
 	}
 
 	if err := s.permSvc.RequireLevel(userID, record.NodeID, 2); err != nil {
@@ -125,7 +124,7 @@ func (s *AliyunCompatService) UpdateDomainRecord(userID uint64, recordIDStr, rr,
 func (s *AliyunCompatService) DeleteDomainRecord(userID uint64, recordIDStr string) error {
 	recordID, err := strconv.ParseUint(recordIDStr, 10, 64)
 	if err != nil {
-		return errors.New("无效的记录ID")
+		return errs.New(errs.InvalidRecordID, "无效的记录ID")
 	}
 
 	return s.recordSvc.DeleteRecord(recordID, userID)

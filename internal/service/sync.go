@@ -1,12 +1,12 @@
 package service
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"time"
 
 	"domainnest/internal/config"
+	"domainnest/internal/errs"
 	"domainnest/internal/model"
 
 	"gorm.io/gorm"
@@ -214,7 +214,7 @@ func (s *SyncService) GetSyncLogs(nodeID uint64, page, pageSize int) ([]model.Sy
 		Limit(pageSize).
 		Find(&logs).Error
 	if err != nil {
-		return nil, 0, fmt.Errorf("获取同步日志失败: %w", err)
+		return nil, 0, errs.Wrap(errs.InternalError, err)
 	}
 
 	return logs, total, nil

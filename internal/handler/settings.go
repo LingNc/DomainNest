@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/middleware"
 	"domainnest/internal/model"
 	"domainnest/internal/service"
@@ -25,7 +26,7 @@ func (h *SettingsHandler) Get(c *gin.Context) {
 	category := c.Param("category")
 	value, err := h.settingsService.Get(category)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -47,18 +48,18 @@ func (h *SettingsHandler) Set(c *gin.Context) {
 
 	body, err := c.GetRawData()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求体无效"})
+		errs.JSONErrorCode(c, errs.ReadRequestBodyFailed)
 		return
 	}
 
 	var check interface{}
 	if json.Unmarshal(body, &check) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "JSON格式无效"})
+		errs.JSONErrorCode(c, errs.InvalidJSON)
 		return
 	}
 
 	if err := h.settingsService.Set(category, string(body)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
@@ -87,7 +88,7 @@ func (h *SettingsHandler) Set(c *gin.Context) {
 func (h *SettingsHandler) TestSMTP(c *gin.Context) {
 	cfg := h.settingsService.GetSMTPConfig()
 	if cfg == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "SMTP未配置"})
+		errs.JSONErrorCode(c, errs.SMTPNotConfigured)
 		return
 	}
 
@@ -95,13 +96,13 @@ func (h *SettingsHandler) TestSMTP(c *gin.Context) {
 		To string `json:"to" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 
 	emailSvc := service.NewEmailService(cfg)
 	if err := emailSvc.SendTestEmail(req.To); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "发送测试邮件失败: " + err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 

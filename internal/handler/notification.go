@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"domainnest/internal/errs"
 	"domainnest/internal/service"
 	"domainnest/internal/ws"
 
@@ -43,7 +44,7 @@ func (h *NotificationHandler) List(c *gin.Context) {
 
 	notifications, total, err := h.messageService.GetNotificationsFiltered(userID, page, pageSize, filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -62,11 +63,11 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	notifID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的通知ID"})
+		errs.JSONErrorCode(c, errs.InvalidNotificationID)
 		return
 	}
 	if err := h.messageService.MarkNotificationAsRead(userID, notifID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已标记为已读"})
@@ -76,7 +77,7 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	if err := h.messageService.MarkAllNotificationsAsRead(userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	if count, err := h.messageService.GetNotificationUnreadCount(userID); err == nil {
@@ -90,7 +91,7 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	count, err := h.messageService.GetNotificationUnreadCount(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"count": count}})
@@ -101,11 +102,11 @@ func (h *NotificationHandler) Delete(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	notifID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的通知ID"})
+		errs.JSONErrorCode(c, errs.InvalidNotificationID)
 		return
 	}
 	if err := h.messageService.DeleteNotification(userID, notifID); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error()})
+		errs.JSONError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "通知已删除"})
