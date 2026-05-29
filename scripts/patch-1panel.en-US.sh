@@ -144,9 +144,9 @@ fi
 # v2 warning: v2 has official HTTP Request support and updates frequently
 if [[ "$INSTALL_TYPE" == *"v2"* ]]; then
     log_warn "Detected 1Panel v2."
-    log_warn "v2 updates frequently and this patch may become incompatible with newer versions."
-    log_warn "Please verify whether 1Panel officially supports HTTP Request DNS provider."
-    log_warn "If official support exists, prefer using that over this patch."
+    log_warn "v2 updates frequently and keeps adding official DNS providers (e.g. Technitium, PorkBun)."
+    log_warn "Please verify whether your DNS provider is already officially supported in v2."
+    log_warn "If it is, prefer using the official support over this patch."
     read -r -p "Continue installing patch? [y/N] " response
     if [[ ! "$response" =~ ^[yY]$ ]]; then
         exit 0
