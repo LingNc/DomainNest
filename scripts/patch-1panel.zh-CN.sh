@@ -434,7 +434,7 @@ if [[ -f "$FRONTEND_PATCH" && -d "${WORK_DIR}/frontend" ]]; then
         # 创建 xpack stub（商业版模块不存在于开源仓库）
         mkdir -p "${WORK_DIR}/frontend/src/xpack/api/modules"
         cat > "${WORK_DIR}/frontend/src/xpack/api/modules/appstore.ts" << 'STUB'
-export const installAppToNodes = (_: any): Promise<any> => {
+export const installAppToNodes = (): Promise<any> => {
     return Promise.reject(new Error('Multi-node install requires 1Panel Pro'));
 };
 STUB
